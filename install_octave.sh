@@ -151,13 +151,13 @@ done
 # chown -R admin:wheel /Applications/Octave.app/
 
 # create a nice dmg disc image with create-dmg (MIT License)
-if [ "build_dmg" == "y" ]; then
+if [ "$build_dmg" == "y" ]; then
 	# get make-dmg from github
 	tmp_dir=$(mktemp -d /tmp/octave-XXXX)
 	git clone https://github.com/schoeps/create-dmg.git $tmp_dir/create-dmg
 
 	# get background image
-	curl https://raw.githubusercontent.com/schoeps/octave_installer/master/background.tiff -o background.tiff
+	curl https://raw.githubusercontent.com/schoeps/octave_installer/master/background.tiff -o "$tmp_dir/background.tiff"
 
 	# running create-dmg; this may issue warnings if run headless. However, the dmg
 	# will still be created, only some beautifcation cannot be applied
@@ -174,7 +174,7 @@ if [ "build_dmg" == "y" ]; then
 	--add-file COPYING "$install_dir/Contents/Resources/usr/opt/octave/COPYING" 126 300 \
 	--add-file DEPENDENCIES "$install_dir/Contents/Resources/DEPENDENCIES" 415 300 \
 	--disk-image-size 1250 \
-	--background "../background.tiff" \
+	--background "$tmp_dir/background.tiff" \
 	"$dmg_dir/Octave-Installer.dmg" \
 	"$install_dir" 
 
