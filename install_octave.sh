@@ -157,7 +157,7 @@ if [ "build_dmg" == "y" ]; then
 	git clone https://github.com/schoeps/create-dmg.git $tmp_dir/create-dmg
 
 	# get background image
-	#curl xxx -o background.tiff
+	curl https://raw.githubusercontent.com/schoeps/octave_installer/master/background.tiff -o background.tiff
 
 	# running create-dmg; this may issue warnings if run headless. However, the dmg
 	# will still be created, only some beautifcation cannot be applied
