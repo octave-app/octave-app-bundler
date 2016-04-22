@@ -65,7 +65,7 @@ if [ "$install_type" == "full" ]; then
 	# we prefer openblas over Apple's BLAS implementation
 	./brew install arpack --with-openblas
 	./brew install qrupdate --with-openblas
-	./brew install suite-sparse421 --with-openblas
+	./brew install suite-sparse --with-openblas
 	
 	# install fig2dev
 	./brew install homebrew/x11/imake
