@@ -66,7 +66,13 @@ if [ "$install_type" == "full" ]; then
 	./brew install arpack --with-openblas
 	./brew install qrupdate --with-openblas
 	./brew install suite-sparse --with-openblas
-	
+
+	# install Qscintilla2 without python bindings
+	# get new formula manually until pull request is accepted,
+	# see https://github.com/Homebrew/homebrew-core/pull/543
+	curl https://raw.githubusercontent.com/schoeps/homebrew-core/master/Formula/qscintilla2.rb -o "$install_dir/Contents/Resources/usr/Library/Formula/qscintilla2.rb"
+	./brew install qscintilla2 --without-python
+		
 	# install fig2dev
 	./brew install homebrew/x11/imake
 	./brew install schoeps/homebrew-xfig/transfig
