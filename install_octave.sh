@@ -196,7 +196,7 @@ chmod a=r "$install_dir/Contents/Info.plist"
 # collect dependencies from the homebrew database
 # clean up the strings using sed
 echo "" > "$install_dir/Contents/Resources/DEPENDENCIES"
-for f in $(./brew deps octave)
+for f in $(./brew deps octave $octave_settings)
 do
 	./brew info $f | sed -e 's$homebrew/science/$$g'| sed -e 's$: .*$$g' | sed -e 's$/Applications.*$$g' | head -n3 >> "$install_dir/Contents/Resources/DEPENDENCIES"
 	echo "" >> "$install_dir/Contents/Resources/DEPENDENCIES"
