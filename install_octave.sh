@@ -166,20 +166,21 @@ fi
 echo "end run" >> $tmp_script
 osacompile -o $install_dir/Contents/Resources/Scripts/main.scpt $tmp_script
 
-# create a nice iconset (the octave icons in "share/icons" are not reliable)
-svg_icon="$install_dir/Contents/Resources/usr/opt/octave/share/icons/hicolor/scalable/apps/octave.svg"
+# create a nice iconset (using the icons shipped with octave)
+# the following might fail for the development version
+hicolor="$install_dir/Contents/Resources/usr/opt/octave/share/icons/hicolor"
+svg_icon="$hicolor/scalable/apps/octave.svg"
 tmp_iconset="$(mktemp -d /tmp/iconset-XXXX)/droplet.iconset"
 mkdir -p "$tmp_iconset"
-./convert -background none -resize 16x16 "$svg_icon" "$tmp_iconset/icon_16x16.png"
-./convert -background none -resize 32x32 "$svg_icon" "$tmp_iconset/icon_16x16@2x.png"
-./convert -background none -resize 32x32 "$svg_icon" "$tmp_iconset/icon_32x32.png"
-./convert -background none -resize 64x64 "$svg_icon" "$tmp_iconset/icon_32x32@2x.png"
-./convert -background none -resize 128x128 "$svg_icon" "$tmp_iconset/icon_128x128.png"
-./convert -background none -resize 256x256 "$svg_icon" "$tmp_iconset/icon_128x128@2x.png"
-./convert -background none -resize 256x256 "$svg_icon" "$tmp_iconset/icon_256x256.png"
-./convert -background none -resize 512x512 "$svg_icon" "$tmp_iconset/icon_256x256@2x.png"
-./convert -background none -resize 512x512 "$svg_icon" "$tmp_iconset/icon_512x512.png"
-./convert -background none -resize 1024x1024 "$svg_icon" "$tmp_iconset/icon_512x512@2x.png"
+cp "$hicolor/16x16/apps/octave.png" "$tmp_iconset/icon_16x16.png"
+cp "$hicolor/32x32/apps/octave.png" "$tmp_iconset/icon_16x16@2x.png"
+cp "$hicolor/32x32/apps/octave.png" "$tmp_iconset/icon_32x32.png"
+cp "$hicolor/64x64/apps/octave.png" "$tmp_iconset/icon_32x32@2x.png"
+cp "$hicolor/128x128/apps/octave.png" "$tmp_iconset/icon_128x128.png"
+cp "$hicolor/256x256/apps/octave.png" "$tmp_iconset/icon_128x128@2x.png"
+cp "$hicolor/256x256/apps/octave.png" "$tmp_iconset/icon_256x256.png"
+cp "$hicolor/512x512/apps/octave.png" "$tmp_iconset/icon_256x256@2x.png"
+cp "$hicolor/512x512/apps/octave.png" "$tmp_iconset/icon_512x512.png"
 iconutil -c icns -o "$install_dir/Contents/Resources/octave.icns" "$tmp_iconset"
 
 # create or update entries in the application's plist
