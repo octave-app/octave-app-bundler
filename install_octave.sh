@@ -90,8 +90,10 @@ export FC="$install_dir/Contents/Resources/usr/bin/gfortran"
 gs_ver="$(./gs --version)"
 export GS_OPTIONS="-sICCProfilesDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/iccprofiles/ -sGenericResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/ -sFontResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/Font"
 
-# get newest octave formula and then build octave
-curl https://raw.githubusercontent.com/schoeps/homebrew-science/octave/octave.rb -o "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-science/octave.rb"
+# get newest octave formula, currently (4.0.2) this is not needed
+# curl https://raw.githubusercontent.com/schoeps/homebrew-science/octave/octave.rb -o "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-science/octave.rb"
+
+# build octave
 octave_settings="--build-from-source --without-java --universal --with-audio --with-openblas --without-fltk --verbose --debug"
 if [ "$build_devel" == "y" ]; then
 	octave_settings="$octave_settings --devel"
