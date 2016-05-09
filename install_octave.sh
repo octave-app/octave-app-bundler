@@ -55,34 +55,32 @@ fi
 # go to the bin directory 
 cd "$install_dir/Contents/Resources/usr/bin"
 
-if [ "$install_type" == "full" ]; then
-	# start compiling
-	./brew tap homebrew/science
-	./brew install imagemagick --with-librsvg
-	./brew install graphicsmagick --with-quantum-depth-16
-	./brew install ghostscript
-	
-	# we prefer openblas over Apple's BLAS implementation
-	./brew install arpack --with-openblas
-	./brew install qrupdate --with-openblas
-	./brew install suite-sparse --with-openblas
+# install fig2dev
+./brew install homebrew/x11/imake
+./brew install schoeps/homebrew-xfig/transfig
 
-	# install Qscintilla2 without python bindings
-	./brew install qscintilla2 --without-python
-		
-	# install fig2dev
-	./brew install homebrew/x11/imake
-	./brew install schoeps/homebrew-xfig/transfig
-	
-	# use github mirror to gnuplot 5.1 (devel)
-	./brew install gnuplot --with-qt --with-cairo --universal --HEAD
+# install Qscintilla2 without python bindings
+./brew install qscintilla2 --without-python --without-plugin
 
-	# enforce fltk
-	#./brew install fltk
-	
-	# icoutils
-	./brew install icoutils
-fi
+# get scietific libraries
+./brew tap homebrew/science
+./brew install imagemagick --with-librsvg
+./brew install graphicsmagick --with-quantum-depth-16
+./brew install ghostscript
+
+# we prefer openblas over Apple's BLAS implementation
+./brew install arpack --with-openblas
+./brew install qrupdate --with-openblas
+./brew install suite-sparse --with-openblas
+
+# use github mirror to gnuplot 5.1 (devel)
+./brew install gnuplot --with-qt --with-cairo --universal --HEAD
+
+# enforce fltk
+#./brew install fltk
+
+# icoutils
+./brew install icoutils
 
 # create path for ghostscript
 gs_ver="$(./gs --version)"
@@ -110,6 +108,13 @@ oct_copy="$(./octave --version | sed -n 2p | cut -c 15- )"
 ./brew uninstall fontconfig
 ./brew install fontconfig --build-from-source
 
+# remove unnecessary files installed due to wrong dependencies
+./brew uninstall pyqt
+./brew uninstall veclibfort
+
+# force alls formulas to be linked
+./brew list -1 | while read line; do ./brew unlink $line; ./brew link --force $line; done
+
 # create applescript to execute octave
 tmp_script=$(mktemp /tmp/octave-XXXX);
 echo 'on export_gs_options()' > $tmp_script
@@ -122,8 +127,12 @@ echo '  return "export GNUTERM=\"qt\";"'  >> $tmp_script
 echo "end export_gnuterm"  >> $tmp_script
 echo '' >> $tmp_script
 echo 'on export_path()' >> $tmp_script
-echo '  return "export PATH=\"'$install_dir'/Contents/Resources/usr/bin/:$PATH;\";"' >> $tmp_script
+echo '  return "export PATH=\"'$install_dir'/Contents/Resources/usr/bin/:$PATH\";"' >> $tmp_script
 echo 'end export_path'  >> $tmp_script
+echo '' >> $tmp_script
+echo 'on export_dyld()' >> $tmp_script
+echo '  return "export DYLD_FALLBACK_LIBRARY_PATH=\"'$install_dir'/Contents/Resources/usr/lib:/lib:/usr/lib\";"' >> $tmp_script
+echo 'end export_dyld'  >> $tmp_script
 echo '' >> $tmp_script
 echo 'on run_octave_gui()' >> $tmp_script
 echo '  return "cd ~;clear;'$install_dir'/Contents/Resources/usr/bin/octave --force-gui | logger 2>&1;"' >> $tmp_script
@@ -147,14 +156,14 @@ echo '' >> $tmp_script
 echo 'on open argv' >> $tmp_script
 echo 'path_check()' >> $tmp_script
 echo 'set filename to "\"" & POSIX path of item 1 of argv & "\""' >> $tmp_script
-echo '  set cmd to export_gs_options() & export_gnuterm() & export_path() & run_octave_open(filename)' >> $tmp_script
+echo '  set cmd to export_gs_options() & export_gnuterm() & export_path() & export_dyld() & run_octave_open(filename)' >> $tmp_script
 echo '  do shell script cmd' >> $tmp_script
 echo 'end open'  >> $tmp_script
 echo '' >> $tmp_script
 echo 'on run' >> $tmp_script
 echo '  path_check()' >> $tmp_script
 if [ "$build_gui" == "y" ]; then
-	echo '  set cmd to export_gs_options() & export_gnuterm() & export_path() & run_octave_gui()' >> $tmp_script
+	echo '  set cmd to export_gs_options() & export_gnuterm() & export_path() & export_dyld() & run_octave_gui()' >> $tmp_script
 	echo '  do shell script cmd' >> $tmp_script
 else
 	echo '  set cmd to export_gs_options() & export_gnuterm() & export_path() & run_octave_cli()' >> $tmp_script
