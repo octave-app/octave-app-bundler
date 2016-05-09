@@ -62,6 +62,10 @@ cd "$install_dir/Contents/Resources/usr/bin"
 # install Qscintilla2 without python bindings
 ./brew install qscintilla2 --without-python --without-plugin
 
+# install gcc and set FC
+./brew install gcc
+export FC="$install_dir/Contents/Resources/usr/bin/gfortran"
+
 # get scietific libraries
 ./brew tap homebrew/science
 ./brew install imagemagick --with-librsvg
