@@ -196,11 +196,10 @@ cp "$hicolor/256x256/apps/octave.png" "$tmp_iconset/icon_128x128@2x.png"
 cp "$hicolor/256x256/apps/octave.png" "$tmp_iconset/icon_256x256.png"
 cp "$hicolor/512x512/apps/octave.png" "$tmp_iconset/icon_256x256@2x.png"
 cp "$hicolor/512x512/apps/octave.png" "$tmp_iconset/icon_512x512.png"
-iconutil -c icns -o "$install_dir/Contents/Resources/octave.icns" "$tmp_iconset"
+iconutil -c icns -o "$install_dir/Contents/Resources/applet.icns" "$tmp_iconset"
 
 # create or update entries in the application's plist
 defaults write "$install_dir/Contents/Info" NSUIElement 1
-defaults write "$install_dir/Contents/Info" CFBundleIconFile "octave"
 defaults write "$install_dir/Contents/Info" CFBundleIdentifier org.octave.Octave 
 defaults write "$install_dir/Contents/Info" CFBundleShortVersionString "$oct_ver"
 defaults write "$install_dir/Contents/Info" CFBundleVersion "$oct_ver_string"
