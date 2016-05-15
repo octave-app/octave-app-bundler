@@ -231,7 +231,7 @@ if [ "$build_dmg" == "y" ]; then
 	cd "$tmp_dir/create-dmg"
 	./create-dmg \
 	--volname "Octave-Installer" \
-	--volicon "$install_dir/Contents/Resources/octave.icns" \
+	--volicon "$install_dir/Contents/Resources/applet.icns" \
 	--window-size 550 442 \
 	--icon-size 48 \
 	--icon Octave.app 125 180 \
