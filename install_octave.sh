@@ -208,6 +208,16 @@ defaults write "$install_dir/Contents/Info" CFBundleDocumentTypes -array '{"CFBu
 plutil -convert xml1 "$install_dir/Contents/Info.plist"
 chmod a=r "$install_dir/Contents/Info.plist"
 
+# add icon to octave-gui
+if [ "$build_gui" == "y" ]; then
+	export python_script=$(mktemp /tmp/octave-XXXX);
+	echo '#!/usr/bin/env python' > $python_script
+	echo 'import Cocoa' >> $python_script
+	echo 'import sys' >> $python_script
+	echo 'Cocoa.NSWorkspace.sharedWorkspace().setIcon_forFile_options_(Cocoa.NSImage.alloc().initWithContentsOfFile_(sys.argv[1].decode("utf-8")), sys.argv[2].decode("utf-8"), 0) or sys.exit("Unable to set file icon")' >> $python_script
+	python "$python_script" "$install_dir/Contents/Resources/applet.icns" $install_dir/Contents/Resources/usr/Cellar/octave/*/libexec/octave/*/exec/*/octave-gui
+fi
+
 # collect dependencies from the homebrew database
 # clean up the strings using sed
 echo "" > "$install_dir/Contents/Resources/DEPENDENCIES"
