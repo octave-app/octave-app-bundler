@@ -55,10 +55,6 @@ fi
 # go to the bin directory 
 cd "$install_dir/Contents/Resources/usr/bin"
 
-# install fig2dev
-./brew install homebrew/x11/imake
-./brew install schoeps/homebrew-xfig/transfig
-
 # install Qscintilla2 without python bindings
 ./brew install qscintilla2 --without-python --without-plugin
 
