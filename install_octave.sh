@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash -e
 
 # ask the user about feautures
 if [ "$1" != "defaults" ]; then
@@ -33,9 +33,10 @@ if [ "$install_type" == "update" ]; then
 	# uninstall octave and update formulas
 	echo "Update homebrew installation in $install_dir."
 	cd "$install_dir/Contents/Resources/usr/bin"
-	./brew uninstall octave # remove octave because we always recompile
-	git -C '../' reset --hard origin/master # get a fresh homebrew
-	git -C '../Library/Taps/homebrew/homebrew-science/' reset --hard origin/master # get a fresh science repo
+	if [ -d "$install_dir/Contents/Resources/usr/Cellar/octave" ]
+	then
+		./brew uninstall octave # remove octave because we always recompile
+	fi
 	./brew update # get new formulas
 	./brew upgrade # compile new formulas
 	./brew cleanup # remove old versions
@@ -64,7 +65,6 @@ export FC="$install_dir/Contents/Resources/usr/bin/gfortran"
 
 # get scietific libraries
 ./brew tap homebrew/science
-./brew install imagemagick --with-librsvg
 ./brew install graphicsmagick --with-quantum-depth-16
 ./brew install ghostscript
 
@@ -111,8 +111,12 @@ oct_copy="$(./octave --version | sed -n 2p | cut -c 15- )"
 ./brew install fontconfig --build-from-source
 
 # remove unnecessary files installed due to wrong dependencies
-./brew uninstall pyqt
-./brew uninstall veclibfort
+if [ -d "$install_dir/Contents/Resources/usr/Cellar/pyqt" ]; then
+	./brew uninstall pyqt
+fi
+if [ -d "$install_dir/Contents/Resources/usr/Cellar/veclibfort" ]; then
+	./brew uninstall veclibfort
+fi
 
 # force alls formulas to be linked
 ./brew list -1 | while read line; do ./brew unlink $line; ./brew link --force $line; done
