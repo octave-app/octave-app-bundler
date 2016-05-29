@@ -76,8 +76,10 @@ export FC="$install_dir/Contents/Resources/usr/bin/gfortran"
 # use github mirror to gnuplot 5.1 (devel)
 ./brew install gnuplot --with-qt --with-cairo --universal --HEAD
 
-# enforce fltk
-#./brew install fltk
+# enforce fltk (without fltk all native graphics is disabled and
+# e.g. gl2ps is not used. This will be untangled in Octave 4.2)
+# we use devel because fltk 1.3.3 does not work on recent Mac OS
+./brew install fltk --devel
 
 # icoutils
 ./brew install icoutils
@@ -98,11 +100,15 @@ if [ "$build_gui" == "y" ]; then
 	octave_settings="$octave_settings --with-gui"
 fi
 
+# Quick hack to get the newest octave formula
+# from Sebastian's github repository
+# curl https://raw.githubusercontent.com/schoeps/homebrew-science/octave/octave.rb -o "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-science/octave.rb"
+
 # finally build octave
 ./brew install octave $octave_settings
 
 # get versions
-oct_ver="$(./octave --version |sed -n 1p |grep -o '\d\..*$' )"
+oct_ver="$(./octave --version | sed -n 1p | grep -o '\d.\d.\d$' )"
 oct_ver_string="$(./octave --version | sed -n 1p)"
 oct_copy="$(./octave --version | sed -n 2p | cut -c 15- )"
 
@@ -117,9 +123,6 @@ fi
 if [ -d "$install_dir/Contents/Resources/usr/Cellar/veclibfort" ]; then
 	./brew uninstall veclibfort
 fi
-
-# force alls formulas to be linked
-./brew list -1 | while read line; do ./brew unlink $line; ./brew link --force $line; done
 
 # create applescript to execute octave
 tmp_script=$(mktemp /tmp/octave-XXXX);
@@ -221,9 +224,14 @@ fi
 # collect dependencies from the homebrew database
 # clean up the strings using sed
 echo "" > "$install_dir/Contents/Resources/DEPENDENCIES"
-for f in $(./brew deps octave $octave_settings)
+
+# force all formulas to be linked and list them in 
+# the file DEPENDENCIES
+./brew list -1 | while read line
 do
-	./brew info $f | sed -e 's$homebrew/science/$$g'| sed -e 's$: .*$$g' | sed -e 's$/Applications.*$$g' | head -n3 >> "$install_dir/Contents/Resources/DEPENDENCIES"
+	./brew unlink $line
+	./brew link --force $line
+	./brew info $line | sed -e 's$homebrew/science/$$g'| sed -e 's$: .*$$g' | sed -e 's$/Applications.*$$g' | head -n3 >> "$install_dir/Contents/Resources/DEPENDENCIES"
 	echo "" >> "$install_dir/Contents/Resources/DEPENDENCIES"
 done
 
