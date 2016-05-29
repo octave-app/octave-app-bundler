@@ -108,9 +108,9 @@ fi
 ./brew install octave $octave_settings
 
 # get versions
-oct_ver="$(./octave --version | sed -n 1p | grep -o '\d.\d.\d$' )"
-oct_ver_string="$(./octave --version | sed -n 1p)"
-oct_copy="$(./octave --version | sed -n 2p | cut -c 15- )"
+oct_ver="$(./octave --version | /usr/bin/sed -n 1p | /usr/bin/grep -o '\d\..*$' )"
+oct_ver_string="$(./octave --version | /usr/bin/sed -n 1p)"
+oct_copy="$(./octave --version | /usr/bin/sed -n 2p | /usr/bin/cut -c 15- )"
 
 # rebuilding fontconfig from source seems to fix gnuplot font problems
 ./brew uninstall fontconfig
@@ -231,7 +231,7 @@ echo "" > "$install_dir/Contents/Resources/DEPENDENCIES"
 do
 	./brew unlink $line
 	./brew link --force $line
-	./brew info $line | sed -e 's$homebrew/science/$$g'| sed -e 's$: .*$$g' | sed -e 's$/Applications.*$$g' | head -n3 >> "$install_dir/Contents/Resources/DEPENDENCIES"
+	./brew info $line | /usr/bin/sed -e 's$homebrew/science/$$g'| /usr/bin/sed -e 's$: .*$$g' | /usr/bin/sed -e 's$/Applications.*$$g' | /usr/bin/head -n3 >> "$install_dir/Contents/Resources/DEPENDENCIES"
 	echo "" >> "$install_dir/Contents/Resources/DEPENDENCIES"
 done
 
