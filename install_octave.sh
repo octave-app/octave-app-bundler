@@ -56,6 +56,9 @@ fi
 # go to the bin directory 
 cd "$install_dir/Contents/Resources/usr/bin"
 
+# install trash command line utility
+./brew install trash
+
 # install Qscintilla2 without python bindings
 ./brew install qscintilla2 --without-python --without-plugin
 
@@ -243,6 +246,12 @@ if [ "$build_dmg" == "y" ]; then
 
 	# get background image
 	curl https://raw.githubusercontent.com/schoeps/octave_installer/master/background.tiff -o "$tmp_dir/background.tiff"
+
+	# Put existing dmg into Trash
+	if [ -f "$dmg_dir/Octave-Installer.dmg" ]; then
+	  echo "Moving $dmg_dir/Octave_Installer.dmg into the trash"
+	  ./trash "$dmg_dir/Octave-Installer.dmg"
+	fi
 
 	# running create-dmg; this may issue warnings if run headless. However, the dmg
 	# will still be created, only some beautifcation cannot be applied
