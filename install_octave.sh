@@ -16,6 +16,7 @@ build_devel=${build_devel:-n}
 build_dmg=${build_dmg:-y}
 dmg_dir=${dmg_dir:-$HOME}
 upload_dmg=${build_dmg:-y}
+with_test=${with_test:-y}
 
 # set some environment variables
 export HOMEBREW_BUILD_FROM_SOURCE=1
@@ -101,6 +102,9 @@ if [ "$build_devel" == "y" ]; then
 fi
 if [ "$build_gui" == "y" ]; then
 	octave_settings="$octave_settings --with-gui"
+fi
+if [ "$with_test" == "n" ]; then
+       octave_settings="$octave_settings --without-test"
 fi
 
 # Quick hack to get the newest octave formula
