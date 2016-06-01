@@ -100,8 +100,8 @@ octave_settings="--build-from-source --without-java --universal --with-audio --w
 if [ "$build_devel" == "y" ]; then
 	octave_settings="$octave_settings --devel"
 fi
-if [ "$build_gui" == "y" ]; then
-	octave_settings="$octave_settings --with-gui"
+if [ "$build_gui" == "n" ]; then
+	octave_settings="$octave_settings --without-gui"
 fi
 if [ "$with_test" == "n" ]; then
        octave_settings="$octave_settings --without-test"
