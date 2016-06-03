@@ -1,22 +1,80 @@
-#!/bin/bash -e
+#!/usr/bin/env bash
 
-# ask the user about feautures
-if [ "$1" != "defaults" ]; then
-	read -p "In which directory do you want Octave to be installed? [/Applications/Octave.app]: " install_dir
-	read -p "Do you want to build the GUI? [Y/n]: " build_gui
-	read -p "Do you want to build a development snapshot [y/N]: " build_devel
-	read -p "Do you want to create a DMG image? [Y/n]: " build_dmg
-	read -p "Where do you want to store the DMG? [$HOME]: " dmg_dir
+install_dir="/Applications/Octave.app"
+build_gui=y
+build_devel=n
+build_dmg=y
+dmg_dir="$HOME"
+verbose=n
+with_test=y
+
+function usage()
+
+{
+  echo " $(basename $0)"
+  echo " $(basename $0) [OPTION] ..."
+  echo " $(basename $0) [OPTION ARG] ..."
+  echo ""
+  echo " Build an Octave application bundle for Mac OS X."
+  echo ""
+  echo " Several options are supported;"
+  echo ""
+  echo "  -a, --dmg-dir DIR"
+  echo "    Location to create dmg [$dmg_dir]."
+  echo "  -b, --build-dmg"
+  echo "    Build a dmg."
+  echo "  -c, --cli-only"
+  echo "    Do not build the gui."
+  echo "  -d, --build-devel"
+  echo "    Build the latest development snapshot."
+  echo "  -e, --error"
+  echo "    Exit on error."
+  echo "  -h, -?, --help"
+  echo "    Display this help text."
+  echo "  -i, --install-dir DIR"
+  echo "    Specify the directory where Octave will be installed [$install_dir]."
+  echo "  -t, --without-test"
+  echo "    Do not run 'make check'."
+  echo "  -v, --verbose"
+  echo "    Tell user the state of all options."
+  echo ""
+}
+
+while [[ $1 != "" ]]; do
+  case "$1" in
+    -a|--dmg-dir) if [ $# -gt 1 ]; then
+          dmg_dir=$2; shift 2
+        else 
+          echo "$1 requires an argument" >&2
+          exit 1
+        fi ;;
+    -b|--build-dmg) build_dmg=y; shift 1;;
+    -c|--cli-only) build_gui=n; shift 1;;
+    -d|--build-devel) build_devel=y; shift 1;;
+    -e|--error) set -e; shift 1;;
+    -h|--help|-\?) usage; exit 0;;
+    -i|--install-dir) if [ $# -gt 1 ]; then
+          install_dir=$2; shift 2
+        else 
+          echo "$1 requires an argument" >&2
+          exit 1
+        fi ;;
+    -t|--without-test) with_test=n; shift 1;;
+    -v|--verbose) verbose=y; shift 1;;
+    --) shift; break;;
+    *) echo "invalid option: $1" >&2; usage; exit 1;;
+  esac
+done
+
+if [ "$verbose" == "y" ]; then
+  echo install_dir = \"$install_dir\"
+  echo buid_gui = \"$build_gui\"
+  echo build_devel = \"$build_devel\"
+  echo build_dmg = \"$build_gui\"
+  echo dmg_dir = \"$dmg_dir\"
+  echo with_test = \"$with_test\"
+  set -v
 fi
-
-# set default values if nothing has been specified
-install_dir=${install_dir:-"/Applications/Octave.app"}
-build_gui=${build_gui:-y}
-build_devel=${build_devel:-n}
-build_dmg=${build_dmg:-y}
-dmg_dir=${dmg_dir:-$HOME}
-upload_dmg=${build_dmg:-y}
-with_test=${with_test:-y}
 
 # set some environment variables
 export HOMEBREW_BUILD_FROM_SOURCE=1
@@ -96,7 +154,10 @@ export GS_OPTIONS="-sICCProfilesDir=$install_dir/Contents/Resources/usr/opt/ghos
 # curl https://raw.githubusercontent.com/schoeps/homebrew-science/octave/octave.rb -o "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-science/octave.rb"
 
 # build octave
-octave_settings="--build-from-source --without-java --universal --with-audio --with-openblas --without-fltk --verbose --debug"
+octave_settings="--build-from-source --without-java --universal --with-audio --with-openblas --without-fltk --debug"
+if [ "$verbose" == "y" ]; then
+	octave_settings="$octave_settings --verbose"
+fi
 if [ "$build_devel" == "y" ]; then
 	octave_settings="$octave_settings --devel"
 fi
