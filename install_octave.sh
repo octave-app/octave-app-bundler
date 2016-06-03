@@ -11,33 +11,33 @@ with_test=y
 function usage()
 
 {
-  echo " $(basename $0)"
-  echo " $(basename $0) [OPTION] ..."
-  echo " $(basename $0) [OPTION ARG] ..."
-  echo ""
-  echo " Build an Octave application bundle for Mac OS X."
-  echo ""
-  echo " Several options are supported;"
-  echo ""
-  echo "  -a, --dmg-dir DIR"
-  echo "    Location to create dmg [$dmg_dir]."
-  echo "  -b, --build-dmg"
-  echo "    Build a dmg."
-  echo "  -c, --cli-only"
-  echo "    Do not build the gui."
-  echo "  -d, --build-devel"
-  echo "    Build the latest development snapshot."
-  echo "  -e, --error"
-  echo "    Exit on error."
-  echo "  -h, -?, --help"
-  echo "    Display this help text."
-  echo "  -i, --install-dir DIR"
-  echo "    Specify the directory where Octave will be installed [$install_dir]."
-  echo "  -t, --without-test"
-  echo "    Do not run 'make check'."
-  echo "  -v, --verbose"
-  echo "    Tell user the state of all options."
-  echo ""
+	echo " $(basename $0)"
+	echo " $(basename $0) [OPTION] ..."
+	echo " $(basename $0) [OPTION ARG] ..."
+	echo ""
+	echo " Build an Octave application bundle for Mac OS X."
+	echo ""
+	echo " Several options are supported;"
+	echo ""
+	echo "  -a, --dmg-dir DIR"
+	echo "    Location to create dmg [$dmg_dir]."
+	echo "  -b, --build-dmg"
+	echo "    Build a dmg."
+	echo "  -c, --cli-only"
+	echo "    Do not build the gui."
+	echo "  -d, --build-devel"
+	echo "    Build the latest development snapshot."
+	echo "  -e, --error"
+	echo "    Exit on error."
+	echo "  -h, -?, --help"
+	echo "    Display this help text."
+	echo "  -i, --install-dir DIR"
+	echo "    Specify the directory where Octave will be installed [$install_dir]."
+	echo "  -t, --without-test"
+	echo "    Do not run 'make check'."
+	echo "  -v, --verbose"
+	echo "    Tell user the state of all options."
+	echo ""
 }
 
 while [[ $1 != "" ]]; do
@@ -67,13 +67,13 @@ while [[ $1 != "" ]]; do
 done
 
 if [ "$verbose" == "y" ]; then
-  echo install_dir = \"$install_dir\"
-  echo buid_gui = \"$build_gui\"
-  echo build_devel = \"$build_devel\"
-  echo build_dmg = \"$build_gui\"
-  echo dmg_dir = \"$dmg_dir\"
-  echo with_test = \"$with_test\"
-  set -v
+	echo install_dir = \"$install_dir\"
+	echo buid_gui = \"$build_gui\"
+	echo build_devel = \"$build_devel\"
+	echo build_dmg = \"$build_gui\"
+	echo dmg_dir = \"$dmg_dir\"
+	echo with_test = \"$with_test\"
+	set -v
 fi
 
 # set some environment variables
@@ -87,7 +87,7 @@ if [ -e "$install_dir/Contents/Resources/usr/bin/brew" ]; then
 else
 	install_type='full'
 fi
-	
+
 if [ "$install_type" == "update" ]; then
 	# uninstall octave and update formulas
 	echo "Update homebrew installation in $install_dir."
@@ -150,9 +150,6 @@ export FC="$install_dir/Contents/Resources/usr/bin/gfortran"
 gs_ver="$(./gs --version)"
 export GS_OPTIONS="-sICCProfilesDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/iccprofiles/ -sGenericResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/ -sFontResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/Font"
 
-# get newest octave formula, currently (4.0.2) this is not needed
-# curl https://raw.githubusercontent.com/schoeps/homebrew-science/octave/octave.rb -o "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-science/octave.rb"
-
 # build octave
 octave_settings="--build-from-source --without-java --universal --with-audio --with-openblas --without-fltk --debug"
 if [ "$verbose" == "y" ]; then
@@ -165,12 +162,8 @@ if [ "$build_gui" == "n" ]; then
 	octave_settings="$octave_settings --without-gui"
 fi
 if [ "$with_test" == "n" ]; then
-       octave_settings="$octave_settings --without-test"
+	octave_settings="$octave_settings --without-test"
 fi
-
-# Quick hack to get the newest octave formula
-# from Sebastian's github repository
-# curl https://raw.githubusercontent.com/schoeps/homebrew-science/octave/octave.rb -o "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-science/octave.rb"
 
 # finally build octave
 ./brew install octave $octave_settings
