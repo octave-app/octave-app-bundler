@@ -211,6 +211,8 @@ oct_copy="$(./octave --version | /usr/bin/sed -n 2p | /usr/bin/cut -c 15- )"
 # rebuilding fontconfig from source seems to fix gnuplot font problems
 ./brew uninstall fontconfig
 ./brew install fontconfig  --universal
+# use local font cache instead of global one
+/usr/bin/sed -i '' 's/\/Applications.*fontconfig/~\/.cache\/fontconfig/g' "$install_dir/Contents/Resources/usr/etc/fonts/fonts.conf" 
 
 # remove unnecessary files installed due to wrong dependency management
 if [ -d "$install_dir/Contents/Resources/usr/Cellar/pyqt" ]; then
@@ -221,6 +223,10 @@ fi
 if [ "$use_openblas" == "y" && [ -d "$install_dir/Contents/Resources/usr/Cellar/veclibfort" ]; then
 	./brew uninstall veclibfort
 fi
+
+# tidy up: make a symlink to system "/var
+rm -R "$install_dir/Contents/Resources/usr/var"
+ln -s "/var" "$install_dir/Contents/Resources/usr/var"
 
 # create applescript to execute octave
 tmp_script=$(mktemp /tmp/octave-XXXX);
@@ -240,6 +246,18 @@ echo '' >> $tmp_script
 echo 'on export_dyld()' >> $tmp_script
 echo '  return "export DYLD_FALLBACK_LIBRARY_PATH=\"'$install_dir'/Contents/Resources/usr/lib:/lib:/usr/lib\";"' >> $tmp_script
 echo 'end export_dyld'  >> $tmp_script
+echo '' >> $tmp_script
+echo 'on cache_fontconfig()' >> $tmp_script
+echo '  set fileTarget to (path to home folder as text) & ".cache:fontconfig"' >> $tmp_script
+echo '  try' >> $tmp_script
+echo '    fileTarget as alias' >> $tmp_script
+echo '  on error' >> $tmp_script
+echo '    display dialog "Font cache not found, so first plotting will be slow. Create font cache now?" with icon caution buttons {"Yes", "No"}' >> $tmp_script
+echo '    if button returned of result = "Yes" then' >> $tmp_script
+echo '      do shell script "'$install_dir'/Contents/Resources/usr/bin/fc-cache -frv;"' >> $tmp_script
+echo '    end if' >> $tmp_script
+echo '  end try' >> $tmp_script
+echo 'end cache_fontconfig' >> $tmp_script
 echo '' >> $tmp_script
 echo 'on run_octave_gui()' >> $tmp_script
 echo '  return "cd ~;clear;'$install_dir'/Contents/Resources/usr/bin/octave --force-gui | logger 2>&1;"' >> $tmp_script
@@ -261,14 +279,16 @@ echo '  end if' >> $tmp_script
 echo 'end path_check' >> $tmp_script
 echo '' >> $tmp_script
 echo 'on open argv' >> $tmp_script
-echo 'path_check()' >> $tmp_script
-echo 'set filename to "\"" & POSIX path of item 1 of argv & "\""' >> $tmp_script
-echo '  set cmd to export_gs_options() & export_gnuterm() & export_path() & export_dyld() & run_octave_open(filename)' >> $tmp_script
-echo '  do shell script cmd' >> $tmp_script
+echo '  path_check()' >> $tmp_script
+echo '  cache_fontconfig()' >> $tmp_script
+echo '  set filename to "\"" & POSIX path of item 1 of argv & "\""' >> $tmp_script
+echo '    set cmd to export_gs_options() & export_gnuterm() & export_path() & export_dyld() & run_octave_open(filename)' >> $tmp_script
+echo '    do shell script cmd' >> $tmp_script
 echo 'end open'  >> $tmp_script
 echo '' >> $tmp_script
 echo 'on run' >> $tmp_script
 echo '  path_check()' >> $tmp_script
+echo '  cache_fontconfig()' >> $tmp_script
 if [ "$build_gui" == "y" ]; then
 	echo '  set cmd to export_gs_options() & export_gnuterm() & export_path() & export_dyld() & run_octave_gui()' >> $tmp_script
 	echo '  do shell script cmd' >> $tmp_script
