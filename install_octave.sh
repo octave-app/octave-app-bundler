@@ -5,6 +5,7 @@ build_gui=y
 build_devel=n
 build_dmg=y
 use_gcc=n
+use_openblas=y
 dmg_dir="$HOME"
 verbose=n
 with_test=y
@@ -32,6 +33,8 @@ function usage()
     echo "    Exit on error."
     echo "  -g, --use-gcc"
     echo "    Compile with gcc instead of clang."
+    echo "  -o, --use-openblas"
+    echo "    Compile with openlas instead of Apple's blas."
     echo "  -h, -?, --help"
 	echo "    Display this help text."
 	echo "  -i, --install-dir DIR"
@@ -56,6 +59,7 @@ while [[ $1 != "" ]]; do
     -d|--build-devel) build_devel=y; shift 1;;
     -e|--error) set -e; shift 1;;
     -g|--use-gcc) use_gcc=y; shift 1;;
+	-o|--use-openblas) use_openblas=y; shift 1;;
     -h|--help|-\?) usage; exit 0;;
     -i|--install-dir) if [ $# -gt 1 ]; then
           install_dir=$2; shift 2
@@ -77,6 +81,7 @@ if [ "$verbose" == "y" ]; then
 	echo build_dmg = \"$build_gui\"
 	echo dmg_dir = \"$dmg_dir\"
 	echo use_gcc = \"$use_gcc\"
+	echo use_openblas = \"$use_openblas\"
 	echo with_test = \"$with_test\"
 	set -v
 fi
@@ -99,11 +104,11 @@ if [ "$install_type" == "update" ]; then
 	cd "$install_dir/Contents/Resources/usr/bin"
 	if [ -d "$install_dir/Contents/Resources/usr/Cellar/octave" ]
 	then
+		./brew uninstall arpack
+		./brew uninstall qrupdate
+		./brew uninstall suite-sparse
 		./brew uninstall octave # remove octave because we always recompile
 	fi
-	./brew update # get new formulas
-	./brew upgrade # compile new formulas
-	./brew cleanup # remove old versions
 else
 	# install homebrew
 	echo "Create new homebrew installation in $install_dir."
@@ -111,6 +116,10 @@ else
 	mkdir -p "$install_dir/Contents/Resources/usr"
 	curl -L https://github.com/Homebrew/homebrew/tarball/master | tar xz --strip 1 -C "$install_dir/Contents/Resources/usr"
 fi
+
+./brew update # get new formulas
+./brew upgrade # compile new formulas
+./brew cleanup # remove old versions
 
 # be conservative regarding architectures
 # use Mac's (BSD) sed
@@ -121,10 +130,10 @@ fi
 cd "$install_dir/Contents/Resources/usr/bin"
 
 # install trash command line utility
-./brew install trash
+./brew install trash --universal
 
 # install gcc and set FC
-./brew install gcc
+./brew install gcc --universal
 export FC="$install_dir/Contents/Resources/usr/bin/gfortran"
 
 # get scietific libraries
@@ -133,15 +142,15 @@ export FC="$install_dir/Contents/Resources/usr/bin/gfortran"
 # enforce fltk (without fltk all native graphics is disabled and
 # e.g. gl2ps is not used. This will be untangled in Octave 4.2)
 # we use devel because fltk 1.3.3 does not work on recent Mac OS
-./brew install fltk --devel
+./brew install fltk --universal --devel
 
 # create path for ghostscript
-./brew install ghostscript
+./brew install ghostscript  --universal
 gs_ver="$(./gs --version)"
 export GS_OPTIONS="-sICCProfilesDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/iccprofiles/ -sGenericResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/ -sFontResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/Font"
 
 # install gnuplot 5.1 (HEAD)
-gnuplot_settings="--with-qt --with-cairo --universal --HEAD"
+gnuplot_settings="--universal --with-qt --with-cairo --universal --HEAD"
 if [ -d "/Library/Frameworks/AquaTerm.framework" ]; then
 	gnuplot_settings="$octave_settings --with-aquaterm"
 else
@@ -150,7 +159,7 @@ fi
 ./brew install gnuplot $gnuplot_settings
 
 # icoutils
-./brew install icoutils
+./brew install icoutils --universal
 
 # use gcc for all scientific libraries
 if [ "$use_gcc" == "y" ]; then
@@ -159,21 +168,25 @@ if [ "$use_gcc" == "y" ]; then
 fi
 
 # install graphicsmagick and ensure quantum-depth-16
-./brew install graphicsmagick --with-quantum-depth-16
+./brew install graphicsmagick --universal --with-quantum-depth-16
 
 # install Qscintilla2 without python bindings
-./brew install qscintilla2 --without-python --without-plugin --verbose
+./brew install qscintilla2 --universal --without-python --without-plugin --verbose
 
 # we prefer openblas over Apple's BLAS implementation
-./brew install arpack --with-openblas
-./brew install qrupdate --with-openblas
-./brew install suite-sparse --with-openblas
+blas_settings="--universal"
+if [ "$use_openblas" == "y" ]; then
+	blas_settings="$blas_settings --openblas"
+fi
+./brew install arpack $blas_settings
+./brew install qrupdate $blas_settings
+./brew install suite-sparse $blas_settings
 
-# get newest octave formula (4.0.3)
-curl https://raw.githubusercontent.com/schoeps/homebrew-science/octave/octave.rb -o "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-science/octave.rb"
+# get newest octave formula
+# curl https://raw.githubusercontent.com/schoeps/homebrew-science/octave/octave.rb -o "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-science/octave.rb"
 
 # build octave
-octave_settings="--build-from-source --without-java --universal --with-audio --with-openblas --without-fltk --debug"
+octave_settings="--universal --build-from-source --without-java --universal --with-audio --without-fltk --debug $blas_settings"
 if [ "$verbose" == "y" ]; then
 	octave_settings="$octave_settings --verbose"
 fi
@@ -197,13 +210,15 @@ oct_copy="$(./octave --version | /usr/bin/sed -n 2p | /usr/bin/cut -c 15- )"
 
 # rebuilding fontconfig from source seems to fix gnuplot font problems
 ./brew uninstall fontconfig
-./brew install fontconfig --build-from-source
+./brew install fontconfig  --universal
 
-# remove unnecessary files installed due to wrong dependencies
+# remove unnecessary files installed due to wrong dependency management
 if [ -d "$install_dir/Contents/Resources/usr/Cellar/pyqt" ]; then
 	./brew uninstall pyqt
 fi
-if [ -d "$install_dir/Contents/Resources/usr/Cellar/veclibfort" ]; then
+
+# we do not need veclibfort if using openblas
+if [ "$use_openblas" == "y" && [ -d "$install_dir/Contents/Resources/usr/Cellar/veclibfort" ]; then
 	./brew uninstall veclibfort
 fi
 
