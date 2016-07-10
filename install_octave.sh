@@ -99,15 +99,20 @@ else
 fi
 
 if [ "$install_type" == "update" ]; then
-	# uninstall octave and update formulas
+	# uninstall octave and linear algebra
 	echo "Update homebrew installation in $install_dir."
 	cd "$install_dir/Contents/Resources/usr/bin"
-	if [ -d "$install_dir/Contents/Resources/usr/Cellar/octave" ]
-	then
+	if [ -d "$install_dir/Contents/Resources/usr/Cellar/arpack" ]; then
 		./brew uninstall arpack
+	fi
+	if [ -d "$install_dir/Contents/Resources/usr/Cellar/qrupdate" ]; then
 		./brew uninstall qrupdate
+	fi
+	if [ -d "$install_dir/Contents/Resources/usr/Cellar/suite-sparse" ]; then
 		./brew uninstall suite-sparse
-		./brew uninstall octave # remove octave because we always recompile
+	fi
+	if [ -d "$install_dir/Contents/Resources/usr/Cellar/octave" ]; then
+		./brew uninstall octave
 	fi
 else
 	# install homebrew
@@ -153,7 +158,7 @@ export GS_OPTIONS="-sICCProfilesDir=$install_dir/Contents/Resources/usr/opt/ghos
 # install gnuplot 5.1 (HEAD)
 gnuplot_settings="--universal --with-qt --with-cairo --universal --HEAD"
 if [ -d "/Library/Frameworks/AquaTerm.framework" ]; then
-	gnuplot_settings="$octave_settings --with-aquaterm"
+	gnuplot_settings="$gnuplot_settings --with-aquaterm"
 else
 	echo "Did not find Aquaterm; build gnuplot without it."
 fi
