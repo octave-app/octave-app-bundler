@@ -115,6 +115,7 @@ else
 	osacompile -o "$install_dir" -e " "
 	mkdir -p "$install_dir/Contents/Resources/usr"
 	curl -L https://github.com/Homebrew/homebrew/tarball/master | tar xz --strip 1 -C "$install_dir/Contents/Resources/usr"
+	cd "$install_dir/Contents/Resources/usr/bin"
 fi
 
 ./brew update # get new formulas
