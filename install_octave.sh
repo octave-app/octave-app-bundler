@@ -5,6 +5,7 @@ build_gui=y
 build_devel=n
 build_dmg=y
 use_gcc=n
+use_java=n
 use_openblas=y
 dmg_dir="$HOME"
 verbose=n
@@ -29,13 +30,15 @@ function usage()
 	echo "    Do not build the gui."
 	echo "  -d, --build-devel"
 	echo "    Build the latest development snapshot."
-    echo "  -e, --error"
-    echo "    Exit on error."
-    echo "  -g, --use-gcc"
-    echo "    Compile with gcc instead of clang."
-    echo "  -o, --use-openblas"
-    echo "    Compile with openlas instead of Apple's blas."
-    echo "  -h, -?, --help"
+	echo "  -e, --error"
+	echo "    Exit on error."
+	echo "  -g, --use-gcc"
+	echo "    Compile with gcc instead of clang."
+	echo "  -j, --use-java"
+	echo "    Compile with java."
+	echo "  -o, --use-openblas"
+	echo "    Compile with openlas instead of Apple's blas."
+	echo "  -h, -?, --help"
 	echo "    Display this help text."
 	echo "  -i, --install-dir DIR"
 	echo "    Specify the directory where Octave will be installed [$install_dir]."
@@ -59,7 +62,8 @@ while [[ $1 != "" ]]; do
     -d|--build-devel) build_devel=y; shift 1;;
     -e|--error) set -e; shift 1;;
     -g|--use-gcc) use_gcc=y; shift 1;;
-	-o|--use-openblas) use_openblas=y; shift 1;;
+    -j|--use-java) use_java=y; shift 1;;
+    -o|--use-openblas) use_openblas=y; shift 1;;
     -h|--help|-\?) usage; exit 0;;
     -i|--install-dir) if [ $# -gt 1 ]; then
           install_dir=$2; shift 2
@@ -81,6 +85,7 @@ if [ "$verbose" == "y" ]; then
 	echo build_dmg = \"$build_gui\"
 	echo dmg_dir = \"$dmg_dir\"
 	echo use_gcc = \"$use_gcc\"
+	echo use_java = \"$use_java\"
 	echo use_openblas = \"$use_openblas\"
 	echo with_test = \"$with_test\"
 	set -v
@@ -201,6 +206,9 @@ if [ "$build_devel" == "y" ]; then
 fi
 if [ "$build_gui" == "n" ]; then
 	octave_settings="$octave_settings --without-gui"
+fi
+if [ "$use_java" == "y" ]; then
+	octave_settings="$octave_settings --with-java"
 fi
 if [ "$with_test" == "n" ]; then
 	octave_settings="$octave_settings --without-test"
