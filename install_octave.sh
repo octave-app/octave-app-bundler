@@ -4,6 +4,7 @@ install_dir="/Applications/Octave.app"
 build_gui=y
 build_devel=n
 build_dmg=y
+make_fail=n
 use_gcc=n
 use_java=n
 use_openblas=y
@@ -32,6 +33,8 @@ function usage()
 	echo "    Build the latest development snapshot."
 	echo "  -e, --error"
 	echo "    Exit on error."
+	echo "  -f, --make-fail"
+	echo "    make homebrew fail to get a shell with proper environment."
 	echo "  -g, --use-gcc"
 	echo "    Compile with gcc instead of clang."
 	echo "  -j, --use-java"
@@ -61,6 +64,7 @@ while [[ $1 != "" ]]; do
     -c|--cli-only) build_gui=n; shift 1;;
     -d|--build-devel) build_devel=y; shift 1;;
     -e|--error) set -e; shift 1;;
+    -f|--make-fail) make_fail=y; shift 1;;
     -g|--use-gcc) use_gcc=y; shift 1;;
     -j|--use-java) use_java=y; shift 1;;
     -o|--use-openblas) use_openblas=y; shift 1;;
@@ -84,6 +88,7 @@ if [ "$verbose" == "y" ]; then
 	echo build_devel = \"$build_devel\"
 	echo build_dmg = \"$build_gui\"
 	echo dmg_dir = \"$dmg_dir\"
+	echo make_fail = \"$make_fail\"
 	echo use_gcc = \"$use_gcc\"
 	echo use_java = \"$use_java\"
 	echo use_openblas = \"$use_openblas\"
@@ -212,6 +217,10 @@ if [ "$use_java" == "y" ]; then
 fi
 if [ "$with_test" == "n" ]; then
 	octave_settings="$octave_settings --without-test"
+fi
+if [ "$make_fail" == "y" ]; then
+	# enforce failure 
+	/usr/bin/sed -i '' 's/\".\/bootstrap" if build.head?/\"false\"/g' "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-science/octave.rb"
 fi
 
 # finally build octave
