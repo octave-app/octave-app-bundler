@@ -192,7 +192,7 @@ fi
 # we prefer openblas over Apple's BLAS implementation
 blas_settings="--universal"
 if [ "$use_openblas" == "y" ]; then
-	blas_settings="$blas_settings --openblas"
+	blas_settings="$blas_settings --with-openblas"
 fi
 ./brew install arpack $blas_settings
 ./brew install qrupdate $blas_settings
