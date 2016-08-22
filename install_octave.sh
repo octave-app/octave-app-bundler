@@ -207,7 +207,7 @@ if [ "$verbose" == "y" ]; then
 	octave_settings="$octave_settings --verbose"
 fi
 if [ "$build_devel" == "y" ]; then
-	octave_settings="$octave_settings --devel"
+	octave_settings="$octave_settings --HEAD"
 fi
 if [ "$build_gui" == "n" ]; then
 	octave_settings="$octave_settings --without-gui"
