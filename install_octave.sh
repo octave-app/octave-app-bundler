@@ -239,9 +239,6 @@ oct_ver="$(./octave --version | /usr/bin/sed -n 1p | /usr/bin/grep -o '\d\..*$' 
 oct_ver_string="$(./octave --version | /usr/bin/sed -n 1p)"
 oct_copy="$(./octave --version | /usr/bin/sed -n 2p | /usr/bin/cut -c 15- )"
 
-# rebuilding fontconfig from source seems to fix gnuplot font problems
-./brew uninstall fontconfig
-./brew install fontconfig  --universal
 # use local font cache instead of global one
 /usr/bin/sed -i '' 's/\/Applications.*fontconfig/~\/.cache\/fontconfig/g' "$install_dir/Contents/Resources/usr/etc/fonts/fonts.conf" 
 
@@ -367,7 +364,7 @@ if [ "$build_gui" == "y" ]; then
 	echo 'import Cocoa' >> $python_script
 	echo 'import sys' >> $python_script
 	echo 'Cocoa.NSWorkspace.sharedWorkspace().setIcon_forFile_options_(Cocoa.NSImage.alloc().initWithContentsOfFile_(sys.argv[1].decode("utf-8")), sys.argv[2].decode("utf-8"), 0) or sys.exit("Unable to set file icon")' >> $python_script
-	python "$python_script" "$install_dir/Contents/Resources/applet.icns" $install_dir/Contents/Resources/usr/Cellar/octave/*/libexec/octave/*/exec/*/octave-gui
+	/usr/bin/python "$python_script" "$install_dir/Contents/Resources/applet.icns" $install_dir/Contents/Resources/usr/Cellar/octave/*/libexec/octave/*/exec/*/octave-gui
 fi
 
 # collect dependencies from the homebrew database
