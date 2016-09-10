@@ -170,7 +170,7 @@ gs_ver="$(./gs --version)"
 export GS_OPTIONS="-sICCProfilesDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/iccprofiles/ -sGenericResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/ -sFontResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/Font"
 
 # install gnuplot 5.1 (HEAD)
-gnuplot_settings="--universal --with-qt --with-cairo --universal --HEAD"
+gnuplot_settings="--universal --with-qt5 --with-cairo --universal --HEAD"
 if [ -d "/Library/Frameworks/AquaTerm.framework" ]; then
 	gnuplot_settings="$gnuplot_settings --with-aquaterm"
 else
@@ -218,7 +218,7 @@ fi
 if [ "$build_gui" == "n" ]; then
 	octave_settings="$octave_settings --without-gui"
 else
-	octave_settings="$octave_settings --with-gui"	
+	octave_settings="$octave_settings --with-qt5"	
 fi
 if [ "$use_java" == "y" ]; then
 	octave_settings="$octave_settings --with-java"
