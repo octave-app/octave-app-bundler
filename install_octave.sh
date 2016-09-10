@@ -4,10 +4,11 @@ install_dir="/Applications/Octave.app"
 build_gui=y
 build_devel=n
 build_dmg=y
+use_experimental=n
 make_fail=n
 use_gcc=n
 use_java=n
-use_openblas=y
+use_openblas=n
 dmg_dir="$HOME"
 verbose=n
 with_test=y
@@ -49,6 +50,8 @@ function usage()
 	echo "    Do not run 'make check'."
 	echo "  -v, --verbose"
 	echo "    Tell user the state of all options."
+	echo "  -x, --experimental"
+	echo "    Use experimental formula."
 	echo ""
 }
 
@@ -77,6 +80,7 @@ while [[ $1 != "" ]]; do
         fi ;;
     -t|--without-test) with_test=n; shift 1;;
     -v|--verbose) verbose=y; shift 1;;
+    -x|--experimental) use_experimental=y; shift 1;;
     --) shift; break;;
     *) echo "invalid option: $1" >&2; usage; exit 1;;
   esac
@@ -84,7 +88,7 @@ done
 
 if [ "$verbose" == "y" ]; then
 	echo install_dir = \"$install_dir\"
-	echo buid_gui = \"$build_gui\"
+	echo build_gui = \"$build_gui\"
 	echo build_devel = \"$build_devel\"
 	echo build_dmg = \"$build_gui\"
 	echo dmg_dir = \"$dmg_dir\"
@@ -199,10 +203,12 @@ fi
 ./brew install suite-sparse $blas_settings
 
 # get newest octave formula
-# curl https://raw.githubusercontent.com/schoeps/homebrew-science/octave/octave.rb -o "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-science/octave.rb"
-
+if [ "$use_experimental" == "y" ]; then
+	curl https://raw.githubusercontent.com/schoeps/homebrew-science/octave/octave.rb -o "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-science/octave.rb"
+end
+	
 # build octave
-octave_settings="--universal --build-from-source --without-java --universal --with-audio --without-fltk --debug $blas_settings"
+octave_settings="--universal --without-docs --build-from-source --without-java --universal --with-audio --without-fltk --debug $blas_settings"
 if [ "$verbose" == "y" ]; then
 	octave_settings="$octave_settings --verbose"
 fi
@@ -211,6 +217,8 @@ if [ "$build_devel" == "y" ]; then
 fi
 if [ "$build_gui" == "n" ]; then
 	octave_settings="$octave_settings --without-gui"
+else
+	octave_settings="$octave_settings --with-gui"	
 fi
 if [ "$use_java" == "y" ]; then
 	octave_settings="$octave_settings --with-java"
