@@ -216,7 +216,7 @@ if [ "$build_devel" == "y" ]; then
 	octave_settings="$octave_settings --HEAD"
 fi
 if [ "$build_gui" == "n" ]; then
-	octave_settings="$octave_settings --without-gui"
+	octave_settings="$octave_settings --without-qt5"
 else
 	octave_settings="$octave_settings --with-qt5"	
 fi
