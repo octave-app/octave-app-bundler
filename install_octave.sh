@@ -29,7 +29,7 @@ function usage()
 	echo "  -b, --build-dmg"
 	echo "    Build a dmg."
 	echo "  -c, --cli-only"
-	echo "    Do not build the gui."
+	echo "    Do not build with qt5."
 	echo "  -d, --build-devel"
 	echo "    Build the latest development snapshot."
 	echo "  -e, --error"
@@ -170,7 +170,10 @@ gs_ver="$(./gs --version)"
 export GS_OPTIONS="-sICCProfilesDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/iccprofiles/ -sGenericResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/ -sFontResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/Font"
 
 # install gnuplot 5.1 (HEAD)
-gnuplot_settings="--universal --with-qt5 --with-cairo --universal --HEAD"
+gnuplot_settings="--universal --with-cairo --universal --HEAD"
+if [ "$build_gui" == "y" ]; then
+	gnuplot_settings="$octave_settings --with-qt5"	
+fi
 if [ -d "/Library/Frameworks/AquaTerm.framework" ]; then
 	gnuplot_settings="$gnuplot_settings --with-aquaterm"
 else
@@ -410,7 +413,7 @@ if [ "$build_dmg" == "y" ]; then
 	--eula "$install_dir/Contents/Resources/usr/opt/octave/README" \
 	--add-file COPYING "$install_dir/Contents/Resources/usr/opt/octave/COPYING" 126 300 \
 	--add-file DEPENDENCIES "$install_dir/Contents/Resources/DEPENDENCIES" 415 300 \
-	--disk-image-size 1400 \
+	--disk-image-size 2000 \
 	--background "$tmp_dir/background.tiff" \
 	"$dmg_dir/Octave-Installer.dmg" \
 	"$install_dir" 
