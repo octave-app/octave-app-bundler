@@ -29,7 +29,7 @@ function usage()
 	echo "  -b, --build-dmg"
 	echo "    Build a dmg."
 	echo "  -c, --cli-only"
-	echo "    Do not build with qt5."
+	echo "    Do not build the gui."
 	echo "  -d, --build-devel"
 	echo "    Build the latest development snapshot."
 	echo "  -e, --error"
@@ -101,7 +101,8 @@ if [ "$verbose" == "y" ]; then
 fi
 
 # set some environment variables
-export HOMEBREW_BUILD_FROM_SOURCE=1
+# export HOMEBREW_BUILD_FROM_SOURCE=1
+export HOMEBREW_OPTFLAGS="-march=core2"
 PATH="$install_dir/Contents/Resources/usr/bin/:$PATH"
 
 # check if we do full or update
