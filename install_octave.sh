@@ -173,7 +173,7 @@ export GS_OPTIONS="-sICCProfilesDir=$install_dir/Contents/Resources/usr/opt/ghos
 # install gnuplot 5.1 (HEAD)
 gnuplot_settings="--universal --with-cairo --universal --HEAD"
 if [ "$build_gui" == "y" ]; then
-	gnuplot_settings="$octave_settings --with-qt5"	
+	gnuplot_settings="$octave_settings --with-qt"	
 fi
 if [ -d "/Library/Frameworks/AquaTerm.framework" ]; then
 	gnuplot_settings="$gnuplot_settings --with-aquaterm"
@@ -220,9 +220,9 @@ if [ "$build_devel" == "y" ]; then
 	octave_settings="$octave_settings --HEAD"
 fi
 if [ "$build_gui" == "n" ]; then
-	octave_settings="$octave_settings --without-qt5"
+	octave_settings="$octave_settings"
 else
-	octave_settings="$octave_settings --with-qt5"	
+	octave_settings="$octave_settings --with-qt"	
 fi
 if [ "$use_java" == "y" ]; then
 	octave_settings="$octave_settings --with-java"
