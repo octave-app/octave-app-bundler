@@ -8,7 +8,6 @@ use_experimental=n
 make_fail=n
 use_gcc=n
 use_java=n
-use_openblas=n
 dmg_dir="$HOME"
 verbose=n
 with_test=y
@@ -36,12 +35,8 @@ function usage()
 	echo "    Exit on error."
 	echo "  -f, --make-fail"
 	echo "    make homebrew fail to get a shell with proper environment."
-	echo "  -g, --use-gcc"
-	echo "    Compile with gcc instead of clang."
 	echo "  -j, --use-java"
 	echo "    Compile with java."
-	echo "  -o, --use-openblas"
-	echo "    Compile with openlas instead of Apple's blas."
 	echo "  -h, -?, --help"
 	echo "    Display this help text."
 	echo "  -i, --install-dir DIR"
@@ -70,7 +65,6 @@ while [[ $1 != "" ]]; do
     -f|--make-fail) make_fail=y; shift 1;;
     -g|--use-gcc) use_gcc=y; shift 1;;
     -j|--use-java) use_java=y; shift 1;;
-    -o|--use-openblas) use_openblas=y; shift 1;;
     -h|--help|-\?) usage; exit 0;;
     -i|--install-dir) if [ $# -gt 1 ]; then
           install_dir=$2; shift 2
@@ -95,7 +89,6 @@ if [ "$verbose" == "y" ]; then
 	echo make_fail = \"$make_fail\"
 	echo use_gcc = \"$use_gcc\"
 	echo use_java = \"$use_java\"
-	echo use_openblas = \"$use_openblas\"
 	echo with_test = \"$with_test\"
 	set -v
 fi
@@ -197,15 +190,6 @@ fi
 # install Qscintilla2 without python bindings
 ./brew install qscintilla2 --universal --without-python --without-plugin --verbose
 
-# we prefer openblas over Apple's BLAS implementation
-blas_settings="--universal"
-if [ "$use_openblas" == "y" ]; then
-	blas_settings="$blas_settings --with-openblas"
-fi
-./brew install arpack $blas_settings
-./brew install qrupdate $blas_settings
-./brew install suite-sparse $blas_settings
-
 # get newest octave formula
 if [ "$use_experimental" == "y" ]; then
 	curl https://raw.githubusercontent.com/schoeps/homebrew-core/master/Formula/octave.rb -o "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-science/octave.rb"
@@ -249,11 +233,6 @@ oct_copy="$(./octave --version | /usr/bin/sed -n 2p | /usr/bin/cut -c 15- )"
 # remove unnecessary files installed due to wrong dependency management
 if [ -d "$install_dir/Contents/Resources/usr/Cellar/pyqt" ]; then
 	./brew uninstall pyqt
-fi
-
-# we do not need veclibfort if using openblas
-if [ "$use_openblas" == "y" && [ -d "$install_dir/Contents/Resources/usr/Cellar/veclibfort" ]; then
-	./brew uninstall veclibfort
 fi
 
 # tidy up: make a symlink to system "/var
