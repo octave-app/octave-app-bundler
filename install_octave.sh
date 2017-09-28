@@ -208,7 +208,7 @@ fi
 
 # get newest octave formula
 if [ "$use_experimental" == "y" ]; then
-	curl https://raw.githubusercontent.com/schoeps/homebrew-science/octave/octave.rb -o "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-science/octave.rb"
+	curl https://raw.githubusercontent.com/schoeps/homebrew-core/master/Formula/octave.rb -o "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-science/octave.rb"
 fi
 	
 # build octave
