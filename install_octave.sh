@@ -148,8 +148,8 @@ export FC="$install_dir/Contents/Resources/usr/bin/gfortran"
 gs_ver="$(./gs --version)"
 export GS_OPTIONS="-sICCProfilesDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/iccprofiles/ -sGenericResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/ -sFontResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/Font"
 
-# install gnuplot 5.1 (HEAD)
-gnuplot_settings="--with-cairo --with-qt --HEAD"
+# install gnuplot
+gnuplot_settings="--with-cairo --with-qt"
 if [ -d "/Library/Frameworks/AquaTerm.framework" ]; then
 	gnuplot_settings="$gnuplot_settings --with-aquaterm"
 else
