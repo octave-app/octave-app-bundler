@@ -119,6 +119,7 @@ fi
 ./brew update # get new formulas
 ./brew upgrade # compile new formulas
 ./brew cleanup # remove old versions
+./brew prune # remove links
 
 # be conservative regarding architectures
 # use Mac's (BSD) sed
@@ -209,11 +210,6 @@ oct_copy="$(./octave --version | /usr/bin/sed -n 2p | /usr/bin/cut -c 15- )"
 
 # use local font cache instead of global one
 /usr/bin/sed -i '' 's/\/Applications.*fontconfig/~\/.cache\/fontconfig/g' "$install_dir/Contents/Resources/usr/etc/fonts/fonts.conf" 
-
-# remove unnecessary files installed due to wrong dependency management
-if [ -d "$install_dir/Contents/Resources/usr/Cellar/pyqt" ]; then
-	./brew uninstall pyqt
-fi
 
 # tidy up: make a symlink to system "/var
 rm -R "$install_dir/Contents/Resources/usr/var"
