@@ -29,6 +29,8 @@ function usage()
 	echo "    Do not build the gui."
 	echo "  -d, --build-devel"
 	echo "    Build the latest development snapshot."
+	echo "  -e, --error"
+	echo "    Exit on error."
 	echo "  -j, --use-java"
 	echo "    Compile with java."
 	echo "  -h, -?, --help"
@@ -55,6 +57,7 @@ while [[ $1 != "" ]]; do
     -b|--build-dmg) build_dmg=y; shift 1;;
     -c|--cli-only) build_gui=n; shift 1;;
     -d|--build-devel) build_devel=y; shift 1;;
+    -e|--error) set -e; shift 1;;
     -g|--use-gcc) use_gcc=y; shift 1;;
     -j|--use-java) use_java=y; shift 1;;
     -h|--help|-\?) usage; exit 0;;
