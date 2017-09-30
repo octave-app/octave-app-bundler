@@ -5,8 +5,6 @@ build_gui=y
 build_devel=n
 build_dmg=y
 use_experimental=n
-make_fail=n
-use_gcc=n
 use_java=n
 dmg_dir="$HOME"
 verbose=n
@@ -31,10 +29,6 @@ function usage()
 	echo "    Do not build the gui."
 	echo "  -d, --build-devel"
 	echo "    Build the latest development snapshot."
-	echo "  -e, --error"
-	echo "    Exit on error."
-	echo "  -f, --make-fail"
-	echo "    make homebrew fail to get a shell with proper environment."
 	echo "  -j, --use-java"
 	echo "    Compile with java."
 	echo "  -h, -?, --help"
@@ -61,8 +55,6 @@ while [[ $1 != "" ]]; do
     -b|--build-dmg) build_dmg=y; shift 1;;
     -c|--cli-only) build_gui=n; shift 1;;
     -d|--build-devel) build_devel=y; shift 1;;
-    -e|--error) set -e; shift 1;;
-    -f|--make-fail) make_fail=y; shift 1;;
     -g|--use-gcc) use_gcc=y; shift 1;;
     -j|--use-java) use_java=y; shift 1;;
     -h|--help|-\?) usage; exit 0;;
@@ -86,7 +78,6 @@ if [ "$verbose" == "y" ]; then
 	echo build_devel = \"$build_devel\"
 	echo build_dmg = \"$build_gui\"
 	echo dmg_dir = \"$dmg_dir\"
-	echo make_fail = \"$make_fail\"
 	echo use_gcc = \"$use_gcc\"
 	echo use_java = \"$use_java\"
 	echo with_test = \"$with_test\"
@@ -110,15 +101,6 @@ if [ "$install_type" == "update" ]; then
 	# uninstall octave and linear algebra
 	echo "Update homebrew installation in $install_dir."
 	cd "$install_dir/Contents/Resources/usr/bin"
-	if [ -d "$install_dir/Contents/Resources/usr/Cellar/arpack" ]; then
-		./brew uninstall arpack
-	fi
-	if [ -d "$install_dir/Contents/Resources/usr/Cellar/qrupdate" ]; then
-		./brew uninstall qrupdate
-	fi
-	if [ -d "$install_dir/Contents/Resources/usr/Cellar/suite-sparse" ]; then
-		./brew uninstall suite-sparse
-	fi
 	if [ -d "$install_dir/Contents/Resources/usr/Cellar/octave" ]; then
 		./brew uninstall octave
 	fi
@@ -144,10 +126,10 @@ fi
 cd "$install_dir/Contents/Resources/usr/bin"
 
 # install trash command line utility
-./brew install trash --universal
+./brew install trash
 
 # install gcc and set FC
-./brew install gcc --universal
+./brew install gcc
 export FC="$install_dir/Contents/Resources/usr/bin/gfortran"
 
 # get scietific libraries
@@ -156,18 +138,15 @@ export FC="$install_dir/Contents/Resources/usr/bin/gfortran"
 # enforce fltk (without fltk all native graphics is disabled and
 # e.g. gl2ps is not used. This will be untangled in Octave 4.2)
 # we use devel because fltk 1.3.3 does not work on recent Mac OS
-./brew install fltk --universal --devel
+./brew install fltk
 
 # create path for ghostscript
-./brew install ghostscript  --universal
+./brew install ghostscript
 gs_ver="$(./gs --version)"
 export GS_OPTIONS="-sICCProfilesDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/iccprofiles/ -sGenericResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/ -sFontResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/Font"
 
 # install gnuplot 5.1 (HEAD)
-gnuplot_settings="--universal --with-cairo --universal --HEAD"
-if [ "$build_gui" == "y" ]; then
-	gnuplot_settings="$octave_settings --with-qt"	
-fi
+gnuplot_settings="--with-cairo --with-qt --HEAD"
 if [ -d "/Library/Frameworks/AquaTerm.framework" ]; then
 	gnuplot_settings="$gnuplot_settings --with-aquaterm"
 else
@@ -176,7 +155,7 @@ fi
 ./brew install gnuplot $gnuplot_settings
 
 # icoutils
-./brew install icoutils --universal
+./brew install icoutils
 
 # use gcc for all scientific libraries
 if [ "$use_gcc" == "y" ]; then
@@ -185,38 +164,36 @@ if [ "$use_gcc" == "y" ]; then
 fi
 
 # install graphicsmagick and ensure quantum-depth-16
-./brew install graphicsmagick --universal --with-quantum-depth-16
+./brew install graphicsmagick --with-quantum-depth-16
 
 # install Qscintilla2 without python bindings
-./brew install qscintilla2 --universal --without-python --without-plugin --verbose
+./brew install qscintilla2 --without-python --without-plugin --verbose
 
 # get newest octave formula
 if [ "$use_experimental" == "y" ]; then
-	curl https://raw.githubusercontent.com/schoeps/homebrew-core/master/Formula/octave.rb -o "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-science/octave.rb"
+	curl https://raw.githubusercontent.com/schoeps/homebrew-core/master/Formula/octave.rb -o "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-core/octave.rb"
 fi
 	
 # build octave
-octave_settings="--universal --without-docs --build-from-source --without-java --universal --with-audio --without-fltk --debug $blas_settings"
+octave_settings="--universal --without-docs --build-from-source--with-audio"
 if [ "$verbose" == "y" ]; then
 	octave_settings="$octave_settings --verbose"
 fi
 if [ "$build_devel" == "y" ]; then
 	octave_settings="$octave_settings --HEAD"
 fi
-if [ "$build_gui" == "n" ]; then
-	octave_settings="$octave_settings"
+if [ "$build_gui" == "y" ]; then
+	octave_settings="$octave_settings --with-qt"
 else
-	octave_settings="$octave_settings --with-qt"	
+	octave_settings="$octave_settings --without-qt"	
 fi
 if [ "$use_java" == "y" ]; then
 	octave_settings="$octave_settings --with-java"
+else
+	octave_settings="$octave_settings --without-java"	
 fi
 if [ "$with_test" == "n" ]; then
 	octave_settings="$octave_settings --without-test"
-fi
-if [ "$make_fail" == "y" ]; then
-	# enforce failure 
-	/usr/bin/sed -i '' 's/\".\/bootstrap" if build.head?/\"false\"/g' "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-science/octave.rb"
 fi
 
 # finally build octave
