@@ -101,7 +101,7 @@ else
 fi
 
 if [ "$install_type" == "update" ]; then
-	# uninstall octave and linear algebra
+	# uninstall octave
 	echo "Update homebrew installation in $install_dir."
 	cd "$install_dir/Contents/Resources/usr/bin"
 	if [ -d "$install_dir/Contents/Resources/usr/Cellar/octave" ]; then
@@ -171,11 +171,11 @@ fi
 ./brew install graphicsmagick --with-quantum-depth-16
 
 # install Qscintilla2 without python bindings
-./brew install qscintilla2 --without-python --without-plugin --verbose
+./brew install qscintilla2 --without-python --without-plugin
 
 # get newest octave formula
 if [ "$use_experimental" == "y" ]; then
-	curl https://raw.githubusercontent.com/schoeps/homebrew-core/master/Formula/octave.rb -o "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-core/octave.rb"
+	curl https://raw.githubusercontent.com/schoeps/homebrew-core/master/Formula/octave.rb -o "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-core/Formula/octave.rb"
 fi
 	
 # build octave
