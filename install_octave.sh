@@ -13,37 +13,39 @@ with_test=y
 function usage()
 
 {
-	echo " $(basename $0)"
-	echo " $(basename $0) [OPTION] ..."
-	echo " $(basename $0) [OPTION ARG] ..."
-	echo ""
-	echo " Build an Octave application bundle for Mac OS X."
-	echo ""
-	echo " Several options are supported;"
-	echo ""
-	echo "  -a, --dmg-dir DIR"
-	echo "    Location to create dmg [$dmg_dir]."
-	echo "  -b, --build-dmg"
-	echo "    Build a dmg."
-	echo "  -c, --cli-only"
-	echo "    Do not build the gui."
-	echo "  -d, --build-devel"
-	echo "    Build the latest development snapshot."
-	echo "  -e, --error"
-	echo "    Exit on error."
-	echo "  -j, --use-java"
-	echo "    Compile with java."
-	echo "  -h, -?, --help"
-	echo "    Display this help text."
-	echo "  -i, --install-dir DIR"
-	echo "    Specify the directory where Octave will be installed [$install_dir]."
-	echo "  -t, --without-test"
-	echo "    Do not run 'make check'."
-	echo "  -v, --verbose"
-	echo "    Tell user the state of all options."
-	echo "  -x, --experimental"
-	echo "    Use experimental formula."
-	echo ""
+	read -r -d '' helptext <<EOHELP
+ $(basename $0)
+ $(basename $0) [OPTION] ...
+ $(basename $0) [OPTION ARG] ...
+
+ Build an Octave application bundle for Mac OS X.
+
+ Several options are supported:
+
+  -a, --dmg-dir DIR
+    Location to create dmg [$dmg_dir].
+  -b, --build-dmg
+    Build a dmg.
+  -c, --cli-only
+    Do not build the gui.
+  -d, --build-devel
+    Build the latest development snapshot.
+  -e, --error
+    Exit on error.
+  -j, --use-java
+    Compile with java.
+  -h, -?, --help
+    Display this help text.
+  -i, --install-dir DIR
+    Specify the directory where Octave will be installed [$install_dir].
+  -t, --without-test
+    Do not run 'make check'.
+  -v, --verbose
+    Tell user the state of all options.
+  -x, --experimental
+    Use experimental formula.
+EOHELP
+    echo "$helptext"
 }
 
 while [[ $1 != "" ]]; do
@@ -217,76 +219,83 @@ ln -s "/var" "$install_dir/Contents/Resources/usr/var"
 
 # create applescript to execute octave
 tmp_script=$(mktemp /tmp/octave-XXXX);
-echo 'on export_gs_options()' > $tmp_script
-echo '  return "export GS_OPTIONS=\"-sICCProfilesDir='$install_dir'/Contents/Resources/usr/opt/ghostscript/share/ghostscript/'$gs_ver'/iccprofiles/ -sGenericResourceDir='$install_dir'/Contents/Resources/usr/opt/ghostscript/share/ghostscript/'$gs_ver'/Resource/ -sFontResourceDir='$install_dir'/Contents/Resources/usr/opt/ghostscript/share/ghostscript/'$gs_ver'/Resource/Font\";"' >> $tmp_script
-#echo '  return "export GS_OPTIONS=\"'$GS_OPTIONS'\""' >> $tmp_script
-echo 'end export_gs_options' >> $tmp_script
-echo '' >> $tmp_script
-echo 'on export_gnuterm()' >> $tmp_script
-echo '  return "export GNUTERM=\"qt\";"'  >> $tmp_script
-echo "end export_gnuterm"  >> $tmp_script
-echo '' >> $tmp_script
-echo 'on export_path()' >> $tmp_script
-echo '  return "export PATH=\"'$install_dir'/Contents/Resources/usr/bin/:$PATH\";"' >> $tmp_script
-echo 'end export_path'  >> $tmp_script
-echo '' >> $tmp_script
-echo 'on export_dyld()' >> $tmp_script
-echo '  return "export DYLD_FALLBACK_LIBRARY_PATH=\"'$install_dir'/Contents/Resources/usr/lib:/lib:/usr/lib\";"' >> $tmp_script
-echo 'end export_dyld'  >> $tmp_script
-echo '' >> $tmp_script
-echo 'on cache_fontconfig()' >> $tmp_script
-echo '  set fileTarget to (path to home folder as text) & ".cache:fontconfig"' >> $tmp_script
-echo '  try' >> $tmp_script
-echo '    fileTarget as alias' >> $tmp_script
-echo '  on error' >> $tmp_script
-echo '    display dialog "Font cache not found, so first plotting will be slow. Create font cache now?" with icon caution buttons {"Yes", "No"}' >> $tmp_script
-echo '    if button returned of result = "Yes" then' >> $tmp_script
-echo '      do shell script "'$install_dir'/Contents/Resources/usr/bin/fc-cache -frv;"' >> $tmp_script
-echo '    end if' >> $tmp_script
-echo '  end try' >> $tmp_script
-echo 'end cache_fontconfig' >> $tmp_script
-echo '' >> $tmp_script
-echo 'on run_octave_gui()' >> $tmp_script
-echo '  return "cd ~;clear;'$install_dir'/Contents/Resources/usr/bin/octave --force-gui | logger 2>&1;"' >> $tmp_script
-echo 'end run_octave_gui'  >> $tmp_script
-echo '' >> $tmp_script
-echo 'on run_octave_cli()' >> $tmp_script
-echo '  return "cd ~;clear;'$install_dir'/Contents/Resources/usr/bin/octave;exit;"' >> $tmp_script
-echo 'end run_octave_cli'  >> $tmp_script
-echo '' >> $tmp_script
-echo 'on run_octave_open(filename)' >> $tmp_script
-echo '  return "cd ~;clear;'$install_dir'/Contents/Resources/usr/bin/octave --persist --eval \"edit " & filename & "\" | logger 2>&1;"' >> $tmp_script
-echo 'end run_octave_open'  >> $tmp_script
-echo '' >> $tmp_script
-echo 'on path_check()' >> $tmp_script
-echo '  if not (POSIX path of (path to me) contains "'$install_dir'") then' >> $tmp_script
-echo '    display dialog "Please run Octave from the '$install_dir' folder" with icon stop with title "Error" buttons {"OK"}' >> $tmp_script
-echo '    error number -128' >> $tmp_script
-echo '  end if' >> $tmp_script
-echo 'end path_check' >> $tmp_script
-echo '' >> $tmp_script
-echo 'on open argv' >> $tmp_script
-echo '  path_check()' >> $tmp_script
-echo '  cache_fontconfig()' >> $tmp_script
-echo '  set filename to "\"" & POSIX path of item 1 of argv & "\""' >> $tmp_script
-echo '    set cmd to export_gs_options() & export_gnuterm() & export_path() & export_dyld() & run_octave_open(filename)' >> $tmp_script
-echo '    do shell script cmd' >> $tmp_script
-echo 'end open'  >> $tmp_script
-echo '' >> $tmp_script
-echo 'on run' >> $tmp_script
-echo '  path_check()' >> $tmp_script
-echo '  cache_fontconfig()' >> $tmp_script
 if [ "$build_gui" == "y" ]; then
-	echo '  set cmd to export_gs_options() & export_gnuterm() & export_path() & export_dyld() & run_octave_gui()' >> $tmp_script
-	echo '  do shell script cmd' >> $tmp_script
+	read -r -d '' program_launch_code <<EOS
+  set cmd to export_gs_options() & export_gnuterm() & export_path() & export_dyld() & run_octave_gui()
+  do shell script cmd
+EOS
 else
-	echo '  set cmd to export_gs_options() & export_gnuterm() & export_path() & run_octave_cli()' >> $tmp_script
-	echo '  tell application "Terminal"' >> $tmp_script
-	echo '    activate' >> $tmp_script
-	echo '    do script cmd' >> $tmp_script
-	echo '  end tell' >> $tmp_script
+	read -r -d '' program_launch_code <<EOS
+  set cmd to export_gs_options() & export_gnuterm() & export_path() & run_octave_cli()
+  tell application "Terminal"
+    activate
+    do script cmd
+  end tell
+EOS
 fi
-echo "end run" >> $tmp_script
+echo <<EOSCRIPT >> $tmp_script
+on export_gs_options()
+  return "export GS_OPTIONS=\\"-sICCProfilesDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/iccprofiles/ -sGenericResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/ -sFontResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/Font\\";"
+end export_gs_options
+
+on export_gnuterm()
+  return "export GNUTERM=\\"qt\\";"
+end export_gnuterm
+
+on export_path()
+  return "export PATH=\\"$install_dir/Contents/Resources/usr/bin/:$PATH\\";"
+end export_path
+
+on export_dyld()
+  return "export DYLD_FALLBACK_LIBRARY_PATH=\\"$install_dir/Contents/Resources/usr/lib:/lib:/usr/lib\\";"
+end export_dyld
+
+on cache_fontconfig()
+  set fileTarget to (path to home folder as text) & ".cache:fontconfig"
+  try
+    fileTarget as alias
+  on error
+    display dialog "Font cache not found, so first plotting will be slow. Create font cache now?" with icon caution buttons {"Yes", "No"}
+    if button returned of result = "Yes" then
+      do shell script "$install_dir/Contents/Resources/usr/bin/fc-cache -frv;"
+    end if
+  end try
+end cache_fontconfig
+
+on run_octave_gui()
+  return "cd ~;clear;$install_dir/Contents/Resources/usr/bin/octave --force-gui | logger 2>&1;"
+end run_octave_gui
+
+on run_octave_cli()
+  return "cd ~;clear;$install_dir/Contents/Resources/usr/bin/octave;exit;"
+end run_octave_cli
+
+on run_octave_open(filename)
+  return "cd ~;clear;$install_dir/Contents/Resources/usr/bin/octave --persist --eval \\"edit " & filename & "\\" | logger 2>&1;"
+end run_octave_open
+
+on path_check()
+  if not (POSIX path of (path to me) contains "$install_dir") then
+    display dialog "Please run Octave from the $install_dir folder" with icon stop with title "Error" buttons {"OK"}
+    error number -128
+  end if
+end path_check
+
+on open argv
+  path_check()
+  cache_fontconfig()
+  set filename to "\\"" & POSIX path of item 1 of argv & "\\""
+  set cmd to export_gs_options() & export_gnuterm() & export_path() & export_dyld() & run_octave_open(filename)
+  do shell script cmd
+end open
+
+on run
+  path_check()
+  cache_fontconfig()
+  $program_launch_code
+end run
+EOSCRIPT
+
 osacompile -o $install_dir/Contents/Resources/Scripts/main.scpt $tmp_script
 
 # create a nice iconset (using the icons shipped with octave)
@@ -319,10 +328,12 @@ chmod a=r "$install_dir/Contents/Info.plist"
 # add icon to octave-gui
 if [ "$build_gui" == "y" ]; then
 	export python_script=$(mktemp /tmp/octave-XXXX);
-	echo '#!/usr/bin/env python' > $python_script
-	echo 'import Cocoa' >> $python_script
-	echo 'import sys' >> $python_script
-	echo 'Cocoa.NSWorkspace.sharedWorkspace().setIcon_forFile_options_(Cocoa.NSImage.alloc().initWithContentsOfFile_(sys.argv[1].decode("utf-8")), sys.argv[2].decode("utf-8"), 0) or sys.exit("Unable to set file icon")' >> $python_script
+	echo <<EOSCRIPT > $python_script
+#!/usr/bin/env python
+import Cocoa
+import sys
+Cocoa.NSWorkspace.sharedWorkspace().setIcon_forFile_options_(Cocoa.NSImage.alloc().initWithContentsOfFile_(sys.argv[1].decode("utf-8")), sys.argv[2].decode("utf-8"), 0) or sys.exit("Unable to set file icon")
+EOSCRIPT
 	/usr/bin/python "$python_script" "$install_dir/Contents/Resources/applet.icns" $install_dir/Contents/Resources/usr/Cellar/octave/*/libexec/octave/*/exec/*/octave-gui
 fi
 
