@@ -22,28 +22,30 @@ function usage()
 
  Several options are supported:
 
-  -a, --dmg-dir DIR
-    Location to create dmg [$dmg_dir].
-  -b, --build-dmg
-    Build a dmg.
-  -c, --cli-only
-    Do not build the gui.
-  -d, --build-devel
-    Build the latest development snapshot.
-  -e, --error
-    Exit on error.
-  -j, --use-java
-    Compile with java.
-  -h, -?, --help
-    Display this help text.
-  -i, --install-dir DIR
-    Specify the directory where Octave will be installed [$install_dir].
-  -t, --without-test
-    Do not run 'make check'.
-  -v, --verbose
-    Tell user the state of all options.
-  -x, --experimental
-    Use experimental formula.
+    -a, --dmg-dir DIR
+      Location to create DMG [default=$dmg_dir].
+    -b, --build-dmg
+      Build a DMG.
+    -e, --error
+      Exit on error.
+    -h, -?, --help
+      Display this help text.
+    -i, --install-dir DIR
+      Specify the path to where Octave.app will be installed [default=$install_dir].
+    -t, --without-test
+      Do not run 'make check'.
+    -v, --verbose
+      Verbose output, and list state of all options.
+
+  Octave build options:
+    -c, --cli-only
+      Do not build the GUI.
+    -j, --use-java
+      Compile with Java support.
+    -d, --build-devel
+      Build the latest development snapshot.
+    -x, --experimental
+      Use the experimental Octave formula.
 EOHELP
     echo "$helptext"
 }
@@ -137,9 +139,6 @@ cd "$install_dir/Contents/Resources/usr/bin"
 # install gcc and set FC
 ./brew install gcc
 export FC="$install_dir/Contents/Resources/usr/bin/gfortran"
-
-# get scietific libraries
-./brew tap homebrew/science
 
 # enforce fltk (without fltk all native graphics is disabled and
 # e.g. gl2ps is not used. This will be untangled in Octave 4.2)
