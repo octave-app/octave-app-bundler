@@ -10,13 +10,17 @@ dmg_dir="$HOME"
 verbose=n
 with_test=y
 
+this_program=$(basename $0)
+bundler_home=$(realpath $(dirname $0))
+
+
 function usage()
 
 {
 	read -r -d '' helptext <<EOHELP
- $(basename $0)
- $(basename $0) [OPTION] ...
- $(basename $0) [OPTION ARG] ...
+ $this_program
+ $this_program [OPTION] ...
+ $this_program [OPTION ARG] ...
 
  Build an Octave application bundle for Mac OS X.
 
@@ -88,11 +92,11 @@ if [ "$verbose" == "y" ]; then
 	echo use_gcc = \"$use_gcc\"
 	echo use_java = \"$use_java\"
 	echo with_test = \"$with_test\"
+  echo octave_app_bundler_home = \"$bundler_home\"
 	set -v
 fi
 
 # set some environment variables
-# export HOMEBREW_BUILD_FROM_SOURCE=1
 export HOMEBREW_OPTFLAGS="-march=core2"
 PATH="$install_dir/Contents/Resources/usr/bin/:$PATH"
 
@@ -178,7 +182,7 @@ fi
 if [ "$use_experimental" == "y" ]; then
 	curl https://raw.githubusercontent.com/schoeps/homebrew-core/master/Formula/octave.rb -o "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-core/Formula/octave.rb"
 fi
-	
+
 # build octave
 octave_settings="--universal --without-docs --build-from-source--with-audio"
 if [ "$verbose" == "y" ]; then
@@ -356,9 +360,6 @@ if [ "$build_dmg" == "y" ]; then
 	tmp_dir=$(mktemp -d /tmp/octave-XXXX)
 	git clone https://github.com/schoeps/create-dmg.git $tmp_dir/create-dmg
 
-	# get background image
-	curl https://raw.githubusercontent.com/schoeps/octave_installer/master/background.tiff -o "$tmp_dir/background.tiff"
-
 	# Put existing dmg into Trash
 	if [ -f "$dmg_dir/Octave-Installer.dmg" ]; then
 	  echo "Moving $dmg_dir/Octave_Installer.dmg into the trash"
@@ -380,7 +381,7 @@ if [ "$build_dmg" == "y" ]; then
 	--add-file COPYING "$install_dir/Contents/Resources/usr/opt/octave/COPYING" 126 300 \
 	--add-file DEPENDENCIES "$install_dir/Contents/Resources/DEPENDENCIES" 415 300 \
 	--disk-image-size 2000 \
-	--background "$tmp_dir/background.tiff" \
+	--background "${bundler_home}/background.tiff" \
 	"$dmg_dir/Octave-Installer.dmg" \
 	"$install_dir" 
 
