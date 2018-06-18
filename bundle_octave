@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 
+# bundle_octave - Create an Octave.app app bundle
+#
+# Hints:
+#
+# If you want to do your compilations single-threaded, which will be slower
+# but produce more readable output, set the environment variable
+# HOMEBREW_MAKE_JOBS=1 before running bundle_octave.
+
 install_dir="/Applications/Octave.app"
 build_gui=y
 build_devel=n
@@ -9,15 +17,16 @@ use_java=n
 dmg_dir="$HOME"
 verbose=n
 with_test=y
+octave_formula="octave@4.4.0"
+exit_on_error=y
 
 this_program=$(basename $0)
 bundler_home=$(realpath $(dirname $0))
 
 
-function usage()
+function usage() {
 
-{
-	read -r -d '' helptext <<EOHELP
+	cat <<EOHELP
  $this_program
  $this_program [OPTION] ...
  $this_program [OPTION ARG] ...
@@ -26,16 +35,17 @@ function usage()
 
  Several options are supported:
 
-    -a, --dmg-dir DIR
-      Location to create DMG [default=$dmg_dir].
+  Packaging options:
+    -a, --dmg-dir <DIR>
+      Location to create DMG [$dmg_dir].
     -b, --build-dmg
       Build a DMG.
-    -e, --error
-      Exit on error.
+    -E, --ignore-errors
+      Do not exit on errors.
     -h, -?, --help
       Display this help text.
-    -i, --install-dir DIR
-      Specify the path to where Octave.app will be installed [default=$install_dir].
+    -i, --install-dir <DIR>
+      Specify the path to where Octave.app will be installed [$install_dir].
     -t, --without-test
       Do not run 'make check'.
     -v, --verbose
@@ -50,13 +60,15 @@ function usage()
       Build the latest development snapshot.
     -x, --experimental
       Use the experimental Octave formula.
+    -f, --formula
+      Name of Octave formula to use [$octave_formula].
 EOHELP
-    echo "$helptext"
 }
 
 while [[ $1 != "" ]]; do
   case "$1" in
-    -a|--dmg-dir) if [ $# -gt 1 ]; then
+    -a|--dmg-dir)
+        if [ $# -gt 1 ]; then
           dmg_dir=$2; shift 2
         else 
           echo "$1 requires an argument" >&2
@@ -65,11 +77,19 @@ while [[ $1 != "" ]]; do
     -b|--build-dmg) build_dmg=y; shift 1;;
     -c|--cli-only) build_gui=n; shift 1;;
     -d|--build-devel) build_devel=y; shift 1;;
-    -e|--error) set -e; shift 1;;
+    -E|--ignore-errors) exit_on_error=n; shift 1;;
+    -f|--formula) 
+        if [ $# -gt 1 ]; then
+          octave_formula=$2; shift 2
+        else 
+          echo "$1 requires an argument" >&2
+          exit 1
+        fi ;;
     -g|--use-gcc) use_gcc=y; shift 1;;
     -j|--use-java) use_java=y; shift 1;;
     -h|--help|-\?) usage; exit 0;;
-    -i|--install-dir) if [ $# -gt 1 ]; then
+    -i|--install-dir)
+        if [ $# -gt 1 ]; then
           install_dir=$2; shift 2
         else 
           echo "$1 requires an argument" >&2
@@ -79,10 +99,17 @@ while [[ $1 != "" ]]; do
     -v|--verbose) verbose=y; shift 1;;
     -x|--experimental) use_experimental=y; shift 1;;
     --) shift; break;;
-    *) echo "invalid option: $1" >&2; usage; exit 1;;
+    *) 
+      echo "Invalid option: $1" >&2;
+      echo "See $this_program --help for help."
+      exit 1
+      ;;
   esac
 done
 
+if [ "$exit_on_error" = "y" ]; then
+  set -e
+fi
 if [ "$verbose" == "y" ]; then
 	echo install_dir = \"$install_dir\"
 	echo build_gui = \"$build_gui\"
@@ -113,7 +140,7 @@ if [ "$install_type" == "update" ]; then
 	echo "Update homebrew installation in $install_dir."
 	cd "$install_dir/Contents/Resources/usr/bin"
 	if [ -d "$install_dir/Contents/Resources/usr/Cellar/octave" ]; then
-		./brew uninstall octave
+		./brew uninstall "$octave_formula"
 	fi
 else
 	# install homebrew
@@ -122,6 +149,7 @@ else
 	mkdir -p "$install_dir/Contents/Resources/usr"
 	curl -L https://github.com/Homebrew/homebrew/tarball/master | tar xz --strip 1 -C "$install_dir/Contents/Resources/usr"
 	cd "$install_dir/Contents/Resources/usr/bin"
+  ./brew tap octave-app/octave-app
 fi
 
 ./brew update # get new formulas
@@ -129,54 +157,23 @@ fi
 ./brew cleanup # remove old versions
 ./brew prune # remove links
 
+
 # be conservative regarding architectures
 # use Mac's (BSD) sed
 /usr/bin/sed -i '' 's/march=native/march=core2/g' "$install_dir/Contents/Resources/usr/Library/Homebrew/extend/ENV/super.rb" 
 /usr/bin/sed -i '' 's/march=native/march=core2/g' "$install_dir/Contents/Resources/usr/Library/Homebrew/extend/ENV/std.rb" 
 
-# go to the bin directory 
-cd "$install_dir/Contents/Resources/usr/bin"
+# install utilities that bundler itself needs
+./brew install trash icoutils
 
-# install trash command line utility
-./brew install trash
-
-# install gcc and set FC
-./brew install gcc
+# set FC to point to GCC's gfortran
 export FC="$install_dir/Contents/Resources/usr/bin/gfortran"
 
-# enforce fltk (without fltk all native graphics is disabled and
-# e.g. gl2ps is not used. This will be untangled in Octave 4.2)
-# we use devel because fltk 1.3.3 does not work on recent Mac OS
-./brew install fltk
-
-# create path for ghostscript
-./brew install ghostscript
-gs_ver="$(./gs --version)"
-export GS_OPTIONS="-sICCProfilesDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/iccprofiles/ -sGenericResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/ -sFontResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/Font"
-
-# install gnuplot
-gnuplot_settings="--with-cairo --with-qt"
-if [ -d "/Library/Frameworks/AquaTerm.framework" ]; then
-	gnuplot_settings="$gnuplot_settings --with-aquaterm"
-else
-	echo "Did not find Aquaterm; build gnuplot without it."
-fi
-./brew install gnuplot $gnuplot_settings
-
-# icoutils
-./brew install icoutils
-
-# use gcc for all scientific libraries
+# use GCC for all scientific libraries
 if [ "$use_gcc" == "y" ]; then
-	export HOMEBREW_CC=gcc-6
-	export HOMEBREW_CXX=g++-6
+  export HOMEBREW_CC=gcc-6
+  export HOMEBREW_CXX=g++-6
 fi
-
-# install graphicsmagick and ensure quantum-depth-16
-./brew install graphicsmagick --with-quantum-depth-16
-
-# install Qscintilla2 without python bindings
-./brew install qscintilla2 --without-python --without-plugin
 
 # get newest octave formula
 if [ "$use_experimental" == "y" ]; then
@@ -184,34 +181,41 @@ if [ "$use_experimental" == "y" ]; then
 fi
 
 # build octave
-octave_settings="--universal --without-docs --build-from-source--with-audio"
+octave_build_options="--universal --without-docs --build-from-source--with-audio"
 if [ "$verbose" == "y" ]; then
-	octave_settings="$octave_settings --verbose"
+	octave_build_options="$octave_build_options --verbose"
 fi
 if [ "$build_devel" == "y" ]; then
-	octave_settings="$octave_settings --HEAD"
+	octave_build_options="$octave_build_options --HEAD"
 fi
 if [ "$build_gui" == "y" ]; then
-	octave_settings="$octave_settings --with-qt"
+	octave_build_options="$octave_build_options --with-qt"
 else
-	octave_settings="$octave_settings --without-qt"	
+	octave_build_options="$octave_build_options --without-qt"	
 fi
 if [ "$use_java" == "y" ]; then
-	octave_settings="$octave_settings --with-java"
+	octave_build_options="$octave_build_options --with-java"
 else
-	octave_settings="$octave_settings --without-java"	
+	octave_build_options="$octave_build_options --without-java"	
 fi
 if [ "$with_test" == "n" ]; then
-	octave_settings="$octave_settings --without-test"
+	octave_build_options="$octave_build_options --without-test"
 fi
 
 # finally build octave
-./brew install octave $octave_settings
+echo ./brew install $octave_formula $octave_build_options
+./brew install $octave_formula $octave_build_options
 
 # get versions
 oct_ver="$(./octave --version | /usr/bin/sed -n 1p | /usr/bin/grep -o '\d\..*$' )"
 oct_ver_string="$(./octave --version | /usr/bin/sed -n 1p)"
 oct_copy="$(./octave --version | /usr/bin/sed -n 2p | /usr/bin/cut -c 15- )"
+
+echo "Octave Versions: ver=${oct_ver} ver_string=${oct_ver_string} copy=${oct_copy}"
+
+# Set path for ghostscript
+gs_ver="$(./gs --version)"
+export GS_OPTIONS="-sICCProfilesDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/iccprofiles/ -sGenericResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/ -sFontResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/Font"
 
 # use local font cache instead of global one
 /usr/bin/sed -i '' 's/\/Applications.*fontconfig/~\/.cache\/fontconfig/g' "$install_dir/Contents/Resources/usr/etc/fonts/fonts.conf" 
