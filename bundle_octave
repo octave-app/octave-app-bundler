@@ -354,19 +354,19 @@ do
 	echo "" >> "$install_dir/Contents/Resources/DEPENDENCIES"
 done
 
-# create a nice dmg disc image with create-dmg (MIT License)
+# create a nice DMG disc image with create-dmg (MIT License)
 if [ "$build_dmg" == "y" ]; then
 	# get make-dmg from github
 	tmp_dir=$(mktemp -d /tmp/octave-XXXX)
 	git clone https://github.com/schoeps/create-dmg.git $tmp_dir/create-dmg
 
-	# Put existing dmg into Trash
+	# put existing dmg into Trash
 	if [ -f "$dmg_dir/Octave-Installer.dmg" ]; then
 	  echo "Moving $dmg_dir/Octave_Installer.dmg into the trash"
 	  ./trash "$dmg_dir/Octave-Installer.dmg"
 	fi
 
-	# running create-dmg; this may issue warnings if run headless. However, the dmg
+	# run create-dmg; this may issue warnings if run headless. However, the dmg
 	# will still be created, only some beautifcation cannot be applied
 	cd "$tmp_dir/create-dmg"
 	./create-dmg \
