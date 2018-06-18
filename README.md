@@ -18,10 +18,6 @@ The home repo for this project is [octave-app/octave-app-bundler on GitHub](http
 
 Homebrew formulae used for Octave.app are in the [octave-app/octave-app tap](https://github.com/octave-app/homebrew-octave-app).
 
-## How it works
-
-Octave-app-bundler uses Homebrew to build and install Octave and all its dependencies. This is done in a separate Homebrew prefix under the target application so it doesn't interfere with any existing Homebrew installations. It then bundles those programs as a macOS app bundle, and creates an installer DMG using andreyvit's [create-dmg tool](https://github.com/andreyvit/create-dmg).
-
 ## Usage
 
 Again, if you just want to use Octave, you should [download the pre-built binary](https://octave-app.github.io/Download.html) instead of running octave-app-bundler yourself.
@@ -31,3 +27,8 @@ For those who do want to bundle their own Octave.app:
 Clone the [repo](https://github.com/octave-app/octave-app-bundler), `cd` to it, and run `./bundle_octave`. The defaults will build an app using a recent version of Octave.
 
 `bundle_octave` does have options, but they're mainly for use in debugging `bundle_octave` itself. They're not recommended for users, so avoid them unless you have a specific reason to use one. For details on the options, see `./bundle_octave --help`.
+
+## How it works
+
+Octave-app-bundler uses Homebrew to build and install Octave and all its dependencies. This is done in a separate Homebrew prefix under the target application so it doesn't interfere with any existing Homebrew installations. It then bundles those programs as a macOS app bundle, and creates an installer DMG using andreyvit's [create-dmg tool](https://github.com/andreyvit/create-dmg).
+
