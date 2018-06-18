@@ -370,20 +370,20 @@ if [ "$build_dmg" == "y" ]; then
 	# will still be created, only some beautifcation cannot be applied
 	cd "$tmp_dir/create-dmg"
 	./create-dmg \
-	--volname "Octave-Installer" \
-	--volicon "$install_dir/Contents/Resources/applet.icns" \
-	--window-size 550 442 \
-	--icon-size 48 \
-	--icon Octave.app 125 180 \
-	--hide-extension Octave.app \
-	--app-drop-link 415 180 \
-	--eula "$install_dir/Contents/Resources/usr/opt/octave/README" \
-	--add-file COPYING "$install_dir/Contents/Resources/usr/opt/octave/COPYING" 126 300 \
-	--add-file DEPENDENCIES "$install_dir/Contents/Resources/DEPENDENCIES" 415 300 \
-	--disk-image-size 2000 \
-	--background "${bundler_home}/background.tiff" \
-	"$dmg_dir/Octave-Installer.dmg" \
-	"$install_dir" 
+  	  --volname "Octave-Installer" \
+  	  --volicon "$install_dir/Contents/Resources/applet.icns" \
+  	  --window-size 550 442 \
+  	  --icon-size 48 \
+  	  --icon Octave.app 125 180 \
+    	--hide-extension Octave.app \
+    	--app-drop-link 415 180 \
+    	--eula "$install_dir/Contents/Resources/usr/opt/octave/README" \
+    	--add-file COPYING "$install_dir/Contents/Resources/usr/opt/octave/COPYING" 126 300 \
+    	--add-file DEPENDENCIES "$install_dir/Contents/Resources/DEPENDENCIES" 415 300 \
+    	--disk-image-size 2000 \
+    	--background "${bundler_home}/background.tiff" \
+    	"$dmg_dir/Octave-Installer.dmg" \
+    	"$install_dir" 
 
 	echo DMG ready: $dmg_dir/Octave-Installer.dmg
 fi
