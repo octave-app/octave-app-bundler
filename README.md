@@ -1,9 +1,13 @@
 octave-app-bundler
 ==================
 
-This repository contains the necessary files to build Octave.app (version >4) using Homebrew. Most users should either download the binary or use a package manager as described [here](http://wiki.octave.org/Octave_for_MacOS_X).
+This repository contains the necessary files to build Octave.app (version >=4) using Homebrew.
 
-More information at http://wiki.octave.org/Create_a_MacOS_X_App_Bundle_Using_Homebrew.
+If you're a user and just want to run Octave, you don't want this repo. Just go [here](https://octave-app.github.io/Download.html) to download the installer. (This repo just contains the tools that are used to build that installer.)
+
+Alternately, you can use a package manager as described [here](http://wiki.octave.org/Octave_for_MacOS_X).
+
+More general information about installing Octave is available at http://wiki.octave.org/Create_a_MacOS_X_App_Bundle_Using_Homebrew.
 
 ## Contact
 
@@ -20,7 +24,7 @@ Octave-app-bundler uses Homebrew to build and install Octave and all its depende
 
 ## Usage
 
-Again, if you just want to use Octave, you should [download the pre-built binary](http://wiki.octave.org/Octave_for_MacOS_X) instead of running octave-app-bundler yourself.
+Again, if you just want to use Octave, you should [download the pre-built binary](https://octave-app.github.io/Download.html) instead of running octave-app-bundler yourself.
 
 For those who do want to bundle their own Octave.app:
 
