@@ -213,7 +213,7 @@ if [ "$use_experimental" == "y" ]; then
 fi
 
 # build octave
-octave_build_options="--universal --without-docs --build-from-source --with-audio"
+octave_build_options="--universal --without-docs --with-audio"
 if [ "$verbose" == "y" ]; then
 	octave_build_options="$octave_build_options --verbose"
 fi
