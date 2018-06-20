@@ -167,22 +167,22 @@ PATH="$install_usr/bin/:$PATH"
 
 # check if we do full or update
 if [ -e "$install_usr/bin/brew" ]; then
-	echo "Update."
 	install_type='update'
 else
 	install_type='full'
 fi
 
 if [ "$install_type" == "update" ]; then
-	# uninstall octave
-	echo "Update homebrew installation in $install_dir."
+  # update homebrew
+	echo "Updating existing Homebrew installation in $install_dir."
 	cd "$install_usr/bin"
+  # uninstall any old octave
 	if [ -d "$install_usr/Cellar/$octave_formula" ]; then
 		./brew uninstall "$octave_formula"
 	fi
 else
 	# install homebrew
-	echo "Create new homebrew installation in $install_dir."
+	echo "Creating new Homebrew installation in $install_dir."
 	osacompile -o "$install_dir" -e " "
 	mkdir -p "$install_usr"
 	curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "$install_usr"
@@ -191,8 +191,8 @@ else
   ./brew tap octave-app/octave-app-versions
 fi
 
-./brew update # get new formulas
-./brew upgrade # compile new formulas
+./brew update # get new formulae
+./brew upgrade # compile new formulae
 ./brew cleanup # remove old versions
 ./brew prune # remove links
 
@@ -254,7 +254,7 @@ oct_ver="$(./octave --version | /usr/bin/sed -n 1p | /usr/bin/grep -o '\d\..*$' 
 oct_ver_string="$(./octave --version | /usr/bin/sed -n 1p)"
 oct_copy="$(./octave --version | /usr/bin/sed -n 2p | /usr/bin/cut -c 15- )"
 
-echo "Octave Versions: ver=${oct_ver} ver_string=${oct_ver_string} copy=${oct_copy}"
+echo "Octave versions: ver=${oct_ver} ver_string=${oct_ver_string} copy=${oct_copy}"
 
 # Set path for ghostscript
 gs_ver="$(./gs --version)"
@@ -403,13 +403,14 @@ done
 
 # create a nice DMG disc image with create-dmg (MIT License)
 if [ "$build_dmg" == "y" ]; then
+  echo "Building DMG"
 	# get make-dmg from github
 	tmp_dir=$(mktemp -d /tmp/octave-XXXX)
 	git clone https://github.com/schoeps/create-dmg.git $tmp_dir/create-dmg
 
 	# put existing dmg into Trash
 	if [ -f "$dmg_dir/$app_name.dmg" ]; then
-	  echo "Moving $dmg_dir/$app_name.dmg into the trash"
+	  echo "Moving $dmg_dir/$app_name.dmg into the Trash"
 	  trash "$dmg_dir/$app_name.dmg"
 	fi
 
