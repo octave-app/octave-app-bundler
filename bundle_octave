@@ -150,12 +150,13 @@ fi
 install_dir="/Applications/${app_name}.app"
 echo "Building ${app_name}.app at ${install_dir}"
 
+install_usr="$install_dir/Contents/Resources/usr"
 # set some environment variables
 export HOMEBREW_OPTFLAGS="-march=core2"
-PATH="$install_dir/Contents/Resources/usr/bin/:$PATH"
+PATH="$install_usr/bin/:$PATH"
 
 # check if we do full or update
-if [ -e "$install_dir/Contents/Resources/usr/bin/brew" ]; then
+if [ -e "$install_usr/bin/brew" ]; then
 	echo "Update."
 	install_type='update'
 else
@@ -165,17 +166,17 @@ fi
 if [ "$install_type" == "update" ]; then
 	# uninstall octave
 	echo "Update homebrew installation in $install_dir."
-	cd "$install_dir/Contents/Resources/usr/bin"
-	if [ -d "$install_dir/Contents/Resources/usr/Cellar/octave" ]; then
+	cd "$install_usr/bin"
+	if [ -d "$install_usr/Cellar/$octave_formula" ]; then
 		./brew uninstall "$octave_formula"
 	fi
 else
 	# install homebrew
 	echo "Create new homebrew installation in $install_dir."
 	osacompile -o "$install_dir" -e " "
-	mkdir -p "$install_dir/Contents/Resources/usr"
-	curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "$install_dir/Contents/Resources/usr"
-	cd "$install_dir/Contents/Resources/usr/bin"
+	mkdir -p "$install_usr"
+	curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "$install_usr"
+	cd "$install_usr/bin"
   ./brew tap octave-app/octave-app
   ./brew tap octave-app/octave-app-versions
 fi
@@ -187,8 +188,8 @@ fi
 
 
 # use Mac's (BSD) sed
-/usr/bin/sed -i '' 's/march=native/march=${build_arch}/g' "$install_dir/Contents/Resources/usr/Library/Homebrew/extend/ENV/super.rb" 
-/usr/bin/sed -i '' 's/march=native/march=${build_arch}/g' "$install_dir/Contents/Resources/usr/Library/Homebrew/extend/ENV/std.rb" 
+/usr/bin/sed -i '' 's/march=native/march=${build_arch}/g' "$install_usr/Library/Homebrew/extend/ENV/super.rb" 
+/usr/bin/sed -i '' 's/march=native/march=${build_arch}/g' "$install_usr/Library/Homebrew/extend/ENV/std.rb" 
 
 # install utilities that bundler itself needs into the global Homebrew
 # installation (to avoid possible conflicts with versioned icoutils etc
@@ -198,7 +199,7 @@ fi
 brew install trash
 
 # set FC to point to GCC's gfortran
-export FC="$install_dir/Contents/Resources/usr/bin/gfortran"
+export FC="$install_usr/bin/gfortran"
 
 # use GCC for all scientific libraries
 if [ "$use_gcc" == "y" ]; then
@@ -208,7 +209,7 @@ fi
 
 # get newest octave formula
 if [ "$use_experimental" == "y" ]; then
-	curl https://raw.githubusercontent.com/schoeps/homebrew-core/master/Formula/octave.rb -o "$install_dir/Contents/Resources/usr/Library/Taps/homebrew/homebrew-core/Formula/octave.rb"
+	curl https://raw.githubusercontent.com/schoeps/homebrew-core/master/Formula/octave.rb -o "$install_usr/Library/Taps/homebrew/homebrew-core/Formula/octave.rb"
 fi
 
 # build octave
@@ -237,7 +238,7 @@ fi
 echo ./brew install $octave_formula $octave_build_options
 ./brew install $octave_formula $octave_build_options
 
-# get versions
+# get versions dynamically from the built program
 oct_ver="$(./octave --version | /usr/bin/sed -n 1p | /usr/bin/grep -o '\d\..*$' )"
 oct_ver_string="$(./octave --version | /usr/bin/sed -n 1p)"
 oct_copy="$(./octave --version | /usr/bin/sed -n 2p | /usr/bin/cut -c 15- )"
@@ -246,14 +247,15 @@ echo "Octave Versions: ver=${oct_ver} ver_string=${oct_ver_string} copy=${oct_co
 
 # Set path for ghostscript
 gs_ver="$(./gs --version)"
-export GS_OPTIONS="-sICCProfilesDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/iccprofiles/ -sGenericResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/ -sFontResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/Font"
+gs_share="$install_usr/opt/ghostscript/share/ghostscript"
+export GS_OPTIONS="-sICCProfilesDir=$gs_share/$gs_ver/iccprofiles/ -sGenericResourceDir=$gs_share/$gs_ver/Resource/ -sFontResourceDir=$gs_share/$gs_ver/Resource/Font"
 
 # use local font cache instead of global one
-/usr/bin/sed -i '' 's/\/Applications.*fontconfig/~\/.cache\/fontconfig/g' "$install_dir/Contents/Resources/usr/etc/fonts/fonts.conf" 
+/usr/bin/sed -i '' 's/\/Applications.*fontconfig/~\/.cache\/fontconfig/g' "$install_usr/etc/fonts/fonts.conf" 
 
-# tidy up: make a symlink to system "/var
-rm -R "$install_dir/Contents/Resources/usr/var"
-ln -s "/var" "$install_dir/Contents/Resources/usr/var"
+# Redirect the app's var/ to system /var
+rm -R "$install_usr/var"
+ln -s "/var" "$install_usr/var"
 
 # create applescript to execute octave
 tmp_script=$(mktemp /tmp/octave-XXXX);
@@ -273,7 +275,7 @@ EOS
 fi
 echo <<EOSCRIPT >> $tmp_script
 on export_gs_options()
-  return "export GS_OPTIONS=\\"-sICCProfilesDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/iccprofiles/ -sGenericResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/ -sFontResourceDir=$install_dir/Contents/Resources/usr/opt/ghostscript/share/ghostscript/$gs_ver/Resource/Font\\";"
+  return "export GS_OPTIONS=\\"-sICCProfilesDir=$gs_share/$gs_ver/iccprofiles/ -sGenericResourceDir=$gs_share/$gs_ver/Resource/ -sFontResourceDir=$gs_share/$gs_ver/Resource/Font\\";"
 end export_gs_options
 
 on export_gnuterm()
@@ -281,11 +283,11 @@ on export_gnuterm()
 end export_gnuterm
 
 on export_path()
-  return "export PATH=\\"$install_dir/Contents/Resources/usr/bin/:$PATH\\";"
+  return "export PATH=\\"$install_usr/bin/:$PATH\\";"
 end export_path
 
 on export_dyld()
-  return "export DYLD_FALLBACK_LIBRARY_PATH=\\"$install_dir/Contents/Resources/usr/lib:/lib:/usr/lib\\";"
+  return "export DYLD_FALLBACK_LIBRARY_PATH=\\"$install_usr/lib:/lib:/usr/lib\\";"
 end export_dyld
 
 on cache_fontconfig()
@@ -295,21 +297,21 @@ on cache_fontconfig()
   on error
     display dialog "Font cache not found, so first plotting will be slow. Create font cache now?" with icon caution buttons {"Yes", "No"}
     if button returned of result = "Yes" then
-      do shell script "$install_dir/Contents/Resources/usr/bin/fc-cache -frv;"
+      do shell script "$install_usr/bin/fc-cache -frv;"
     end if
   end try
 end cache_fontconfig
 
 on run_octave_gui()
-  return "cd ~;clear;$install_dir/Contents/Resources/usr/bin/octave --force-gui | logger 2>&1;"
+  return "cd ~;clear;$install_usr/bin/octave --force-gui | logger 2>&1;"
 end run_octave_gui
 
 on run_octave_cli()
-  return "cd ~;clear;$install_dir/Contents/Resources/usr/bin/octave;exit;"
+  return "cd ~;clear;$install_usr/bin/octave;exit;"
 end run_octave_cli
 
 on run_octave_open(filename)
-  return "cd ~;clear;$install_dir/Contents/Resources/usr/bin/octave --persist --eval \\"edit " & filename & "\\" | logger 2>&1;"
+  return "cd ~;clear;$install_usr/bin/octave --persist --eval \\"edit " & filename & "\\" | logger 2>&1;"
 end run_octave_open
 
 on path_check()
@@ -338,7 +340,7 @@ osacompile -o $install_dir/Contents/Resources/Scripts/main.scpt $tmp_script
 
 # create a nice iconset (using the icons shipped with octave)
 # the following might fail for the development version
-hicolor="$install_dir/Contents/Resources/usr/opt/octave/share/icons/hicolor"
+hicolor="$install_usr/opt/octave/share/icons/hicolor"
 svg_icon="$hicolor/scalable/apps/octave.svg"
 tmp_iconset="$(mktemp -d /tmp/iconset-XXXX)/droplet.iconset"
 mkdir -p "$tmp_iconset"
@@ -372,15 +374,14 @@ import Cocoa
 import sys
 Cocoa.NSWorkspace.sharedWorkspace().setIcon_forFile_options_(Cocoa.NSImage.alloc().initWithContentsOfFile_(sys.argv[1].decode("utf-8")), sys.argv[2].decode("utf-8"), 0) or sys.exit("Unable to set file icon")
 EOSCRIPT
-	/usr/bin/python "$python_script" "$install_dir/Contents/Resources/applet.icns" $install_dir/Contents/Resources/usr/Cellar/octave/*/libexec/octave/*/exec/*/octave-gui
+	/usr/bin/python "$python_script" "$install_dir/Contents/Resources/applet.icns" $install_usr/Cellar/${octave_formula}/*/libexec/octave/*/exec/*/octave-gui
 fi
 
 # collect dependencies from the homebrew database
 # clean up the strings using sed
 echo "" > "$install_dir/Contents/Resources/DEPENDENCIES"
 
-# force all formulas to be linked and list them in 
-# the file DEPENDENCIES
+# force all formulas to be linked and list them in the DEPENDENCIES file
 ./brew list -1 | while read line
 do
 	./brew unlink $line
@@ -412,8 +413,8 @@ if [ "$build_dmg" == "y" ]; then
   	  --icon ${app_name}.app 125 180 \
     	--hide-extension ${app_name}.app \
     	--app-drop-link 415 180 \
-    	--eula "$install_dir/Contents/Resources/usr/opt/${octave_formula}/README" \
-    	--add-file COPYING "$install_dir/Contents/Resources/usr/opt/${octave_formula}/COPYING" 126 300 \
+    	--eula "$install_usr/opt/${octave_formula}/README" \
+    	--add-file COPYING "$install_usr/opt/${octave_formula}/COPYING" 126 300 \
     	--add-file DEPENDENCIES "$install_dir/Contents/Resources/DEPENDENCIES" 415 300 \
     	--disk-image-size 2000 \
     	--background "${bundler_home}/background.tiff" \
