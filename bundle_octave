@@ -19,6 +19,8 @@ with_test=y
 octave_version="4.4.0"
 octave_formula_base="octave"
 build_suffix=""
+# be conservative regarding architectures
+build_arch=core2
 exit_on_error=y
 
 this_program=$(basename $0)
@@ -184,10 +186,9 @@ fi
 ./brew prune # remove links
 
 
-# be conservative regarding architectures
 # use Mac's (BSD) sed
-/usr/bin/sed -i '' 's/march=native/march=core2/g' "$install_dir/Contents/Resources/usr/Library/Homebrew/extend/ENV/super.rb" 
-/usr/bin/sed -i '' 's/march=native/march=core2/g' "$install_dir/Contents/Resources/usr/Library/Homebrew/extend/ENV/std.rb" 
+/usr/bin/sed -i '' 's/march=native/march=${build_arch}/g' "$install_dir/Contents/Resources/usr/Library/Homebrew/extend/ENV/super.rb" 
+/usr/bin/sed -i '' 's/march=native/march=${build_arch}/g' "$install_dir/Contents/Resources/usr/Library/Homebrew/extend/ENV/std.rb" 
 
 # install utilities that bundler itself needs into the global Homebrew
 # installation (to avoid possible conflicts with versioned icoutils etc
