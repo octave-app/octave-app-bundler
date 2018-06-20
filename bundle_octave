@@ -278,7 +278,7 @@ function build_octave() {
 
 
   # build octave
-  octave_build_options="--universal --without-docs --with-audio"
+  octave_build_options="--universal"
   if [ "$verbose" == "y" ]; then
   	octave_build_options="$octave_build_options --verbose"
   fi
