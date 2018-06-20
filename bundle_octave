@@ -404,14 +404,15 @@ done
 # create a nice DMG disc image with create-dmg (MIT License)
 if [ "$build_dmg" == "y" ]; then
   echo "Building DMG"
+  dmg_filename="$app_name.dmg"
 	# get make-dmg from github
 	tmp_dir=$(mktemp -d /tmp/octave-XXXX)
 	git clone https://github.com/schoeps/create-dmg.git $tmp_dir/create-dmg
 
 	# put existing dmg into Trash
-	if [ -f "$dmg_dir/$app_name.dmg" ]; then
-	  echo "Moving $dmg_dir/$app_name.dmg into the Trash"
-	  trash "$dmg_dir/$app_name.dmg"
+	if [ -f "$dmg_dir/$dmg_filename" ]; then
+	  echo "Moving existing $dmg_dir/$dmg_filename into the Trash"
+	  trash "$dmg_dir/$dmg_filename"
 	fi
 
 	# run create-dmg; this may issue warnings if run headless. However, the dmg
@@ -430,8 +431,8 @@ if [ "$build_dmg" == "y" ]; then
     	--add-file DEPENDENCIES "$install_dir/Contents/Resources/DEPENDENCIES" 415 300 \
     	--disk-image-size 2000 \
     	--background "${bundler_home}/background.tiff" \
-    	"$dmg_dir/$app_name.dmg" \
+    	"$dmg_dir/$dmg_filename" \
     	"$install_dir" 
 
-	echo DMG ready: $dmg_dir/Octave-Installer.dmg
+	echo DMG ready: $dmg_dir/$dmg_name
 fi
