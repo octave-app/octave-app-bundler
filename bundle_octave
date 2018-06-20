@@ -17,7 +17,9 @@ use_java=n
 dmg_dir="$HOME"
 verbose=n
 with_test=y
-octave_formula="octave@4.4.0"
+octave_version="4.4.0"
+octave_formula_base="octave"
+build_suffix=""
 exit_on_error=y
 
 this_program=$(basename $0)
@@ -36,15 +38,17 @@ function usage() {
  Several options are supported:
 
   Packaging options:
-    -a, --dmg-dir <DIR>
+    -a, --dmg-dir <dir>
       Location to create DMG [$dmg_dir].
     -b, --build-dmg
       Build a DMG.
+    -u, --build-suffix <suffix>
+      Set a build version suffix [$build_suffix].
     -E, --ignore-errors
       Do not exit on errors.
     -h, -?, --help
       Display this help text.
-    -i, --install-dir <DIR>
+    -i, --install-dir <dir>
       Specify the path to where Octave.app will be installed [$install_dir].
     -t, --without-test
       Do not run 'make check'.
@@ -52,16 +56,18 @@ function usage() {
       Verbose output, and list state of all options.
 
   Octave build options:
-    -c, --cli-only
-      Do not build the GUI.
-    -j, --use-java
-      Compile with Java support.
+    -f, --formula <name>
+      Base name of Octave formula to use [$octave_formula].
     -d, --build-devel
       Build the latest development snapshot.
     -x, --experimental
       Use the experimental Octave formula.
-    -f, --formula
-      Name of Octave formula to use [$octave_formula].
+    -V, --octave-version <version>
+      Version of Octave to build (affects formula choice) [$octave_version].
+    -c, --cli-only
+      Do not build the GUI.
+    -j, --use-java
+      Compile with Java support.
 EOHELP
 }
 
@@ -80,7 +86,7 @@ while [[ $1 != "" ]]; do
     -E|--ignore-errors) exit_on_error=n; shift 1;;
     -f|--formula) 
         if [ $# -gt 1 ]; then
-          octave_formula=$2; shift 2
+          octave_formula_base=$2; shift 2
         else 
           echo "$1 requires an argument" >&2
           exit 1
@@ -96,7 +102,21 @@ while [[ $1 != "" ]]; do
           exit 1
         fi ;;
     -t|--without-test) with_test=n; shift 1;;
+    -u|--build-suffix)
+        if [ $# -gt 1 ]; then
+          build_suffix=$2; shift 2
+        else 
+          echo "$1 requires an argument" >&2
+          exit 1
+        fi ;;
     -v|--verbose) verbose=y; shift 1;;
+    -V|--octave-version)
+        if [ $# -gt 1 ]; then
+          octave_version=$2; shift 2
+        else 
+          echo "$1 requires an argument" >&2
+          exit 1
+        fi ;;
     -x|--experimental) use_experimental=y; shift 1;;
     --) shift; break;;
     *) 
@@ -122,6 +142,18 @@ if [ "$verbose" == "y" ]; then
   echo octave_app_bundler_home = \"$bundler_home\"
 	set -v
 fi
+
+if [ -z "$octave_version" ]; then
+  octave_formula="${octave_formula_base}"
+else
+  octave_formula="${octave_formula_base}-${octave_version}"
+fi
+app_base_name="$(tr '[:lower:]' '[:upper:]' <<< ${octave_formula:0:1})${octave_formula:1}"
+app_name="${app_base_name}"
+if [ -n "$build_suffix" ]; then
+  app_name="${app_name}-${build_suffix}"
+fi
+echo "Building ${app_name}.app"
 
 # set some environment variables
 export HOMEBREW_OPTFLAGS="-march=core2"
@@ -150,6 +182,7 @@ else
 	curl -L https://github.com/Homebrew/homebrew/tarball/master | tar xz --strip 1 -C "$install_dir/Contents/Resources/usr"
 	cd "$install_dir/Contents/Resources/usr/bin"
   ./brew tap octave-app/octave-app
+  ./brew tap octave-app/octave-app-versions
 fi
 
 ./brew update # get new formulas
@@ -164,7 +197,9 @@ fi
 /usr/bin/sed -i '' 's/march=native/march=core2/g' "$install_dir/Contents/Resources/usr/Library/Homebrew/extend/ENV/std.rb" 
 
 # install utilities that bundler itself needs
-./brew install trash icoutils
+# we use a versioned icoutils because it depends on libpng, and we need to avoid
+# a conflict with the versioned libpng in our versioned octave's dependencies
+./brew install trash icoutils@0.32.3
 
 # set FC to point to GCC's gfortran
 export FC="$install_dir/Contents/Resources/usr/bin/gfortran"
