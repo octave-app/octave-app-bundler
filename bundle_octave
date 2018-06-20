@@ -2,6 +2,11 @@
 
 # bundle_octave - Create an Octave.app app bundle
 #
+# Prerequisites:
+#
+# You must have a global Homebrew installation on this computer, and its
+# bin dir must be on your path.
+#
 # Hints:
 #
 # If you want to do your compilations single-threaded, which will be slower
@@ -154,6 +159,8 @@ echo "Building ${app_name}.app at ${install_dir}"
 
 install_usr="$install_dir/Contents/Resources/usr"
 
+global_brew_prefix="$(brew --prefix)"
+
 # set some environment variables
 export HOMEBREW_OPTFLAGS="-march=core2"
 PATH="$install_usr/bin/:$PATH"
@@ -198,8 +205,8 @@ fi
 # installation (to avoid possible conflicts with versioned icoutils etc
 # in octave's deps)
 # Commented out icoutils because it looks like that's not actually used now -apj
-#brew install trash icoutils
-brew install trash
+#${global_brew_prefix}/bin/brew install trash icoutils
+${global_brew_prefix}/bin/brew install trash
 
 # set FC to point to GCC's gfortran
 export FC="$install_usr/bin/gfortran"
