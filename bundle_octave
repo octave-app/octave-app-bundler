@@ -153,6 +153,7 @@ install_dir="/Applications/${app_name}.app"
 echo "Building ${app_name}.app at ${install_dir}"
 
 install_usr="$install_dir/Contents/Resources/usr"
+
 # set some environment variables
 export HOMEBREW_OPTFLAGS="-march=core2"
 PATH="$install_usr/bin/:$PATH"
