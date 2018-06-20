@@ -388,11 +388,8 @@ EOSCRIPT
 	/usr/bin/python "$python_script" "$install_dir/Contents/Resources/applet.icns" $install_usr/Cellar/${octave_formula}/*/libexec/octave/*/exec/*/octave-gui
 fi
 
-# collect dependencies from the homebrew database
-# clean up the strings using sed
-echo "" > "$install_dir/Contents/Resources/DEPENDENCIES"
-
 # force all formulas to be linked and list them in the DEPENDENCIES file
+echo "" > "$install_dir/Contents/Resources/DEPENDENCIES"
 ./brew list -1 | while read line
 do
 	./brew unlink $line
