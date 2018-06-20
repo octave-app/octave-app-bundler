@@ -61,7 +61,7 @@ function usage() {
 
   Octave build options:
     -f, --octave-formula <name>
-      Base name of Octave formula to use [$octave_formula].
+      Base name of Octave formula to use [$octave_formula_base].
     -d, --build-devel
       Build the latest development snapshot.
     -x, --experimental
