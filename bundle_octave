@@ -8,7 +8,6 @@
 # but produce more readable output, set the environment variable
 # HOMEBREW_MAKE_JOBS=1 before running bundle_octave.
 
-install_dir="/Applications/Octave.app"
 build_gui=y
 build_devel=n
 build_dmg=y
@@ -48,15 +47,13 @@ function usage() {
       Do not exit on errors.
     -h, -?, --help
       Display this help text.
-    -i, --install-dir <dir>
-      Specify the path to where Octave.app will be installed [$install_dir].
     -t, --without-test
       Do not run 'make check'.
     -v, --verbose
       Verbose output, and list state of all options.
 
   Octave build options:
-    -f, --formula <name>
+    -f, --octave-formula <name>
       Base name of Octave formula to use [$octave_formula].
     -d, --build-devel
       Build the latest development snapshot.
@@ -84,7 +81,7 @@ while [[ $1 != "" ]]; do
     -c|--cli-only) build_gui=n; shift 1;;
     -d|--build-devel) build_devel=y; shift 1;;
     -E|--ignore-errors) exit_on_error=n; shift 1;;
-    -f|--formula) 
+    -f|--octave-formula) 
         if [ $# -gt 1 ]; then
           octave_formula_base=$2; shift 2
         else 
@@ -94,13 +91,6 @@ while [[ $1 != "" ]]; do
     -g|--use-gcc) use_gcc=y; shift 1;;
     -j|--use-java) use_java=y; shift 1;;
     -h|--help|-\?) usage; exit 0;;
-    -i|--install-dir)
-        if [ $# -gt 1 ]; then
-          install_dir=$2; shift 2
-        else 
-          echo "$1 requires an argument" >&2
-          exit 1
-        fi ;;
     -t|--without-test) with_test=n; shift 1;;
     -u|--build-suffix)
         if [ $# -gt 1 ]; then
@@ -145,15 +135,18 @@ fi
 
 if [ -z "$octave_version" ]; then
   octave_formula="${octave_formula_base}"
+  app_base_name="${octave_formula_base}"
 else
-  octave_formula="${octave_formula_base}-${octave_version}"
+  octave_formula="${octave_formula_base}@${octave_version}"
+  app_base_name="${octave_formula_base}-${octave_version}"
 fi
-app_base_name="$(tr '[:lower:]' '[:upper:]' <<< ${octave_formula:0:1})${octave_formula:1}"
+app_base_name="$(tr '[:lower:]' '[:upper:]' <<< ${app_base_name:0:1})${app_base_name:1}"
 app_name="${app_base_name}"
 if [ -n "$build_suffix" ]; then
   app_name="${app_name}-${build_suffix}"
 fi
-echo "Building ${app_name}.app"
+install_dir="/Applications/${app_name}.app"
+echo "Building ${app_name}.app at ${install_dir}"
 
 # set some environment variables
 export HOMEBREW_OPTFLAGS="-march=core2"
@@ -196,10 +189,12 @@ fi
 /usr/bin/sed -i '' 's/march=native/march=core2/g' "$install_dir/Contents/Resources/usr/Library/Homebrew/extend/ENV/super.rb" 
 /usr/bin/sed -i '' 's/march=native/march=core2/g' "$install_dir/Contents/Resources/usr/Library/Homebrew/extend/ENV/std.rb" 
 
-# install utilities that bundler itself needs
-# we use a versioned icoutils because it depends on libpng, and we need to avoid
-# a conflict with the versioned libpng in our versioned octave's dependencies
-./brew install trash icoutils@0.32.3
+# install utilities that bundler itself needs into the global Homebrew
+# installation (to avoid possible conflicts with versioned icoutils etc
+# in octave's deps)
+# Commented out icoutils because it looks like that's not actually used now -apj
+#brew install trash icoutils
+brew install trash
 
 # set FC to point to GCC's gfortran
 export FC="$install_dir/Contents/Resources/usr/bin/gfortran"
@@ -400,28 +395,28 @@ if [ "$build_dmg" == "y" ]; then
 	git clone https://github.com/schoeps/create-dmg.git $tmp_dir/create-dmg
 
 	# put existing dmg into Trash
-	if [ -f "$dmg_dir/Octave-Installer.dmg" ]; then
-	  echo "Moving $dmg_dir/Octave_Installer.dmg into the trash"
-	  ./trash "$dmg_dir/Octave-Installer.dmg"
+	if [ -f "$dmg_dir/$app_name.dmg" ]; then
+	  echo "Moving $dmg_dir/$app_name.dmg into the trash"
+	  trash "$dmg_dir/$app_name.dmg"
 	fi
 
 	# run create-dmg; this may issue warnings if run headless. However, the dmg
 	# will still be created, only some beautifcation cannot be applied
 	cd "$tmp_dir/create-dmg"
 	./create-dmg \
-  	  --volname "Octave-Installer" \
+  	  --volname "${app_name}-Installer" \
   	  --volicon "$install_dir/Contents/Resources/applet.icns" \
   	  --window-size 550 442 \
   	  --icon-size 48 \
-  	  --icon Octave.app 125 180 \
-    	--hide-extension Octave.app \
+  	  --icon ${app_name}.app 125 180 \
+    	--hide-extension ${app_name}.app \
     	--app-drop-link 415 180 \
-    	--eula "$install_dir/Contents/Resources/usr/opt/octave/README" \
-    	--add-file COPYING "$install_dir/Contents/Resources/usr/opt/octave/COPYING" 126 300 \
+    	--eula "$install_dir/Contents/Resources/usr/opt/${octave_formula}/README" \
+    	--add-file COPYING "$install_dir/Contents/Resources/usr/opt/${octave_formula}/COPYING" 126 300 \
     	--add-file DEPENDENCIES "$install_dir/Contents/Resources/DEPENDENCIES" 415 300 \
     	--disk-image-size 2000 \
     	--background "${bundler_home}/background.tiff" \
-    	"$dmg_dir/Octave-Installer.dmg" \
+    	"$dmg_dir/$app_name.dmg" \
     	"$install_dir" 
 
 	echo DMG ready: $dmg_dir/Octave-Installer.dmg
