@@ -199,8 +199,8 @@ fi
 
 # use Mac's (BSD) sed
 SED=/usr/bin/sed
-$SED -i '' 's/march=native/march=${build_arch}/g' "$install_usr/Library/Homebrew/extend/ENV/super.rb" 
-$SED -i '' 's/march=native/march=${build_arch}/g' "$install_usr/Library/Homebrew/extend/ENV/std.rb" 
+$SED -i '' "s/march=native/march=${build_arch}/g" "$install_usr/Library/Homebrew/extend/ENV/super.rb" 
+$SED -i '' "s/march=native/march=${build_arch}/g" "$install_usr/Library/Homebrew/extend/ENV/std.rb" 
 
 # install utilities that bundler itself needs into the global Homebrew
 # installation (to avoid possible conflicts with versioned icoutils etc
