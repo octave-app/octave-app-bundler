@@ -123,7 +123,9 @@ if [ "$exit_on_error" = "y" ]; then
   set -e
 fi
 if [ "$verbose" == "y" ]; then
-	echo install_dir = \"$install_dir\"
+  echo octave_formula_base = \"$octave_formula_base\"
+  echo octave_version = \"$octave_version\"
+  echo build_suffix = \"$build_suffix\"
 	echo build_gui = \"$build_gui\"
 	echo build_devel = \"$build_devel\"
 	echo build_dmg = \"$build_gui\"
