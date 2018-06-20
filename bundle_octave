@@ -24,9 +24,10 @@ with_test=y
 octave_version="4.4.0"
 octave_formula_base="octave"
 build_suffix=""
+build_step=""
+exit_on_error=y
 # be conservative regarding architectures
 build_arch=core2
-exit_on_error=y
 
 this_program=$(basename $0)
 bundler_home=$(realpath $(dirname $0))
@@ -58,6 +59,8 @@ function usage() {
       Do not run 'make check'.
     -v, --verbose
       Verbose output, and list state of all options.
+    -s, --step <step>
+      Run a single step of the build process (for debugging use).
 
   Octave build options:
     -f, --octave-formula <name>
@@ -96,8 +99,15 @@ while [[ $1 != "" ]]; do
           exit 1
         fi ;;
     -g|--use-gcc) use_gcc=y; shift 1;;
-    -j|--use-java) use_java=y; shift 1;;
     -h|--help|-\?) usage; exit 0;;
+    -j|--use-java) use_java=y; shift 1;;
+    -s|--step)
+        if [ $# -gt 1 ]; then
+          build_step=$2; shift 2
+        else 
+          echo "$1 requires an argument" >&2
+          exit 1
+        fi ;;
     -t|--without-test) with_test=n; shift 1;;
     -u|--build-suffix)
         if [ $# -gt 1 ]; then
@@ -117,7 +127,7 @@ while [[ $1 != "" ]]; do
     -x|--experimental) use_experimental=y; shift 1;;
     --) shift; break;;
     *) 
-      echo "Invalid option: $1" >&2;
+      echo "Error: Invalid option: $1" >&2;
       echo "See $this_program --help for help."
       exit 1
       ;;
@@ -155,6 +165,7 @@ if [ -n "$build_suffix" ]; then
   app_name="${app_name}-${build_suffix}"
 fi
 install_dir="/Applications/${app_name}.app"
+install_dir_unstaged="${install_dir}-UNSTAGED"
 echo "Building ${app_name}.app at ${install_dir}"
 
 install_usr="$install_dir/Contents/Resources/usr"
@@ -164,6 +175,45 @@ global_brew_prefix="$(brew --prefix)"
 # set some environment variables
 export HOMEBREW_OPTFLAGS="-march=core2"
 PATH="$install_usr/bin/:$PATH"
+
+function stage_app_build() {
+  if [ -e "$install_dir" ]; then
+    if [ -f "$install_dir/STAGING" ]; then
+      echo "Looks like $app_name is already staged; re-using in place"
+    else
+      echo "Error: $install_dir exists, but is not a staged build." >&2
+      echo "Error: Please move $install_dir out of the way before running $this_program" >&2
+      exit 1
+    fi
+  elif [ -e "${install_dir_unstaged}" ]; then
+    echo "Re-staging existing build dir from ${install_dir_unstaged}"
+    mv "${install_dir_unstaged}" "$install_dir"
+  else
+    # Create new staged app
+    echo "Creating new staged app build at $install_dir"
+    osacompile -o "$install_dir" -e " "
+    echo <<EOS > "$install_dir/STAGING"
+This is not a real app!
+
+This is a staged build for octave-app-bundler. If you find this at $install_dir, then
+there was probably a failed build, and this directory needs to be manually deleted
+or moved aside.
+EOS
+  fi
+}
+
+function unstage_app_build() {
+  if [ ! -e "$install_dir/STAGING" ]; then
+    echo "Error: $install_dir does not look like a staged build. Not moving." >&2
+    exit 1
+  fi
+  if [ -e "${install_dir_unstaged}" ]; then
+    echo "Error: There is already an unstaged app build at ${install_dir_unstaged}. Cannot un-stage." >&2
+    exit 1
+  fi
+  mv "${install_dir}" "${install_dir_unstaged}"
+  echo "Un-staged build to ${install_dir_unstaged}"
+}
 
 function install_global_tools() {
   # install utilities that octave-app-bundler itself needs into the global Homebrew
@@ -184,7 +234,7 @@ function freshen_staged_homebrew() {
 
   if [ "$install_type" == "update" ]; then
     # update homebrew
-  	echo "Updating existing Homebrew installation in $install_dir."
+  	echo "Updating existing Homebrew installation in $install_usr."
   	cd "$install_usr/bin"
     # uninstall any old octave
   	if [ -d "$install_usr/Cellar/$octave_formula" ]; then
@@ -192,8 +242,7 @@ function freshen_staged_homebrew() {
   	fi
   else
   	# install homebrew
-  	echo "Creating new Homebrew installation in $install_dir."
-  	osacompile -o "$install_dir" -e " "
+  	echo "Creating new Homebrew installation in $install_usr."
   	mkdir -p "$install_usr"
   	curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "$install_usr"
   	cd "$install_usr/bin"
@@ -443,9 +492,28 @@ function create_dmg() {
 
 #  Main program
 
-install_global_tools
-freshen_staged_homebrew
-build_octave
-if [ "$build_dmg" == "y" ]; then
-  create_dmg
+if [ -z "$build_step" ]; then
+  # Run entire build process
+  install_global_tools
+  stage_app_build
+  freshen_staged_homebrew
+  build_octave
+  if [ "$build_dmg" == "y" ]; then
+    create_dmg
+  fi
+  unstage_app_build
+else
+  case "$build_step" in
+    install-global)   install_global_tools ;;
+    stage)            stage_app_build ;;
+    freshen-homebrew) freshen_staged_homebrew ;;
+    build)            build_octave ;;
+    dmg)              create_dmg ;;
+    unstage)          unstage_app_build ;;
+    *)
+      echo "Error: Invalid step name '$build_step'" >&2
+      echo "Error: Valid steps are: install-global stage freshen-homebrew build dmg unstage" >&2
+      exit 1
+      ;;
+  esac
 fi
