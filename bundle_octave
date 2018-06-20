@@ -385,7 +385,7 @@ echo "" > "$install_dir/Contents/Resources/DEPENDENCIES"
 do
 	./brew unlink $line
 	./brew link --force $line
-	./brew info $line | /usr/bin/sed -e 's$homebrew/science/$$g'| /usr/bin/sed -e 's$: .*$$g' | /usr/bin/sed -e 's$/Applications.*$$g' | /usr/bin/head -n3 >> "$install_dir/Contents/Resources/DEPENDENCIES"
+	./brew info $line | /usr/bin/sed -e 's$: .*$$g' | /usr/bin/sed -e 's$/Applications.*$$g' | /usr/bin/head -n3 >> "$install_dir/Contents/Resources/DEPENDENCIES"
 	echo "" >> "$install_dir/Contents/Resources/DEPENDENCIES"
 done
 
