@@ -265,7 +265,7 @@ function freshen_staged_homebrew() {
     curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "$install_usr/Homebrew"
     ln -s "$install_usr/Homebrew/bin/brew" "$install_usr/bin/brew"
     "$brew" tap octave-app/octave-app
-    "$brew" tap octave-app/octave-app-versions
+    "$brew" tap octave-app/octave-app-bases
   fi
 
   "$brew" update # get new formulae
