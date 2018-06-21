@@ -494,9 +494,10 @@ function create_dmg() {
     exit 1
   fi
 
-	# run create-dmg; this may issue warnings if run headless. However, the dmg
-	# will still be created, only some beautification cannot be applied
-  # TODO: Dynamically calculate disk image size
+	# Run create-dmg; this may issue warnings if run headless. However, the dmg
+	# will still be created, only some beautification cannot be applied.
+  # We manually set the image size because create-dmg's automatic sizing seems to
+  # get it wrong, and we run out of space when adding files.
 	"${bundler_home}/create-dmg/create-dmg" \
   	  --volname "${app_name}-Installer" \
   	  --volicon "$app_build/Contents/Resources/applet.icns" \
