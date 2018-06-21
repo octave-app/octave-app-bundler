@@ -450,7 +450,7 @@ EOSCRIPT
   # add icon to octave-gui
   if [ "$build_gui" == "y" ]; then
     export python_script=$(mktemp /tmp/octave-XXXX);
-    echo <<EOSCRIPT > $python_script
+    cat <<EOSCRIPT > $python_script
   #!/usr/bin/env python
   import Cocoa
   import sys
