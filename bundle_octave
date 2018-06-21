@@ -278,21 +278,17 @@ function build_octave() {
 
 
   # build octave
-  octave_build_options="--universal"
+  octave_build_options=""
   if [ "$verbose" == "y" ]; then
   	octave_build_options="$octave_build_options --verbose"
   fi
   if [ "$build_devel" == "y" ]; then
   	octave_build_options="$octave_build_options --HEAD"
   fi
-  if [ "$build_gui" == "y" ]; then
-  	octave_build_options="$octave_build_options --with-qt"
-  else
+  if [ "$build_gui" != "y" ]; then
   	octave_build_options="$octave_build_options --without-qt"	
   fi
-  if [ "$use_java" == "y" ]; then
-  	octave_build_options="$octave_build_options --with-java"
-  else
+  if [ "$use_java" != "y" ]; then
   	octave_build_options="$octave_build_options --without-java"	
   fi
   if [ "$with_test" == "n" ]; then
