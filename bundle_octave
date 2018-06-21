@@ -456,10 +456,11 @@ EOSCRIPT
   if [ -n "$variant" ]; then
     octave_app_str="${octave_app_str} (variant ${variant})"
   fi
-  if [-n "${build_suffix}" ]; then
+  octave_app_str="${octave_app_str}, version $oct_ver"
+  if [ -n "${build_suffix}" ]; then
     octave_app_str="${octave_app_str}, build ${build_suffix}"
   fi
-  echo "This is ${octave_app_str} version $oct_ver ($oct_ver_string)" >> "${versions_file}"
+  echo "This is ${octave_app_str}" >> "${versions_file}"
   echo "" >> "$versions_file"
   "$brew" list -1 | while read f
   do
