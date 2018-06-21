@@ -523,7 +523,7 @@ function create_dmg() {
   "${bundler_home}/create-dmg/create-dmg" \
       --volname "${app_name}" \
       --volicon "$app_build/Contents/Resources/applet.icns" \
-      --window-size 550 442 \
+      --window-size 550 500 \
       --icon-size 48 \
       --icon ${app_name}.app 125 180 \
       --hide-extension ${app_name}.app \
