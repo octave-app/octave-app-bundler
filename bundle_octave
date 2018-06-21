@@ -42,7 +42,7 @@ function usage() {
  $this_program [OPTION] ...
  $this_program [OPTION ARG] ...
 
- Build an Octave application bundle for Mac OS X.
+ Build an Octave application bundle for macOS.
 
  Several options are supported:
 
