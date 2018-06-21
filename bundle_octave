@@ -17,7 +17,7 @@ with_test=y
 variant=""
 build_suffix=""
 build_step=""
-exit_on_error=n
+exit_on_error=y
 do_trace=n
 # be conservative regarding target CPU architecture
 build_arch=core2
