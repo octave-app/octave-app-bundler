@@ -471,9 +471,6 @@ function create_dmg() {
   # create a nice DMG disc image with create-dmg (MIT License)
   echo "Building DMG"
   dmg_filename="$app_name.dmg"
-	# get make-dmg from github
-	tmp_dir=$(mktemp -d /tmp/octave-XXXX)
-	git clone https://github.com/schoeps/create-dmg.git $tmp_dir/create-dmg
 
 	# put existing DMG and tarball into Trash
 	if [ -f "$dmg_dir/$dmg_filename" ]; then
@@ -492,7 +489,7 @@ function create_dmg() {
 	# run create-dmg; this may issue warnings if run headless. However, the dmg
 	# will still be created, only some beautification cannot be applied
   # TODO: Dynamically calculate disk image size
-	"$tmp_dir/create-dmg/create-dmg" \
+	"${bundler_home}/create-dmg/create-dmg" \
   	  --volname "${app_name}-Installer" \
   	  --volicon "$app_build/Contents/Resources/applet.icns" \
   	  --window-size 550 442 \
