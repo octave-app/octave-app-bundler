@@ -483,14 +483,11 @@ function create_dmg() {
   echo "Building DMG"
   dmg_filename="$app_name.dmg"
 
-	# put existing DMG and tarball into Trash
+	# put existing DMG into Trash
 	if [ -f "$dmg_dir/$dmg_filename" ]; then
 	  echo "Moving existing $dmg_dir/$dmg_filename into the Trash"
 	  trash "$dmg_dir/$dmg_filename"
 	fi
-  if [ -f "$dmg_dir/$dmg_filename.tgz" ]; then
-    rm "$dmg_dir/$dmg_filename.tgz"
-  fi
 
   if [ ! -d $app_build ]; then
     echo "Error: No app build present at $app_build. Please run the build and prune first." >&2
@@ -516,10 +513,7 @@ function create_dmg() {
     	"$dmg_dir/$dmg_filename" \
     	"$app_build" 
 
-  # The DMG is uncompressed, so squeeze it into a tarball for distribution
-  tar czf "$dmg_dir/$dmg_filename.tgz" "$dmg_dir/$dmg_filename"
 	echo DMG ready: $dmg_dir/$dmg_filename
-  echo DMG tarball ready: $dmg_dir/$dmg_filename.tgz
 }
 
 #  Main program
