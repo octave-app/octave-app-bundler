@@ -37,7 +37,7 @@ bundler_home=$(realpath $(dirname $0))
 
 function usage() {
 
-	cat <<EOHELP
+  cat <<EOHELP
  $this_program
  $this_program [OPTION] ...
  $this_program [OPTION ARG] ...
@@ -146,15 +146,15 @@ if [ "$verbose" == "y" ]; then
   echo octave_formula_base = \"$octave_formula_base\"
   echo octave_version = \"$octave_version\"
   echo build_suffix = \"$build_suffix\"
-	echo build_gui = \"$build_gui\"
-	echo build_devel = \"$build_devel\"
-	echo build_dmg = \"$build_gui\"
-	echo dmg_dir = \"$dmg_dir\"
-	echo use_gcc = \"$use_gcc\"
-	echo use_java = \"$use_java\"
-	echo with_test = \"$with_test\"
+  echo build_gui = \"$build_gui\"
+  echo build_devel = \"$build_devel\"
+  echo build_dmg = \"$build_gui\"
+  echo dmg_dir = \"$dmg_dir\"
+  echo use_gcc = \"$use_gcc\"
+  echo use_java = \"$use_java\"
+  echo with_test = \"$with_test\"
   echo octave_app_bundler_home = \"$bundler_home\"
-	set -v
+  set -v
 fi
 
 if [ "$do_trace" == "y" ]; then
@@ -239,19 +239,19 @@ function install_global_tools() {
 function freshen_staged_homebrew() {
   # check if we do full or update
   if [ -e "$install_usr/bin/brew" ]; then
-  	install_type='update'
+    install_type='update'
   else
-  	install_type='full'
+    install_type='full'
   fi
 
   if [ "$install_type" == "update" ]; then
     # update homebrew
-  	echo "Updating existing Homebrew installation in $install_usr."
+    echo "Updating existing Homebrew installation in $install_usr."
   else
-  	# install homebrew
-  	echo "Creating new Homebrew installation in $install_usr."
-  	mkdir -p "$install_usr"
-  	curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "$install_usr/Homebrew"
+    # install homebrew
+    echo "Creating new Homebrew installation in $install_usr."
+    mkdir -p "$install_usr"
+    curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "$install_usr/Homebrew"
     ln -s "$install_usr/Homebrew/bin/brew" "$install_usr/bin"
     "$brew" tap octave-app/octave-app
     "$brew" tap octave-app/octave-app-versions
@@ -294,19 +294,19 @@ function build_octave() {
   # build octave
   octave_build_options=""
   if [ "$verbose" == "y" ]; then
-  	octave_build_options="$octave_build_options --verbose"
+    octave_build_options="$octave_build_options --verbose"
   fi
   if [ "$build_devel" == "y" ]; then
-  	octave_build_options="$octave_build_options --HEAD"
+    octave_build_options="$octave_build_options --HEAD"
   fi
   if [ "$build_gui" != "y" ]; then
-  	octave_build_options="$octave_build_options --without-qt"	
+    octave_build_options="$octave_build_options --without-qt" 
   fi
   if [ "$use_java" != "y" ]; then
-  	octave_build_options="$octave_build_options --without-java"	
+    octave_build_options="$octave_build_options --without-java" 
   fi
   if [ "$with_test" == "n" ]; then
-  	octave_build_options="$octave_build_options --without-test"
+    octave_build_options="$octave_build_options --without-test"
   fi
 
   # finally build octave
@@ -334,12 +334,12 @@ function decorate_octave() {
   # create applescript to execute octave
   tmp_script=$(mktemp /tmp/octave-XXXX);
   if [ "$build_gui" == "y" ]; then
-  	read -r -d '' program_launch_code <<EOS
+    read -r -d '' program_launch_code <<EOS
     set cmd to export_gs_options() & export_gnuterm() & export_path() & export_dyld() & run_octave_gui()
     do shell script cmd
 EOS
   else
-  	read -r -d '' program_launch_code <<EOS
+    read -r -d '' program_launch_code <<EOS
     set cmd to export_gs_options() & export_gnuterm() & export_path() & run_octave_cli()
     tell application "Terminal"
       activate
@@ -442,24 +442,24 @@ EOSCRIPT
 
   # add icon to octave-gui
   if [ "$build_gui" == "y" ]; then
-  	export python_script=$(mktemp /tmp/octave-XXXX);
-  	echo <<EOSCRIPT > $python_script
+    export python_script=$(mktemp /tmp/octave-XXXX);
+    echo <<EOSCRIPT > $python_script
   #!/usr/bin/env python
   import Cocoa
   import sys
   Cocoa.NSWorkspace.sharedWorkspace().setIcon_forFile_options_(Cocoa.NSImage.alloc().initWithContentsOfFile_(sys.argv[1].decode("utf-8")), sys.argv[2].decode("utf-8"), 0) or sys.exit("Unable to set file icon")
 EOSCRIPT
-  	/usr/bin/python "$python_script" "$install_dir/Contents/Resources/applet.icns" $install_usr/Cellar/${octave_formula}/*/libexec/octave/*/exec/*/octave-gui
+    /usr/bin/python "$python_script" "$install_dir/Contents/Resources/applet.icns" $install_usr/Cellar/${octave_formula}/*/libexec/octave/*/exec/*/octave-gui
   fi
 
   # force all formulas to be linked and list them in the DEPENDENCIES file
   echo "" > "$install_dir/Contents/Resources/DEPENDENCIES"
   "$brew" list -1 | while read line
   do
-  	"$brew" unlink $line
-  	"$brew" link --force $line
-  	"$brew" info $line | /usr/bin/sed -e 's$: .*$$g' | /usr/bin/sed -e 's$/Applications.*$$g' | /usr/bin/head -n3 >> "$install_dir/Contents/Resources/DEPENDENCIES"
-  	echo "" >> "$install_dir/Contents/Resources/DEPENDENCIES"
+    "$brew" unlink $line
+    "$brew" link --force $line
+    "$brew" info $line | /usr/bin/sed -e 's$: .*$$g' | /usr/bin/sed -e 's$/Applications.*$$g' | /usr/bin/head -n3 >> "$install_dir/Contents/Resources/DEPENDENCIES"
+    echo "" >> "$install_dir/Contents/Resources/DEPENDENCIES"
   done
 }
 
@@ -483,38 +483,38 @@ function create_dmg() {
   echo "Building DMG"
   dmg_filename="$app_name.dmg"
 
-	# put existing DMG into Trash
-	if [ -f "$dmg_dir/$dmg_filename" ]; then
-	  echo "Moving existing $dmg_dir/$dmg_filename into the Trash"
-	  trash "$dmg_dir/$dmg_filename"
-	fi
+  # put existing DMG into Trash
+  if [ -f "$dmg_dir/$dmg_filename" ]; then
+    echo "Moving existing $dmg_dir/$dmg_filename into the Trash"
+    trash "$dmg_dir/$dmg_filename"
+  fi
 
   if [ ! -d $app_build ]; then
     echo "Error: No app build present at $app_build. Please run the build and prune first." >&2
     exit 1
   fi
 
-	# Run create-dmg; this may issue warnings if run headless. However, the dmg
-	# will still be created, only some beautification cannot be applied.
+  # Run create-dmg; this may issue warnings if run headless. However, the dmg
+  # will still be created, only some beautification cannot be applied.
   # We manually set the image size because create-dmg's automatic sizing seems to
   # get it wrong, and we run out of space when adding files.
-	"${bundler_home}/create-dmg/create-dmg" \
-  	  --volname "${app_name}-Installer" \
-  	  --volicon "$app_build/Contents/Resources/applet.icns" \
-  	  --window-size 550 442 \
-  	  --icon-size 48 \
-  	  --icon ${app_name}.app 125 180 \
-    	--hide-extension ${app_name}.app \
-    	--app-drop-link 415 180 \
-    	--eula "$app_build_usr/opt/${octave_formula}/README" \
-    	--add-file COPYING "$app_build_usr/opt/${octave_formula}/COPYING" 126 300 \
-    	--add-file DEPENDENCIES "$app_build/Contents/Resources/DEPENDENCIES" 415 300 \
-    	--disk-image-size 2000 \
-    	--background "${bundler_home}/background.tiff" \
-    	"$dmg_dir/$dmg_filename" \
-    	"$app_build" 
+  "${bundler_home}/create-dmg/create-dmg" \
+      --volname "${app_name}-Installer" \
+      --volicon "$app_build/Contents/Resources/applet.icns" \
+      --window-size 550 442 \
+      --icon-size 48 \
+      --icon ${app_name}.app 125 180 \
+      --hide-extension ${app_name}.app \
+      --app-drop-link 415 180 \
+      --eula "$app_build_usr/opt/${octave_formula}/README" \
+      --add-file COPYING "$app_build_usr/opt/${octave_formula}/COPYING" 126 300 \
+      --add-file DEPENDENCIES "$app_build/Contents/Resources/DEPENDENCIES" 415 300 \
+      --disk-image-size 2000 \
+      --background "${bundler_home}/background.tiff" \
+      "$dmg_dir/$dmg_filename" \
+      "$app_build" 
 
-	echo DMG ready: $dmg_dir/$dmg_filename
+  echo DMG ready: $dmg_dir/$dmg_filename
 }
 
 #  Main program
