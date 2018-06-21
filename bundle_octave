@@ -474,6 +474,7 @@ EOSCRIPT
   if [ -n "${build_suffix}" ]; then
     octave_app_str="${octave_app_str}, build ${build_suffix}"
   fi
+  echo "Octave.app version: ${octave_app_str}"
   echo "This is ${octave_app_str}" >> "${versions_file}"
   echo "" >> "$versions_file"
   "$brew" octave-app-list-formulae >> "${versions_file}"
