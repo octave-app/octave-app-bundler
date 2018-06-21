@@ -480,6 +480,7 @@ EOSCRIPT
     "$brew" unlink $f
     "$brew" link --force $f
     "$brew" info $f | /usr/bin/sed -e 's$: .*$$g' | /usr/bin/sed -e 's$/Applications.*$$g' | /usr/bin/head -n3 >> "$versions_file"
+    echo "" >> "$versions_file"
   done
 }
 
