@@ -157,7 +157,7 @@ if [ -z "$octave_version" ]; then
   app_base_name="${octave_formula_base}"
 else
   octave_formula="${octave_formula_base}@${octave_version}"
-  app_base_name="${octave_formula_base}-${octave_version}"
+  app_base_name="${octave_formula_base} ${octave_version}"
 fi
 app_base_name="$(tr '[:lower:]' '[:upper:]' <<< ${app_base_name:0:1})${app_base_name:1}"
 app_name="${app_base_name}"
