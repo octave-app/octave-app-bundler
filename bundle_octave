@@ -18,7 +18,7 @@ build_devel=n
 build_dmg=y
 use_experimental=n
 use_java=y
-dmg_dir="$HOME"
+dmg_dir="build"
 verbose=n
 with_test=y
 octave_version="4.4.0"
@@ -170,6 +170,8 @@ echo "Building ${app_name}.app at ${install_dir}"
 
 install_usr="$install_dir/Contents/Resources/usr"
 brew="$install_usr/bin/brew"
+app_build="build/${app_name}.app"
+app_build_usr="$app_build/Contents/Resources/usr"
 
 global_brew_prefix="$(brew --prefix)"
 
@@ -193,7 +195,7 @@ function stage_app_build() {
     # Create new staged app
     echo "Creating new staged app build at $install_dir"
     osacompile -o "$install_dir" -e " "
-    echo <<EOS > "$install_dir/STAGING"
+    cat <<EOS > "$install_dir/STAGING"
 This is not a real app!
 
 This is a staged build for octave-app-bundler. If you find this at $install_dir, then
@@ -236,17 +238,17 @@ function freshen_staged_homebrew() {
   if [ "$install_type" == "update" ]; then
     # update homebrew
   	echo "Updating existing Homebrew installation in $install_usr."
-    # uninstall any old octave
-  	if [ -d "$install_usr/Cellar/$octave_formula" ]; then
-  		"$brew" uninstall "$octave_formula"
-  	fi
   else
   	# install homebrew
   	echo "Creating new Homebrew installation in $install_usr."
   	mkdir -p "$install_usr"
-  	curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "$install_usr"
+  	curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "$install_usr/Homebrew"
+    ln -s "$install_usr/Homebrew/bin/brew" "$install_usr/bin"
     "$brew" tap octave-app/octave-app
     "$brew" tap octave-app/octave-app-versions
+    # Redirect the Homebrew prefix's var/ to system /var
+    rm -rf "$install_usr/var"
+    ln -s "/var" "$install_usr/var"
   fi
 
   "$brew" update # get new formulae
@@ -256,12 +258,12 @@ function freshen_staged_homebrew() {
 
   # use Mac's (BSD) sed
   SED=/usr/bin/sed
-  $SED -i '' "s/march=native/march=${build_arch}/g" "$install_usr/Library/Homebrew/extend/ENV/super.rb" 
-  $SED -i '' "s/march=native/march=${build_arch}/g" "$install_usr/Library/Homebrew/extend/ENV/std.rb" 
+  $SED -i '' "s/march=native/march=${build_arch}/g" "$install_usr/Homebrew/Library/Homebrew/extend/ENV/super.rb" 
+  $SED -i '' "s/march=native/march=${build_arch}/g" "$install_usr/Homebrew/Library/Homebrew/extend/ENV/std.rb" 
 
   # get newest octave formula
   if [ "$use_experimental" == "y" ]; then
-    curl https://raw.githubusercontent.com/schoeps/homebrew-core/master/Formula/octave.rb -o "$install_usr/Library/Taps/homebrew/homebrew-core/Formula/octave.rb"
+    curl https://raw.githubusercontent.com/schoeps/homebrew-core/master/Formula/octave.rb -o "$install_usr/Homebrew/Library/Taps/homebrew/homebrew-core/Formula/octave.rb"
   fi
 }
 
@@ -275,6 +277,10 @@ function build_octave() {
     export HOMEBREW_CXX=g++-6
   fi
 
+  # uninstall any old octave
+  if [ -d "$install_usr/Cellar/$octave_formula" ]; then
+    "$brew" uninstall "$octave_formula"
+  fi
 
   # build octave
   octave_build_options=""
@@ -313,10 +319,6 @@ function build_octave() {
 
   # use local font cache instead of global one
   /usr/bin/sed -i '' 's/\/Applications.*fontconfig/~\/.cache\/fontconfig/g' "$install_usr/etc/fonts/fonts.conf" 
-
-  # Redirect the app's var/ to system /var
-  rm -R "$install_usr/var"
-  ln -s "/var" "$install_usr/var"
 
   # create applescript to execute octave
   tmp_script=$(mktemp /tmp/octave-XXXX);
@@ -450,6 +452,21 @@ EOSCRIPT
   done
 }
 
+function prune_app() {
+  echo "Building pruned app at $app_build"
+  mkdir -p build
+  rm -rf "$app_build"
+  cp -pR "$install_dir" build
+
+  # Remove formulae known to be build-time-only dependencies
+  app_build_brew="$app_build_usr/bin/brew"
+
+  # Remove Homebrew itself
+  rm -rf "$app_build_usr/Homebrew"
+  # Remove STAGING so you can tell it's a real built app now
+  rm -rf "$app_build/STAGING"
+}
+
 function create_dmg() {
   # create a nice DMG disc image with create-dmg (MIT License)
   echo "Building DMG"
@@ -458,33 +475,44 @@ function create_dmg() {
 	tmp_dir=$(mktemp -d /tmp/octave-XXXX)
 	git clone https://github.com/schoeps/create-dmg.git $tmp_dir/create-dmg
 
-	# put existing dmg into Trash
+	# put existing DMG and tarball into Trash
 	if [ -f "$dmg_dir/$dmg_filename" ]; then
 	  echo "Moving existing $dmg_dir/$dmg_filename into the Trash"
 	  trash "$dmg_dir/$dmg_filename"
 	fi
+  if [ -f "$dmg_dir/$dmg_filename.tgz" ]; then
+    rm "$dmg_dir/$dmg_filename.tgz"
+  fi
+
+  if [ ! -d $app_build ]; then
+    echo "Error: No app build present at $app_build. Please run the build and prune first." >&2
+    exit 1
+  fi
 
 	# run create-dmg; this may issue warnings if run headless. However, the dmg
 	# will still be created, only some beautification cannot be applied
-	"$tmp_dir/create-dmg" \
+  # TODO: Dynamically calculate disk image size
+	"$tmp_dir/create-dmg/create-dmg" \
   	  --volname "${app_name}-Installer" \
-  	  --volicon "$install_dir/Contents/Resources/applet.icns" \
+  	  --volicon "$app_build/Contents/Resources/applet.icns" \
   	  --window-size 550 442 \
   	  --icon-size 48 \
   	  --icon ${app_name}.app 125 180 \
     	--hide-extension ${app_name}.app \
     	--app-drop-link 415 180 \
-    	--eula "$install_usr/opt/${octave_formula}/README" \
-    	--add-file COPYING "$install_usr/opt/${octave_formula}/COPYING" 126 300 \
-    	--add-file DEPENDENCIES "$install_dir/Contents/Resources/DEPENDENCIES" 415 300 \
+    	--eula "$app_build_usr/opt/${octave_formula}/README" \
+    	--add-file COPYING "$app_build_usr/opt/${octave_formula}/COPYING" 126 300 \
+    	--add-file DEPENDENCIES "$app_build/Contents/Resources/DEPENDENCIES" 415 300 \
     	--disk-image-size 2000 \
     	--background "${bundler_home}/background.tiff" \
     	"$dmg_dir/$dmg_filename" \
-    	"$install_dir" 
+    	"$app_build" 
 
-	echo DMG ready: $dmg_dir/$dmg_name
+  # The DMG is uncompressed, so squeeze it into a tarball for distribution
+  tar czf "$dmg_dir/$dmg_filename.tgz" "$dmg_dir/$dmg_filename"
+	echo DMG ready: $dmg_dir/$dmg_filename
+  echo DMG tarball ready: $dmg_dir/$dmg_filename.tgz
 }
-
 
 #  Main program
 
@@ -494,6 +522,7 @@ if [ -z "$build_step" ]; then
   stage_app_build
   freshen_staged_homebrew
   build_octave
+  prune_app
   if [ "$build_dmg" == "y" ]; then
     create_dmg
   fi
@@ -504,6 +533,7 @@ else
     stage)            stage_app_build ;;
     freshen-homebrew) freshen_staged_homebrew ;;
     build)            build_octave ;;
+    prune)            prune_app ;;
     dmg)              create_dmg ;;
     unstage)          unstage_app_build ;;
     *)
