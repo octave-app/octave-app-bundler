@@ -11,7 +11,7 @@
 build_gui=y
 build_devel=n
 build_dmg=y
-use_java=n
+use_java=y
 verbose=n
 with_test=y
 variant=""
@@ -61,8 +61,8 @@ function usage() {
       Version of Octave to build (affects formula choice) [$octave_version].
     -c, --cli-only
       Do not build the GUI.
-    -j, --with-java
-      Compile with Java support. (Currently broken.)
+    -J, --no-java
+      Compile without Java support.
     -d, --build-devel
       Build the latest development snapshot.
 EOHELP
@@ -89,7 +89,7 @@ while [[ $1 != "" ]]; do
         fi ;;
     -g|--use-gcc) use_gcc=y; shift 1;;
     -h|--help|-\?) usage; exit 0;;
-    -j|--with-java) use_java=y; shift 1;;
+    -J|--no-java) use_java=n; shift 1;;
     -s|--step)
         if [ $# -gt 1 ]; then
           build_step=$2; shift 2
