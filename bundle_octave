@@ -11,7 +11,6 @@
 build_gui=y
 build_devel=n
 build_dmg=y
-use_experimental=n
 use_java=y
 verbose=n
 with_test=y
@@ -65,8 +64,6 @@ function usage() {
       Compile without Java support.
     -d, --build-devel
       Build the latest development snapshot.
-    -X, --experimental
-      Use the experimental Octave formula.
 EOHELP
 }
 
@@ -116,7 +113,6 @@ while [[ $1 != "" ]]; do
           exit 1
         fi ;;
     -x|--trace) do_trace=y; shift 1;;
-    -X|--experimental) use_experimental=y; shift 1;;
     --) shift; break;;
     *) 
       echo "Error: Invalid option: $1" >&2;
@@ -275,11 +271,6 @@ function freshen_staged_homebrew() {
   SED=/usr/bin/sed
   $SED -i '' "s/march=native/march=${build_arch}/g" "$install_usr/Homebrew/Library/Homebrew/extend/ENV/super.rb" 
   $SED -i '' "s/march=native/march=${build_arch}/g" "$install_usr/Homebrew/Library/Homebrew/extend/ENV/std.rb" 
-
-  # get newest octave formula
-  if [ "$use_experimental" == "y" ]; then
-    curl https://raw.githubusercontent.com/schoeps/homebrew-core/master/Formula/octave.rb -o "$install_usr/Homebrew/Library/Taps/homebrew/homebrew-core/Formula/octave.rb"
-  fi
 }
 
 function build_octave() {
