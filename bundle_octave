@@ -18,7 +18,6 @@ with_test=y
 variant=""
 build_suffix=""
 build_step=""
-# exit_on_error should not be used, because it breaks with "read" calls
 exit_on_error=n
 do_trace=n
 # be conservative regarding target CPU architecture
@@ -42,18 +41,18 @@ function usage() {
   Packaging options:
     -u, --build-suffix <suffix>
       Set a build version suffix [$build_suffix].
-    -E, --ignore-errors
-      Do not exit on errors.
     -h, -?, --help
       Display this help text.
-    -t, --without-test
-      Do not run 'make check'.
+    -s, --step <step>
+      Run a single step of the build process (for debugging use).
     -v, --verbose
       Verbose output, and list state of all options.
     -x, --trace
       Trace program execution (even more detail than --verbose).
-    -s, --step <step>
-      Run a single step of the build process (for debugging use).
+    -e, --exit-on-errors
+      Exit on errors. For debugging use only; may be confusing.
+    -t, --without-test
+      Do not run 'make check'.
 
   Octave build options:
     -a, --variant <variant>
@@ -341,12 +340,12 @@ function decorate_octave() {
   # create applescript to execute octave
   tmp_script=$(mktemp /tmp/octave-XXXX);
   if [ "$build_gui" == "y" ]; then
-    read -r -d '' program_launch_code <<EOS
+    read -r -d '' program_launch_code <<EOS; true
     set cmd to export_gs_options() & export_gnuterm() & export_path() & export_dyld() & run_octave_gui()
     do shell script cmd
 EOS
   else
-    read -r -d '' program_launch_code <<EOS
+    read -r -d '' program_launch_code <<EOS; true
     set cmd to export_gs_options() & export_gnuterm() & export_path() & run_octave_cli()
     tell application "Terminal"
       activate
@@ -459,9 +458,9 @@ EOSCRIPT
     /usr/bin/python "$python_script" "$install_dir/Contents/Resources/applet.icns" $install_usr/Cellar/${octave_formula}/*/libexec/octave/*/exec/*/octave-gui
   fi
 
-  # force all formulas to be linked and list them in the DEPENDENCIES file
-  DEPENDENCIES="$install_dir/Contents/Resources/DEPENDENCIES"
-  echo "" > "${DEPENDENCIES}"
+  # force all formulas to be linked and list them in the VERSIONS file
+  versions_file="$install_dir/Contents/Resources/VERSIONS"
+  echo "" > "${versions_file}"
   octave_app_str="Octave.app"
   if [ -n "$variant" ]; then
     octave_app_str="${octave_app_str} (variant ${variant})"
@@ -469,13 +468,13 @@ EOSCRIPT
   if [-n "${build_suffix}" ]; then
     octave_app_str="${octave_app_str}, build ${build_suffix}"
   fi
-  echo "This is ${octave_app_str} version $oct_ver ($oct_ver_string)" >> "${DEPENDENCIES}"
-  echo "" >> "$DEPENDENCIES"
+  echo "This is ${octave_app_str} version $oct_ver ($oct_ver_string)" >> "${versions_file}"
+  echo "" >> "$versions_file"
   "$brew" list -1 | while read f
   do
     "$brew" unlink $f
     "$brew" link --force $f
-    "$brew" info $f | /usr/bin/sed -e 's$: .*$$g' | /usr/bin/sed -e 's$/Applications.*$$g' | /usr/bin/head -n3 >> "$DEPENDENCIES"
+    "$brew" info $f | /usr/bin/sed -e 's$: .*$$g' | /usr/bin/sed -e 's$/Applications.*$$g' | /usr/bin/head -n3 >> "$versions_file"
   done
 }
 
@@ -529,7 +528,7 @@ function create_dmg() {
       --app-drop-link 415 180 \
       --eula "$app_build_usr/opt/${octave_formula}/README" \
       --add-file COPYING "$app_build_usr/opt/${octave_formula}/COPYING" 126 300 \
-      --add-file DEPENDENCIES "$app_build/Contents/Resources/DEPENDENCIES" 415 300 \
+      --add-file VERSIONS "$app_build/Contents/Resources/VERSIONS" 415 300 \
       --disk-image-size 2000 \
       --background "${bundler_home}/background.tiff" \
       "$dmg_dir/$dmg_name" \
