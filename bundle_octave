@@ -525,7 +525,7 @@ function create_dmg() {
   # We manually set the image size because create-dmg's automatic sizing seems to
   # get it wrong, and we run out of space when adding files.
   "${bundler_home}/create-dmg/create-dmg" \
-      --volname "${app_name}-Installer" \
+      --volname "${app_name}" \
       --volicon "$app_build/Contents/Resources/applet.icns" \
       --window-size 550 442 \
       --icon-size 48 \
