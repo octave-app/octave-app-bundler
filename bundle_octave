@@ -169,6 +169,7 @@ install_dir_unstaged="${install_dir}-UNSTAGED"
 echo "Building ${app_name}.app at ${install_dir}"
 
 install_usr="$install_dir/Contents/Resources/usr"
+brew="$install_usr/bin/brew"
 
 global_brew_prefix="$(brew --prefix)"
 
@@ -235,25 +236,23 @@ function freshen_staged_homebrew() {
   if [ "$install_type" == "update" ]; then
     # update homebrew
   	echo "Updating existing Homebrew installation in $install_usr."
-  	cd "$install_usr/bin"
     # uninstall any old octave
   	if [ -d "$install_usr/Cellar/$octave_formula" ]; then
-  		./brew uninstall "$octave_formula"
+  		"$brew" uninstall "$octave_formula"
   	fi
   else
   	# install homebrew
   	echo "Creating new Homebrew installation in $install_usr."
   	mkdir -p "$install_usr"
   	curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "$install_usr"
-  	cd "$install_usr/bin"
-    ./brew tap octave-app/octave-app
-    ./brew tap octave-app/octave-app-versions
+    "$brew" tap octave-app/octave-app
+    "$brew" tap octave-app/octave-app-versions
   fi
 
-  ./brew update # get new formulae
-  ./brew upgrade # compile new formulae
-  ./brew cleanup # remove old versions
-  ./brew prune # remove links
+  "$brew" update # get new formulae
+  "$brew" upgrade # compile new formulae
+  "$brew" cleanup # remove old versions
+  "$brew" prune # remove links
 
   # use Mac's (BSD) sed
   SED=/usr/bin/sed
@@ -296,18 +295,19 @@ function build_octave() {
   fi
 
   # finally build octave
-  echo ./brew install $octave_formula $octave_build_options
-  ./brew install $octave_formula $octave_build_options
+  echo "$brew" install $octave_formula $octave_build_options
+  "$brew" install $octave_formula $octave_build_options
 
   # get versions dynamically from the built program
-  oct_ver="$(./octave --version | /usr/bin/sed -n 1p | /usr/bin/grep -o '\d\..*$' )"
-  oct_ver_string="$(./octave --version | /usr/bin/sed -n 1p)"
-  oct_copy="$(./octave --version | /usr/bin/sed -n 2p | /usr/bin/cut -c 15- )"
+  octave="$install_usr/bin/octave"
+  oct_ver="$("$octave" --version | /usr/bin/sed -n 1p | /usr/bin/grep -o '\d\..*$' )"
+  oct_ver_string="$("$octave" --version | /usr/bin/sed -n 1p)"
+  oct_copy="$("$octave" --version | /usr/bin/sed -n 2p | /usr/bin/cut -c 15- )"
 
   echo "Octave versions: ver=${oct_ver} ver_string=${oct_ver_string} copy=${oct_copy}"
 
   # Set path for ghostscript
-  gs_ver="$(./gs --version)"
+  gs_ver="$("$install_usr/bin/gs" --version)"
   gs_share="$install_usr/opt/ghostscript/share/ghostscript"
   export GS_OPTIONS="-sICCProfilesDir=$gs_share/$gs_ver/iccprofiles/ -sGenericResourceDir=$gs_share/$gs_ver/Resource/ -sFontResourceDir=$gs_share/$gs_ver/Resource/Font"
 
@@ -398,6 +398,7 @@ EOS
 EOSCRIPT
 
   osacompile -o $install_dir/Contents/Resources/Scripts/main.scpt $tmp_script
+  rm $tmp_script
 
   # create a nice iconset (using the icons shipped with octave)
   # the following might fail for the development version
@@ -440,11 +441,11 @@ EOSCRIPT
 
   # force all formulas to be linked and list them in the DEPENDENCIES file
   echo "" > "$install_dir/Contents/Resources/DEPENDENCIES"
-  ./brew list -1 | while read line
+  "$brew" list -1 | while read line
   do
-  	./brew unlink $line
-  	./brew link --force $line
-  	./brew info $line | /usr/bin/sed -e 's$: .*$$g' | /usr/bin/sed -e 's$/Applications.*$$g' | /usr/bin/head -n3 >> "$install_dir/Contents/Resources/DEPENDENCIES"
+  	"$brew" unlink $line
+  	"$brew" link --force $line
+  	"$brew" info $line | /usr/bin/sed -e 's$: .*$$g' | /usr/bin/sed -e 's$/Applications.*$$g' | /usr/bin/head -n3 >> "$install_dir/Contents/Resources/DEPENDENCIES"
   	echo "" >> "$install_dir/Contents/Resources/DEPENDENCIES"
   done
 }
@@ -464,9 +465,8 @@ function create_dmg() {
 	fi
 
 	# run create-dmg; this may issue warnings if run headless. However, the dmg
-	# will still be created, only some beautifcation cannot be applied
-	cd "$tmp_dir/create-dmg"
-	./create-dmg \
+	# will still be created, only some beautification cannot be applied
+	"$tmp_dir/create-dmg" \
   	  --volname "${app_name}-Installer" \
   	  --volicon "$install_dir/Contents/Resources/applet.icns" \
   	  --window-size 550 442 \
