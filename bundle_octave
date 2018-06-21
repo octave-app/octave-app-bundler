@@ -422,7 +422,7 @@ EOSCRIPT
 
   # create a nice iconset (using the icons shipped with octave)
   # the following might fail for the development version
-  hicolor="$install_usr/opt/octave/share/icons/hicolor"
+  hicolor="$install_usr/opt/${octave_formula}/share/icons/hicolor"
   svg_icon="$hicolor/scalable/apps/octave.svg"
   tmp_iconset="$(mktemp -d /tmp/iconset-XXXX)/droplet.iconset"
   mkdir -p "$tmp_iconset"
