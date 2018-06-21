@@ -310,7 +310,9 @@ function build_octave() {
   # finally build octave
   echo "$brew" install $octave_formula $octave_build_options
   "$brew" install $octave_formula $octave_build_options
+}
 
+function decorate_octave() {
   # get versions dynamically from the built program
   octave="$install_usr/bin/octave"
   oct_ver="$("$octave" --version | /usr/bin/sed -n 1p | /usr/bin/grep -o '\d\..*$' )"
@@ -526,6 +528,7 @@ if [ -z "$build_step" ]; then
   stage_app_build
   freshen_staged_homebrew
   build_octave
+  decorate_octave
   prune_app
   if [ "$build_dmg" == "y" ]; then
     create_dmg
@@ -537,6 +540,7 @@ else
     stage)            stage_app_build ;;
     freshen-homebrew) freshen_staged_homebrew ;;
     build)            build_octave ;;
+    decorate)         decorate_octave ;;
     prune)            prune_app ;;
     dmg)              create_dmg ;;
     unstage)          unstage_app_build ;;
