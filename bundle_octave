@@ -2,11 +2,6 @@
 
 # bundle_octave - Create an Octave.app app bundle
 #
-# Prerequisites:
-#
-# You must have a global Homebrew installation on this computer, and its
-# bin dir must be on your path.
-#
 # Hints:
 #
 # If you want to do your compilations single-threaded, which will be slower
@@ -28,7 +23,7 @@ build_step=""
 # exit_on_error should not be used, because it breaks with "read" calls
 exit_on_error=n
 do_trace=n
-# be conservative regarding architectures
+# be conservative regarding target CPU architecture
 build_arch=core2
 
 this_program=$(basename $0)
@@ -179,10 +174,9 @@ echo "Building ${app_name}.app at ${install_dir}"
 
 install_usr="$install_dir/Contents/Resources/usr"
 brew="$install_usr/bin/brew"
+trash="$install_usr/bin/trash"
 app_build="build/${app_name}.app"
 app_build_usr="$app_build/Contents/Resources/usr"
-
-global_brew_prefix="$(brew --prefix)"
 
 # set some environment variables
 export HOMEBREW_OPTFLAGS="-march=core2"
@@ -227,15 +221,6 @@ function unstage_app_build() {
   echo "Un-staged build to ${install_dir_unstaged}"
 }
 
-function install_global_tools() {
-  # install utilities that octave-app-bundler itself needs into the global Homebrew
-  # installation (to avoid possible conflicts with versioned icoutils etc
-  # in octave's deps)
-  # Commented out icoutils because it looks like that's not actually used now -apj
-  #${global_brew_prefix}/bin/brew install trash icoutils
-  ${global_brew_prefix}/bin/brew install trash
-}
-
 function freshen_staged_homebrew() {
   # check if we do full or update
   if [ -e "$install_usr/bin/brew" ]; then
@@ -265,7 +250,12 @@ function freshen_staged_homebrew() {
   "$brew" cleanup # remove old versions
   "$brew" prune # remove links
 
-  # use Mac's (BSD) sed
+  # make sure trash is installed
+  if ! "$brew" ls | grep trash; then
+    "$brew" install trash
+  fi
+
+  # force conservative architecture builds in ENV
   SED=/usr/bin/sed
   $SED -i '' "s/march=native/march=${build_arch}/g" "$install_usr/Homebrew/Library/Homebrew/extend/ENV/super.rb" 
   $SED -i '' "s/march=native/march=${build_arch}/g" "$install_usr/Homebrew/Library/Homebrew/extend/ENV/std.rb" 
@@ -486,7 +476,7 @@ function create_dmg() {
   # put existing DMG into Trash
   if [ -f "$dmg_dir/$dmg_filename" ]; then
     echo "Moving existing $dmg_dir/$dmg_filename into the Trash"
-    trash "$dmg_dir/$dmg_filename"
+    "$trash" "$dmg_dir/$dmg_filename"
   fi
 
   if [ ! -d $app_build ]; then
@@ -521,7 +511,6 @@ function create_dmg() {
 
 if [ -z "$build_step" ]; then
   # Run entire build process
-  install_global_tools
   stage_app_build
   freshen_staged_homebrew
   build_octave
@@ -533,7 +522,6 @@ if [ -z "$build_step" ]; then
   unstage_app_build
 else
   case "$build_step" in
-    install-global)   install_global_tools ;;
     stage)            stage_app_build ;;
     freshen-homebrew) freshen_staged_homebrew ;;
     build)            build_octave ;;
@@ -543,7 +531,7 @@ else
     unstage)          unstage_app_build ;;
     *)
       echo "Error: Invalid step name '$build_step'" >&2
-      echo "Error: Valid steps are: install-global stage freshen-homebrew build dmg unstage" >&2
+      echo "Error: Valid steps are: stage freshen-homebrew build decorate prune dmg unstage" >&2
       exit 1
       ;;
   esac
