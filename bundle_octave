@@ -235,7 +235,18 @@ function unstage_app_build() {
   echo "Un-staged build to ${install_dir_unstaged}"
 }
 
+function require_staged_app_build() {
+  if [ ! -e "$install_dir/STAGING" ]; then
+    echo "Error: This step requires a staged app build, but there is no app build staged at $install_dir." >&2
+    if [ -n "$build_step" ]; then
+      echo "Error: Please run $this_program -s stage to stage one and then retry." >&2
+    fi
+    exit 1
+  fi  
+}
+
 function freshen_staged_homebrew() {
+  require_staged_app_build
   # check if we do full or update
   if [ -e "$install_usr/bin/brew" ]; then
     install_type='update'
@@ -274,6 +285,7 @@ function freshen_staged_homebrew() {
 }
 
 function build_octave() {
+  require_staged_app_build
   # set FC to point to GCC's gfortran
   export FC="$install_usr/bin/gfortran"
 
@@ -312,6 +324,7 @@ function build_octave() {
 }
 
 function decorate_octave() {
+  require_staged_app_build
   # get versions dynamically from the built program
   octave="$install_usr/bin/octave"
   oct_ver="$("$octave" --version | /usr/bin/sed -n 1p | /usr/bin/grep -o '\d\..*$' )"
@@ -471,10 +484,11 @@ EOSCRIPT
 }
 
 function prune_app() {
+  require_staged_app_build
   echo "Building pruned app at $app_build"
   mkdir -p build
   rm -rf "$app_build"
-  cp -pR "$install_dir" build
+  cp -cpR "$install_dir" build
 
   # Remove formulae known to be build-time-only dependencies
   app_build_brew="$app_build_usr/bin/brew"
@@ -495,15 +509,15 @@ function create_dmg() {
   echo "Building DMG"
   dmg_dir=build
 
+  if [ ! -d $app_build ]; then
+    echo "Error: No app build present at $app_build. Please run the build and prune first." >&2
+    exit 1
+  fi
+
   # put existing DMG into Trash
   if [ -f "$dmg_dir/$dmg_name" ]; then
     echo "Moving existing $dmg_dir/$dmg_name into the Trash"
     "$trash" "$dmg_dir/$dmg_name"
-  fi
-
-  if [ ! -d $app_build ]; then
-    echo "Error: No app build present at $app_build. Please run the build and prune first." >&2
-    exit 1
   fi
 
   # Run create-dmg; this may issue warnings if run headless. However, the dmg
