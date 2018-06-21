@@ -295,11 +295,6 @@ function build_octave() {
     export HOMEBREW_CXX=g++-6
   fi
 
-  # uninstall any old octave
-  if [ -d "$install_usr/Cellar/$octave_formula" ]; then
-    "$brew" uninstall "$octave_formula"
-  fi
-
   # build octave
   octave_build_options=""
   if [ "$verbose" == "y" ]; then
