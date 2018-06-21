@@ -477,7 +477,7 @@ function prune_app() {
 
   # Remove formulae known to be build-time-only dependencies
   app_build_brew="$app_build_usr/bin/brew"
-  "$app_build_brew" rm cmake pkg-config python
+  "$app_build_brew" rm cmake pkg-config python trash
 
   # Remove Homebrew itself
   rm -rf "$app_build_usr/Homebrew"
