@@ -21,6 +21,7 @@ exit_on_error=y
 do_trace=n
 # be conservative regarding target CPU architecture
 build_arch=core2
+action=
 
 this_program=$(basename $0)
 bundler_home=$(realpath $(dirname $0))
@@ -114,6 +115,11 @@ while [[ $1 != "" ]]; do
         fi ;;
     -x|--trace) do_trace=y; shift 1;;
     --) shift; break;;
+    brew)
+      action="brew"
+      shift 1
+      break
+      ;;
     *) 
       echo "Error: Invalid option: $1" >&2;
       echo "See $this_program --help for help."
@@ -536,7 +542,24 @@ function create_dmg() {
   echo DMG ready: $dmg_dir/$dmg_name
 }
 
-#  Main program
+# Main program
+
+# Handle special "actions" first
+if [ -n "$action" ]; then
+  case "$action" in
+    brew)
+      stage_app_build
+      "$brew" "$@"
+      exit_status=$?
+      unstage_app_build
+      exit $exit_status
+      ;;
+    *)
+      echo "Error: Invalid action: '$action'" >&2
+      exit 1
+      ;;
+  esac
+fi
 
 if [ -z "$build_step" ]; then
   # Run entire build process
