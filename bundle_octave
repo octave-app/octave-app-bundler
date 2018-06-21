@@ -13,11 +13,9 @@ build_devel=n
 build_dmg=y
 use_experimental=n
 use_java=y
-dmg_dir="build"
 verbose=n
 with_test=y
-octave_version="4.4.0"
-octave_formula_base="octave"
+variant=""
 build_suffix=""
 build_step=""
 # exit_on_error should not be used, because it breaks with "read" calls
@@ -42,10 +40,6 @@ function usage() {
  Several options are supported:
 
   Packaging options:
-    -a, --dmg-dir <dir>
-      Location to create DMG [$dmg_dir].
-    -b, --build-dmg
-      Build a DMG.
     -u, --build-suffix <suffix>
       Set a build version suffix [$build_suffix].
     -E, --ignore-errors
@@ -62,31 +56,30 @@ function usage() {
       Run a single step of the build process (for debugging use).
 
   Octave build options:
-    -f, --octave-formula <name>
-      Base name of Octave formula to use [$octave_formula_base].
-    -d, --build-devel
-      Build the latest development snapshot.
-    -X, --experimental
-      Use the experimental Octave formula.
+    -a, --variant <variant>
+      Variant of Octave to build [$variant].
     -V, --octave-version <version>
       Version of Octave to build (affects formula choice) [$octave_version].
     -c, --cli-only
       Do not build the GUI.
     -J, --no-java
       Compile without Java support.
+    -d, --build-devel
+      Build the latest development snapshot.
+    -X, --experimental
+      Use the experimental Octave formula.
 EOHELP
 }
 
 while [[ $1 != "" ]]; do
   case "$1" in
-    -a|--dmg-dir)
+    -a|--variant)
         if [ $# -gt 1 ]; then
-          dmg_dir=$2; shift 2
+          variant=$2; shift 2
         else 
           echo "$1 requires an argument" >&2
           exit 1
         fi ;;
-    -b|--build-dmg) build_dmg=y; shift 1;;
     -c|--cli-only) build_gui=n; shift 1;;
     -d|--build-devel) build_devel=y; shift 1;;
     -E|--ignore-errors) exit_on_error=n; shift 1;;
@@ -138,7 +131,7 @@ if [ "$exit_on_error" = "y" ]; then
   set -e
 fi
 if [ "$verbose" == "y" ]; then
-  echo octave_formula_base = \"$octave_formula_base\"
+  echo variant = \"$variant\"
   echo octave_version = \"$octave_version\"
   echo build_suffix = \"$build_suffix\"
   echo build_gui = \"$build_gui\"
@@ -156,6 +149,28 @@ if [ "$do_trace" == "y" ]; then
   set -x
 fi
 
+# Bash 3 does not have associative arrays, so we need to do the
+# version lookup with a function
+function pick_default_octave_version() {
+  if [ "$octave_formula_base" == "octave" ]; then
+    octave_version="4.4.0"
+  elif [ "$octave_formula_base" == "octave-unversioned" ]; then
+    octave_version=""
+  else
+    echo "Error: Variant '${variant}' has no default version defined. You must supply one." >&2
+    exit 1
+  fi
+}
+
+if [ -z "$variant" ]; then
+  octave_formula_base="octave"
+else
+  octave_formula_base="octave-$variant"
+fi
+# Pick default version for variant
+if [ -z "${octave_version}" ]; then
+  pick_default_octave_version
+fi
 if [ -z "$octave_version" ]; then
   octave_formula="${octave_formula_base}"
   app_base_name="${octave_formula_base}"
@@ -165,18 +180,22 @@ else
 fi
 app_base_name="$(tr '[:lower:]' '[:upper:]' <<< ${app_base_name:0:1})${app_base_name:1}"
 app_name="${app_base_name}"
-if [ -n "$build_suffix" ]; then
-  app_name="${app_name}-${build_suffix}"
+if [ -z "$build_suffix" ]; then
+  dmg_name="${app_name}.dmg"
+else
+  dmg_name="${app_name}-${build_suffix}.dmg"
 fi
 install_dir="/Applications/${app_name}.app"
 install_dir_unstaged="${install_dir}-UNSTAGED"
-echo "Building ${app_name}.app at ${install_dir}"
 
 install_usr="$install_dir/Contents/Resources/usr"
 brew="$install_usr/bin/brew"
 trash="$install_usr/bin/trash"
 app_build="build/${app_name}.app"
 app_build_usr="$app_build/Contents/Resources/usr"
+
+
+echo "Building ${app_name}.app at ${install_dir} from formula ${octave_formula}"
 
 # set some environment variables
 export HOMEBREW_OPTFLAGS="-march=core2"
@@ -235,14 +254,12 @@ function freshen_staged_homebrew() {
   else
     # install homebrew
     echo "Creating new Homebrew installation in $install_usr."
-    mkdir -p "$install_usr"
+    mkdir -p "$install_usr/Homebrew"
+    mkdir -p "$install_usr/bin" "$install_usr/var" "$install_usr/lib"
     curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "$install_usr/Homebrew"
-    ln -s "$install_usr/Homebrew/bin/brew" "$install_usr/bin"
+    ln -s "$install_usr/Homebrew/bin/brew" "$install_usr/bin/brew"
     "$brew" tap octave-app/octave-app
     "$brew" tap octave-app/octave-app-versions
-    # Redirect the Homebrew prefix's var/ to system /var
-    rm -rf "$install_usr/var"
-    ln -s "/var" "$install_usr/var"
   fi
 
   "$brew" update # get new formulae
@@ -251,7 +268,7 @@ function freshen_staged_homebrew() {
   "$brew" prune # remove links
 
   # make sure trash is installed
-  if ! "$brew" ls | grep trash; then
+  if ! "$brew" ls | grep trash >/dev/null; then
     "$brew" install trash
   fi
 
@@ -443,13 +460,22 @@ EOSCRIPT
   fi
 
   # force all formulas to be linked and list them in the DEPENDENCIES file
-  echo "" > "$install_dir/Contents/Resources/DEPENDENCIES"
-  "$brew" list -1 | while read line
+  DEPENDENCIES="$install_dir/Contents/Resources/DEPENDENCIES"
+  echo "" > "${DEPENDENCIES}"
+  octave_app_str="Octave.app"
+  if [ -n "$variant" ]; then
+    octave_app_str="${octave_app_str} (variant ${variant})"
+  fi
+  if [-n "${build_suffix}" ]; then
+    octave_app_str="${octave_app_str}, build ${build_suffix}"
+  fi
+  echo "This is ${octave_app_str} version $oct_ver ($oct_ver_string)" >> "${DEPENDENCIES}"
+  echo "" >> "$DEPENDENCIES"
+  "$brew" list -1 | while read f
   do
-    "$brew" unlink $line
-    "$brew" link --force $line
-    "$brew" info $line | /usr/bin/sed -e 's$: .*$$g' | /usr/bin/sed -e 's$/Applications.*$$g' | /usr/bin/head -n3 >> "$install_dir/Contents/Resources/DEPENDENCIES"
-    echo "" >> "$install_dir/Contents/Resources/DEPENDENCIES"
+    "$brew" unlink $f
+    "$brew" link --force $f
+    "$brew" info $f | /usr/bin/sed -e 's$: .*$$g' | /usr/bin/sed -e 's$/Applications.*$$g' | /usr/bin/head -n3 >> "$DEPENDENCIES"
   done
 }
 
@@ -461,22 +487,26 @@ function prune_app() {
 
   # Remove formulae known to be build-time-only dependencies
   app_build_brew="$app_build_usr/bin/brew"
+  "$app_build_brew" rm cmake pkg-config python
 
   # Remove Homebrew itself
   rm -rf "$app_build_usr/Homebrew"
   # Remove STAGING so you can tell it's a real built app now
   rm -rf "$app_build/STAGING"
+
+  # Redirect the app prefix's var/ to system /var
+  rm -rf "$app_build_usr/var"
+  ln -s "/var" "$app_build_usr/var"
 }
 
 function create_dmg() {
   # create a nice DMG disc image with create-dmg (MIT License)
   echo "Building DMG"
-  dmg_filename="$app_name.dmg"
 
   # put existing DMG into Trash
-  if [ -f "$dmg_dir/$dmg_filename" ]; then
-    echo "Moving existing $dmg_dir/$dmg_filename into the Trash"
-    "$trash" "$dmg_dir/$dmg_filename"
+  if [ -f "$dmg_dir/$dmg_name" ]; then
+    echo "Moving existing $dmg_dir/$dmg_name into the Trash"
+    "$trash" "$dmg_dir/$dmg_name"
   fi
 
   if [ ! -d $app_build ]; then
@@ -501,10 +531,10 @@ function create_dmg() {
       --add-file DEPENDENCIES "$app_build/Contents/Resources/DEPENDENCIES" 415 300 \
       --disk-image-size 2000 \
       --background "${bundler_home}/background.tiff" \
-      "$dmg_dir/$dmg_filename" \
+      "$dmg_dir/$dmg_name" \
       "$app_build" 
 
-  echo DMG ready: $dmg_dir/$dmg_filename
+  echo DMG ready: $dmg_dir/$dmg_name
 }
 
 #  Main program
