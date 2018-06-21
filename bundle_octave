@@ -25,7 +25,9 @@ octave_version="4.4.0"
 octave_formula_base="octave"
 build_suffix=""
 build_step=""
-exit_on_error=y
+# exit_on_error should not be used, because it breaks with "read" calls
+exit_on_error=n
+do_trace=n
 # be conservative regarding architectures
 build_arch=core2
 
@@ -67,7 +69,7 @@ function usage() {
       Base name of Octave formula to use [$octave_formula_base].
     -d, --build-devel
       Build the latest development snapshot.
-    -x, --experimental
+    -X, --experimental
       Use the experimental Octave formula.
     -V, --octave-version <version>
       Version of Octave to build (affects formula choice) [$octave_version].
@@ -124,7 +126,8 @@ while [[ $1 != "" ]]; do
           echo "$1 requires an argument" >&2
           exit 1
         fi ;;
-    -x|--experimental) use_experimental=y; shift 1;;
+    -x|--trace) do_trace=y; shift 1;;
+    -X|--experimental) use_experimental=y; shift 1;;
     --) shift; break;;
     *) 
       echo "Error: Invalid option: $1" >&2;
@@ -150,6 +153,10 @@ if [ "$verbose" == "y" ]; then
 	echo with_test = \"$with_test\"
   echo octave_app_bundler_home = \"$bundler_home\"
 	set -v
+fi
+
+if [ "$do_trace" == "y" ]; then
+  set -x
 fi
 
 if [ -z "$octave_version" ]; then
@@ -336,7 +343,7 @@ EOS
     end tell
 EOS
   fi
-  echo <<EOSCRIPT >> $tmp_script
+  cat <<EOSCRIPT >> $tmp_script
   on export_gs_options()
     return "export GS_OPTIONS=\\"-sICCProfilesDir=$gs_share/$gs_ver/iccprofiles/ -sGenericResourceDir=$gs_share/$gs_ver/Resource/ -sFontResourceDir=$gs_share/$gs_ver/Resource/Font\\";"
   end export_gs_options
