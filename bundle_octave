@@ -462,7 +462,7 @@ EOSCRIPT
     /usr/bin/python "$python_script" "$app_build/Contents/Resources/applet.icns" $app_build_usr/Cellar/${octave_formula}/*/libexec/octave/*/exec/*/octave-gui
   fi
 
-  # List all formulas in the VERSIONS file
+  # List all formulae in the VERSIONS file
   versions_file="$app_build/Contents/Resources/VERSIONS"
   rm -f "${versions_file}"
   touch "${versions_file}"
