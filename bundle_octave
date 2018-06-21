@@ -331,7 +331,7 @@ function decorate_octave() {
   oct_ver_string="$("$octave" --version | /usr/bin/sed -n 1p)"
   oct_copy="$("$octave" --version | /usr/bin/sed -n 2p | /usr/bin/cut -c 15- )"
 
-  echo "Octave versions: ver=${oct_ver} ver_string=${oct_ver_string} copy=${oct_copy}"
+  echo "Octave versions: ver=${oct_ver} ver_string='${oct_ver_string}' copy='${oct_copy}'"
 
   # Set path for ghostscript
   gs_ver="$("$install_usr/bin/gs" --version)"
@@ -462,9 +462,10 @@ EOSCRIPT
     /usr/bin/python "$python_script" "$install_dir/Contents/Resources/applet.icns" $install_usr/Cellar/${octave_formula}/*/libexec/octave/*/exec/*/octave-gui
   fi
 
-  # force all formulas to be linked and list them in the VERSIONS file
+  # List all formulas in the VERSIONS file
   versions_file="$install_dir/Contents/Resources/VERSIONS"
-  echo "" > "${versions_file}"
+  rm -f "${versions_file}"
+  touch "${versions_file}"
   octave_app_str="Octave.app"
   if [ -n "$variant" ]; then
     octave_app_str="${octave_app_str} (variant ${variant})"
@@ -475,11 +476,7 @@ EOSCRIPT
   fi
   echo "This is ${octave_app_str}" >> "${versions_file}"
   echo "" >> "$versions_file"
-  "$brew" list -1 | while read f
-  do
-    "$brew" info $f | /usr/bin/sed -e 's$: .*$$g' | /usr/bin/sed -e 's$/Applications.*$$g' | /usr/bin/head -n3 >> "$versions_file"
-    echo "" >> "$versions_file"
-  done
+  "$brew" octave-app-list-formulae >> "${versions_file}"
 }
 
 function prune_app() {
