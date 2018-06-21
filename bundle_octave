@@ -344,12 +344,12 @@ function munge_build() {
   # create applescript to execute octave
   tmp_script=$(mktemp /tmp/octave-XXXX);
   if [ "$build_gui" == "y" ]; then
-    read -r -d '' program_launch_code <<EOS; true
+    read -r -d '' program_launch_code <<EOS || true
     set cmd to export_gs_options() & export_gnuterm() & export_path() & export_dyld() & run_octave_gui()
     do shell script cmd
 EOS
   else
-    read -r -d '' program_launch_code <<EOS; true
+    read -r -d '' program_launch_code <<EOS || true
     set cmd to export_gs_options() & export_gnuterm() & export_path() & run_octave_cli()
     tell application "Terminal"
       activate
