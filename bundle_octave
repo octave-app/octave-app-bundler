@@ -502,6 +502,7 @@ function prune_app() {
 function create_dmg() {
   # create a nice DMG disc image with create-dmg (MIT License)
   echo "Building DMG"
+  dmg_dir=build
 
   # put existing DMG into Trash
   if [ -f "$dmg_dir/$dmg_name" ]; then
