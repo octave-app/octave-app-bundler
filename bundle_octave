@@ -318,7 +318,7 @@ function build_octave() {
   "$brew" install $octave_formula $octave_build_options
 }
 
-function decorate_octave() {
+function munge_build() {
   require_staged_app_build
   # get versions dynamically from the built program
   octave="$install_usr/bin/octave"
@@ -333,8 +333,13 @@ function decorate_octave() {
   gs_share="$install_usr/opt/ghostscript/share/ghostscript"
   export GS_OPTIONS="-sICCProfilesDir=$gs_share/$gs_ver/iccprofiles/ -sGenericResourceDir=$gs_share/$gs_ver/Resource/ -sFontResourceDir=$gs_share/$gs_ver/Resource/Font"
 
+  # make a local copy for munging
+  mkdir -p build
+  rm -rf "$app_build"
+  cp -cpR "$install_dir" build
+
   # use local font cache instead of global one
-  /usr/bin/sed -i '' 's/\/Applications.*fontconfig/~\/.cache\/fontconfig/g' "$install_usr/etc/fonts/fonts.conf" 
+  /usr/bin/sed -i '' 's/\/Applications.*fontconfig/~\/.cache\/fontconfig/g' "$app_build_usr/etc/fonts/fonts.conf" 
 
   # create applescript to execute octave
   tmp_script=$(mktemp /tmp/octave-XXXX);
@@ -415,12 +420,12 @@ EOS
   end run
 EOSCRIPT
 
-  osacompile -o $install_dir/Contents/Resources/Scripts/main.scpt $tmp_script
+  osacompile -o $app_build/Contents/Resources/Scripts/main.scpt $tmp_script
   rm $tmp_script
 
   # create a nice iconset (using the icons shipped with octave)
   # the following might fail for the development version
-  hicolor="$install_usr/opt/${octave_formula}/share/icons/hicolor"
+  hicolor="$app_build_usr/opt/${octave_formula}/share/icons/hicolor"
   svg_icon="$hicolor/scalable/apps/octave.svg"
   tmp_iconset="$(mktemp -d /tmp/iconset-XXXX)/droplet.iconset"
   mkdir -p "$tmp_iconset"
@@ -433,17 +438,17 @@ EOSCRIPT
   cp "$hicolor/256x256/apps/octave.png" "$tmp_iconset/icon_256x256.png"
   cp "$hicolor/512x512/apps/octave.png" "$tmp_iconset/icon_256x256@2x.png"
   cp "$hicolor/512x512/apps/octave.png" "$tmp_iconset/icon_512x512.png"
-  iconutil -c icns -o "$install_dir/Contents/Resources/applet.icns" "$tmp_iconset"
+  iconutil -c icns -o "$app_build/Contents/Resources/applet.icns" "$tmp_iconset"
 
   # create or update entries in the application's plist
-  defaults write "$install_dir/Contents/Info" NSUIElement 1
-  defaults write "$install_dir/Contents/Info" CFBundleIdentifier org.octave.Octave 
-  defaults write "$install_dir/Contents/Info" CFBundleShortVersionString "$oct_ver"
-  defaults write "$install_dir/Contents/Info" CFBundleVersion "$oct_ver_string"
-  defaults write "$install_dir/Contents/Info" NSHumanReadableCopyright "$oct_copy"
-  defaults write "$install_dir/Contents/Info" CFBundleDocumentTypes -array '{"CFBundleTypeExtensions" = ("m"); "CFBundleTypeOSTypes" = ("Mfile"); "CFBundleTypeRole" = "Editor";}'    
-  plutil -convert xml1 "$install_dir/Contents/Info.plist"
-  chmod a=r "$install_dir/Contents/Info.plist"
+  defaults write "$app_build/Contents/Info" NSUIElement 1
+  defaults write "$app_build/Contents/Info" CFBundleIdentifier org.octave.Octave 
+  defaults write "$app_build/Contents/Info" CFBundleShortVersionString "$oct_ver"
+  defaults write "$app_build/Contents/Info" CFBundleVersion "$oct_ver_string"
+  defaults write "$app_build/Contents/Info" NSHumanReadableCopyright "$oct_copy"
+  defaults write "$app_build/Contents/Info" CFBundleDocumentTypes -array '{"CFBundleTypeExtensions" = ("m"); "CFBundleTypeOSTypes" = ("Mfile"); "CFBundleTypeRole" = "Editor";}'    
+  plutil -convert xml1 "$app_build/Contents/Info.plist"
+  chmod a=r "$app_build/Contents/Info.plist"
 
   # add icon to octave-gui
   if [ "$build_gui" == "y" ]; then
@@ -454,11 +459,11 @@ import Cocoa
 import sys
 Cocoa.NSWorkspace.sharedWorkspace().setIcon_forFile_options_(Cocoa.NSImage.alloc().initWithContentsOfFile_(sys.argv[1].decode("utf-8")), sys.argv[2].decode("utf-8"), 0) or sys.exit("Unable to set file icon")
 EOSCRIPT
-    /usr/bin/python "$python_script" "$install_dir/Contents/Resources/applet.icns" $install_usr/Cellar/${octave_formula}/*/libexec/octave/*/exec/*/octave-gui
+    /usr/bin/python "$python_script" "$app_build/Contents/Resources/applet.icns" $app_build_usr/Cellar/${octave_formula}/*/libexec/octave/*/exec/*/octave-gui
   fi
 
   # List all formulas in the VERSIONS file
-  versions_file="$install_dir/Contents/Resources/VERSIONS"
+  versions_file="$app_build/Contents/Resources/VERSIONS"
   rm -f "${versions_file}"
   touch "${versions_file}"
   octave_app_str="Octave.app"
@@ -472,14 +477,8 @@ EOSCRIPT
   echo "This is ${octave_app_str}" >> "${versions_file}"
   echo "" >> "$versions_file"
   "$brew" octave-app-list-formulae >> "${versions_file}"
-}
 
-function prune_app() {
-  require_staged_app_build
-  echo "Building pruned app at $app_build"
-  mkdir -p build
-  rm -rf "$app_build"
-  cp -cpR "$install_dir" build
+  echo "Pruning app at $app_build"
 
   # Remove formulae known to be build-time-only dependencies
   app_build_brew="$app_build_usr/bin/brew"
@@ -541,8 +540,7 @@ if [ -z "$build_step" ]; then
   stage_app_build
   freshen_staged_homebrew
   build_octave
-  decorate_octave
-  prune_app
+  munge_build
   if [ "$build_dmg" == "y" ]; then
     create_dmg
   fi
@@ -552,13 +550,12 @@ else
     stage)            stage_app_build ;;
     freshen-homebrew) freshen_staged_homebrew ;;
     build)            build_octave ;;
-    decorate)         decorate_octave ;;
-    prune)            prune_app ;;
+    munge)            munge_build ;;
     dmg)              create_dmg ;;
     unstage)          unstage_app_build ;;
     *)
       echo "Error: Invalid step name '$build_step'" >&2
-      echo "Error: Valid steps are: stage freshen-homebrew build decorate prune dmg unstage" >&2
+      echo "Error: Valid steps are: stage freshen-homebrew build munge dmg unstage" >&2
       exit 1
       ;;
   esac
