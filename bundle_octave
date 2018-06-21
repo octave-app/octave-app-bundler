@@ -61,6 +61,8 @@ function usage() {
       Do not run 'make check'.
     -v, --verbose
       Verbose output, and list state of all options.
+    -x, --trace
+      Trace program execution (even more detail than --verbose).
     -s, --step <step>
       Run a single step of the build process (for debugging use).
 
