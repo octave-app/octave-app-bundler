@@ -531,7 +531,7 @@ function create_dmg() {
       --icon ${app_name}.app 125 180 \
       --hide-extension ${app_name}.app \
       --app-drop-link 415 180 \
-      --eula "$app_build_usr/opt/${octave_formula}/README" \
+      --eula "$bundler_home/assets/README-octave-reformatted" \
       --add-file COPYING "$app_build_usr/opt/${octave_formula}/COPYING" 126 300 \
       --add-file VERSIONS "$app_build/Contents/Resources/VERSIONS" 415 300 \
       --disk-image-size 2000 \
