@@ -491,7 +491,7 @@ EOSCRIPT
   app_build_brew="$app_build_usr/bin/brew"
   # TODO: Detect which of these are actually installed, and remove them
   # cmake pkg-config python
-  "$app_build_brew" rm trash
+  "$app_build_brew" rm trash lzip
 
   # Remove Homebrew itself
   rm -rf "$app_build_usr/Homebrew"
