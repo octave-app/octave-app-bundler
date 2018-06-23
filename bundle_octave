@@ -509,7 +509,7 @@ function create_dmg() {
   dmg_dir=build
 
   if [ ! -d "$app_build" ]; then
-    echo "Error: No app build present at $app_build. Please run the build and prune first." >&2
+    echo "Error: No app build present at $app_build. Please run the build and munge steps first." >&2
     exit 1
   fi
 
