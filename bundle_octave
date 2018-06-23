@@ -322,6 +322,14 @@ function build_octave() {
   # finally build octave
   echo "$brew" install $octave_formula $octave_build_options
   "$brew" install $octave_formula $octave_build_options
+
+  # grab the logs
+  rm -rf build/logs
+  mkdir -p build/logs
+  cp -pR "$HOME/Library/Logs/Homebrew/$octave_formula" build/logs
+  if [ -e "$install_usr/opt/octave_4.4.0/make-check.log" ]; then
+    cp "$install_usr/opt/octave_4.4.0/make-check.log" build/logs
+  fi
 }
 
 function munge_build() {
