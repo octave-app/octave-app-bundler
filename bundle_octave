@@ -192,7 +192,7 @@ install_dir_unstaged="${install_dir}-UNSTAGED"
 install_usr="$install_dir/Contents/Resources/usr"
 brew="$install_usr/bin/brew"
 trash="$install_usr/bin/trash"
-app_build="build/${app_name}.app"
+app_build="./build/${app_name}.app"
 app_build_usr="$app_build/Contents/Resources/usr"
 
 
@@ -326,6 +326,7 @@ function build_octave() {
 
 function munge_build() {
   require_staged_app_build
+  echo "Munging app build at $app_build"
   # get versions dynamically from the built program
   octave="$install_usr/bin/octave"
   oct_ver="$("$octave" --version | /usr/bin/sed -n 1p | /usr/bin/grep -o '\d\..*$' )"
@@ -484,8 +485,6 @@ EOSCRIPT
   echo "This is ${octave_app_str}" >> "${versions_file}"
   echo "" >> "$versions_file"
   "$brew" octave-app-list-formulae >> "${versions_file}"
-
-  echo "Pruning app at $app_build"
 
   # Remove formulae known to be build-time-only dependencies
   app_build_brew="$app_build_usr/bin/brew"
