@@ -24,5 +24,11 @@ This is a list of actions the maintainer needs to do to test a build of Octave.a
 * Run `__run_test_suite__` in the command window to run the full suite of unit tests. Check that they all pass.
   * XFAIL: The tar test is failing as of June 2018; we think this is acceptable.
 
+* Run each of the following plotting commands, and see that their output looks reasonable. (E.g. visible, not half-size within the figure window, and so on.)
+
+```
+sombrero
+surf(peaks)
+```
 
 *TODO*: Come up with more tests.
