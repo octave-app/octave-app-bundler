@@ -369,7 +369,8 @@ function munge_build() {
 
   # Set path for ghostscript
   gs_ver="$("$install_usr/bin/gs" --version)"
-  gs_share="$install_usr/opt/ghostscript/share/ghostscript"
+  gs_opt=$("$brew" --prefix "ghostscript_${gs_ver}")
+  gs_share="$gs_opt/share/ghostscript"
 
   # make a local copy for munging
   mkdir -p build
