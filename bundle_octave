@@ -23,6 +23,11 @@ do_trace=n
 build_arch=core2
 action=
 
+# define these if we need to use a special branch of Homebrew
+brew_remote_name=apjanke
+brew_remote_url=https://github.com/apjanke/brew
+brew_remote_branch=fix-subversion-download-of-versioned-formulae
+
 this_program=$(basename $0)
 bundler_home=$(realpath $(dirname $0))
 
@@ -270,6 +275,16 @@ function freshen_staged_homebrew() {
     mkdir -p "$install_usr/bin" "$install_usr/var" "$install_usr/lib"
     curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "$install_usr/Homebrew"
     ln -s "$install_usr/Homebrew/bin/brew" "$install_usr/bin/brew"
+    if [ -n "$brew_remote_branch" ]; then
+      (
+        echo "Checking out $brew_remote_branch from $brew_remote_url"
+        "$brew" update
+        cd "$install_usr/Homebrew"
+        git remote add "$brew_remote_name" "$brew_remote_url"
+        git fetch --all
+        git checkout "$brew_remote_branch"
+      )
+    fi
     "$brew" tap octave-app/octave-app
     "$brew" tap octave-app/octave-app-bases
   fi
