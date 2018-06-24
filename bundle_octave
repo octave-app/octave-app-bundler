@@ -148,7 +148,6 @@ if [ "$verbose" == "y" ]; then
   echo use_java = \"$use_java\"
   echo with_test = \"$with_test\"
   echo octave_app_bundler_home = \"$bundler_home\"
-  set -v
 fi
 
 if [ "$do_trace" == "y" ]; then
