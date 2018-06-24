@@ -361,7 +361,6 @@ function munge_build() {
   # Set path for ghostscript
   gs_ver="$("$install_usr/bin/gs" --version)"
   gs_share="$install_usr/opt/ghostscript/share/ghostscript"
-  export GS_OPTIONS="-sICCProfilesDir=$gs_share/$gs_ver/iccprofiles/ -sGenericResourceDir=$gs_share/$gs_ver/Resource/ -sFontResourceDir=$gs_share/$gs_ver/Resource/Font"
 
   # make a local copy for munging
   mkdir -p build
