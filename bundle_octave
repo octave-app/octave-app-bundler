@@ -341,7 +341,7 @@ function munge_build() {
   oct_ver_string="$("$octave" --version | /usr/bin/sed -n 1p)"
   oct_copy="$("$octave" --version | /usr/bin/sed -n 2p | /usr/bin/cut -c 15- )"
 
-  echo "Octave versions: ver=${oct_ver} ver_string='${oct_ver_string}' copy='${oct_copy}'"
+  echo "Octave versions: ver='${oct_ver}' ver_string='${oct_ver_string}' copy='${oct_copy}'"
 
   # Set path for ghostscript
   gs_ver="$("$install_usr/bin/gs" --version)"
@@ -530,17 +530,18 @@ function create_dmg() {
   # will still be created, only some beautification cannot be applied.
   # We manually set the image size because create-dmg's automatic sizing seems to
   # get it wrong, and we run out of space when adding files.
+  octave_app_tap="$install_usr/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
   "${bundler_home}/create-dmg/create-dmg" \
       --volname "${app_name}" \
-      --volicon "$app_build/Contents/Resources/applet.icns" \
+      --volicon "${app_build}/Contents/Resources/applet.icns" \
       --window-size 550 500 \
       --icon-size 48 \
       --icon ${app_name}.app 125 180 \
       --hide-extension ${app_name}.app \
       --app-drop-link 415 180 \
-      --eula "$bundler_home/assets/README-octave-reformatted" \
-      --add-file COPYING "$app_build_usr/opt/${octave_formula}/COPYING" 126 300 \
-      --add-file VERSIONS "$app_build/Contents/Resources/VERSIONS" 415 300 \
+      --eula "${octave_app_tap}/assets/COPYING/COPYING" \
+      --add-file COPYING "${octave_app_tap}/assets/COPYING" 126 300 \
+      --add-file VERSIONS "${app_build}/Contents/Resources/VERSIONS" 415 300 \
       --disk-image-size 2000 \
       --background "${bundler_home}/background.tiff" \
       "$dmg_dir/$dmg_name" \
