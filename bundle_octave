@@ -157,7 +157,7 @@ fi
 # Bash 3 does not have associative arrays, so we need to do the
 # version lookup with a function
 function pick_default_octave_version() {
-  if [ "$octave_formula_base" == "octave" ]; then
+  if [ "$octave_formula_base" == "octave-octave-app" ]; then
     octave_version="4.4.0"
   elif [ "$octave_formula_base" == "octave-unversioned" ]; then
     octave_version=""
@@ -168,9 +168,11 @@ function pick_default_octave_version() {
 }
 
 if [ -z "$variant" ]; then
-  octave_formula_base="octave"
+  octave_formula_base="octave-octave-app"
+  app_base_name_base="octave"
 else
   octave_formula_base="octave-$variant"
+  app_base_name_base="${octave_formula_base}"
 fi
 # Pick default version for variant
 if [ -z "${octave_version}" ]; then
@@ -178,10 +180,10 @@ if [ -z "${octave_version}" ]; then
 fi
 if [ -z "$octave_version" ]; then
   octave_formula="${octave_formula_base}"
-  app_base_name="${octave_formula_base}"
+  app_base_name="${app_base_name_base}"
 else
   octave_formula="${octave_formula_base}_${octave_version}"
-  app_base_name="${octave_formula_base}-${octave_version}"
+  app_base_name="${app_base_name_base}-${octave_version}"
 fi
 app_base_name="$(tr '[:lower:]' '[:upper:]' <<< ${app_base_name:0:1})${app_base_name:1}"
 app_name="${app_base_name}"
@@ -199,6 +201,14 @@ trash="$install_usr/bin/trash"
 app_build="./build/${app_name}.app"
 app_build_usr="$app_build/Contents/Resources/usr"
 
+if [ "$verbose" == "y" ]; then
+  echo octave_formula_base = \"$octave_formula_base\"
+  echo octave_formula = \"$octave_formula\"
+  echo app_base_name_base = \"$app_base_name_base\"
+  echo app_base_name = \"$app_base_name\"
+  echo app_name = \"$app_name\"
+  echo install_dir = \"$install_dir\"
+fi
 
 echo "Building ${app_name}.app at ${install_dir} from formula ${octave_formula}"
 
