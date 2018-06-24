@@ -603,6 +603,7 @@ if [ -z "$build_step" ]; then
   fi
   unstage_app_build
 else
+  # Run a single step
   case "$build_step" in
     stage)            stage_app_build ;;
     freshen-homebrew) freshen_staged_homebrew ;;
