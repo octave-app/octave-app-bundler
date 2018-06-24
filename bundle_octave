@@ -521,8 +521,7 @@ EOSCRIPT
   # Remove formulae known to be build-time-only dependencies
   app_build_brew="$app_build_usr/bin/brew"
   # TODO: Detect which of these are actually installed, and remove them
-  # cmake pkg-config python
-  "$app_build_brew" rm trash lzip
+  "$app_build_brew" rm trash lzip cmake pkg-config python
 
   # Remove Homebrew itself
   rm -rf "$app_build_usr/Homebrew"
