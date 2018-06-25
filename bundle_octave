@@ -545,8 +545,8 @@ function create_dmg() {
 
   # put existing DMG into Trash
   if [ -f "$dmg_dir/$dmg_name" ]; then
-    echo "Moving existing $dmg_dir/$dmg_name into the Trash"
-    "$trash" "$dmg_dir/$dmg_name"
+    echo "Deleting existing $dmg_dir/$dmg_name"
+    rm -rf "$dmg_dir/$dmg_name"
   fi
 
   # Run create-dmg; this may issue warnings if run headless. However, the dmg
