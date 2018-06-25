@@ -325,6 +325,14 @@ function build_octave() {
     export HOMEBREW_CXX=g++-6
   fi
 
+  # Set GS_OPTIONS and other run-time variables for octave
+  # Necessary to get the "make check" to pass, since it's done without our wrapper script
+  gs_ver="$("$install_usr/bin/gs" --version)"
+  gs_opt=$("$brew" --prefix "ghostscript_${gs_ver}")
+  gs_share="$gs_opt/share/ghostscript"
+  export GS_OPTIONS="-sICCProfilesDir=$gs_share/$gs_ver/iccprofiles/ -sGenericResourceDir=$gs_share/$gs_ver/Resource/ -sFontResourceDir=$gs_share/$gs_ver/Resource/Font"
+  export PATH="$install_usr/bin/:$PATH"
+
   # build octave
   octave_build_options=""
   if [ "$verbose" == "y" ]; then
