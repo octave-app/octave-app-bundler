@@ -24,9 +24,9 @@ build_arch=core2
 action=
 
 # define these if we need to use a special branch of Homebrew
-brew_remote_name=apjanke
-brew_remote_url=https://github.com/apjanke/brew
-brew_remote_branch=fix-subversion-download-of-versioned-formulae
+brew_remote_name=
+brew_remote_url=
+brew_remote_branch=
 
 this_program=$(basename $0)
 bundler_home=$(realpath $(dirname $0))
