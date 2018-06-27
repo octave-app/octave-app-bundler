@@ -392,12 +392,12 @@ function munge_build() {
   tmp_script=$(mktemp /tmp/octave-XXXX);
   if [ "$build_gui" == "y" ]; then
     read -r -d '' program_launch_code <<EOS || true
-    set cmd to export_gs_options() & export_gnuterm() & export_path() & export_dyld() & run_octave_gui()
+    set cmd to env_setup_cmd() & run_octave_gui()
     do shell script cmd
 EOS
   else
     read -r -d '' program_launch_code <<EOS || true
-    set cmd to export_gs_options() & export_gnuterm() & export_path() & run_octave_cli()
+    set cmd to env_setup_cmd() & run_octave_cli()
     tell application "Terminal"
       activate
       do script cmd
@@ -405,6 +405,10 @@ EOS
 EOS
   fi
   cat <<EOSCRIPT >> $tmp_script
+  on env_setup_cmd()
+    export_gs_options() & export_gnuterm() & export_path() & export_dyld()
+  end env_setup_cmd
+
   on export_gs_options()
     return "export GS_OPTIONS=\\"-sICCProfilesDir=$gs_share/$gs_ver/iccprofiles/ -sGenericResourceDir=$gs_share/$gs_ver/Resource/ -sFontResourceDir=$gs_share/$gs_ver/Resource/Font\\";"
   end export_gs_options
@@ -460,7 +464,7 @@ EOS
     path_check()
     cache_fontconfig()
     set filename to "\\"" & POSIX path of item 1 of argv & "\\""
-    set cmd to export_gs_options() & export_gnuterm() & export_path() & export_dyld() & run_octave_open(filename)
+    set cmd to env_setup_cmd() & run_octave_open(filename)
     do shell script cmd
   end open
 
@@ -468,7 +472,7 @@ EOS
     path_check()
     cache_fontconfig()
     if argv contains "--run-test-suite" then
-      set cmd to export_gs_options() & export_gnuterm() & export_path() & export_dyld() & run_octave_test_suite()
+      set cmd to env_setup_cmd() & run_octave_test_suite()
       do shell script cmd
     else
       $program_launch_code
