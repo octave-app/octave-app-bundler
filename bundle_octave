@@ -441,6 +441,10 @@ EOS
     return "cd ~;clear;$install_usr/bin/octave;exit;"
   end run_octave_cli
 
+  on run_octave_test_suite()
+    return "cd ~;clear;$install_usr/bin/octave --no-window-system --eval '__run_test_suite__' > ~/octave-app-fntest.log 2>&1;exit;"
+  end run_octave_test_suite
+
   on run_octave_open(filename)
     return "cd ~;clear;$install_usr/bin/octave --persist --eval \\"edit " & filename & "\\" | logger 2>&1;"
   end run_octave_open
@@ -460,10 +464,15 @@ EOS
     do shell script cmd
   end open
 
-  on run
+  on run argv
     path_check()
     cache_fontconfig()
-    $program_launch_code
+    if argv contains "--run-test-suite" then
+      set cmd to export_gs_options() & export_gnuterm() & export_path() & export_dyld() & run_octave_test_suite()
+      do shell script cmd
+    else
+      $program_launch_code
+    end
   end run
 EOSCRIPT
 
@@ -589,6 +598,23 @@ function create_dmg() {
   echo DMG ready: $dmg_dir/$dmg_name
 }
 
+function test_app() {
+  echo "Running test suite on built app..."
+  if [ ! -d "$app_build" ]; then
+    echo "Error: No app build present at $app_build. Please run the build and munge steps first." >&2
+    exit 1
+  fi
+  if [ -d "$install_dir" ]; then
+    echo "An Octave.app already exists at $install_dir" >&2
+    echo "Please move it out of the way and then try test again."
+    exit 1
+  fi
+
+  mv "$app_build" "$install_dir"
+  osascript "$install_dir/Contents/Resources/Scripts/main.scpt" --run-test-suite
+  mv "$install_dir" "$app_build"
+}
+
 # Main program
 
 # Handle special "actions" first
@@ -618,6 +644,8 @@ if [ -z "$build_step" ]; then
     create_dmg
   fi
   unstage_app_build
+  test_app
+  echo "Build finished."
 else
   # Run a single step
   case "$build_step" in
@@ -627,6 +655,7 @@ else
     munge)            munge_build ;;
     dmg)              create_dmg ;;
     unstage)          unstage_app_build ;;
+    test)             test_app ;;
     *)
       echo "Error: Invalid step name '$build_step'" >&2
       echo "Error: Valid steps are: stage freshen-homebrew build munge dmg unstage" >&2
