@@ -487,13 +487,21 @@ EOSCRIPT
   cp "$hicolor/512x512/apps/octave.png" "$tmp_iconset/icon_512x512.png"
   iconutil -c icns -o "$app_build/Contents/Resources/applet.icns" "$tmp_iconset"
 
-  # create or update entries in the application's plist
-  defaults write "$app_build/Contents/Info" NSUIElement 1
-  defaults write "$app_build/Contents/Info" CFBundleIdentifier org.octave.Octave 
-  defaults write "$app_build/Contents/Info" CFBundleShortVersionString "$oct_ver"
-  defaults write "$app_build/Contents/Info" CFBundleVersion "$oct_ver_string"
-  defaults write "$app_build/Contents/Info" NSHumanReadableCopyright "$oct_copy"
-  defaults write "$app_build/Contents/Info" CFBundleDocumentTypes -array '{"CFBundleTypeExtensions" = ("m"); "CFBundleTypeOSTypes" = ("Mfile"); "CFBundleTypeRole" = "Editor";}'    
+  # create or update entries in the application's plist  
+  plistbuddy=/usr/libexec/PlistBuddy
+  info_plist="$app_build/Contents/Info.plist"
+  chmod a+w "$app_build/Contents/Info.plist"
+  $plistbuddy -c "Add :NSUIElement integer 1" "$info_plist"
+  $plistbuddy -c "Add :CFBundleIdentifier string org.octave-app.Octave" "$info_plist"
+  $plistbuddy -c "Add :CFBundleShortVersionString string $oct_ver" "$info_plist"
+  $plistbuddy -c "Add :CFBundleVersion string \"$oct_ver_string\"" "$info_plist"
+  $plistbuddy -c "Add :NSHumanReadableCopyright string \"$oct_copy\"" "$info_plist"
+  $plistbuddy -c "Add :CFBundleDocumentTypes dict" "$info_plist"
+  $plistbuddy -c "Add :CFBundleDocumentTypes:CFBundleTypeExtensions array" "$info_plist"
+  $plistbuddy -c "Add :CFBundleDocumentTypes:CFBundleTypeExtensions: string \"m\"" "$info_plist"
+  $plistbuddy -c "Add :CFBundleDocumentTypes:CFBundleTypeOSTypes array" "$info_plist"
+  $plistbuddy -c "Add :CFBundleDocumentTypes:CFBundleTypeOSTypes: string \"Mfile\"" "$info_plist"
+  $plistbuddy -c "Add :CFBundleDocumentTypes:CFBundleTypeRole string \"Editor\"" "$info_plist"
   plutil -convert xml1 "$app_build/Contents/Info.plist"
   chmod a=r "$app_build/Contents/Info.plist"
 
