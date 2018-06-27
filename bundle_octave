@@ -544,9 +544,9 @@ EOSCRIPT
   # Remove STAGING so you can tell it's a real built app now
   rm -rf "$app_build/STAGING"
 
-  # Redirect the app prefix's var/ to system /var
+  # Redirect the app prefix's var/ to system local /var
   rm -rf "$app_build_usr/var"
-  ln -s "/var" "$app_build_usr/var"
+  ln -s "/usr/local/var" "$app_build_usr/var"
 }
 
 function create_dmg() {
