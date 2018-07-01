@@ -541,8 +541,11 @@ EOSCRIPT
 
   # Remove formulae known to be build-time-only dependencies
   app_build_brew="$app_build_usr/bin/brew"
+  # These are some more packages we might need to add back in
+  # cmake pkg-config
   # TODO: Detect which of these are actually installed, and remove them
-  "$app_build_brew" rm trash lzip cmake pkg-config || true
+  # NOTE: qt is only here because it shows up in manually-managed debug bulds
+  "$app_build_brew" rm trash lzip qt_5.11.1 || true
 
   # Remove Homebrew itself
   rm -rf "$app_build_usr/Homebrew"
