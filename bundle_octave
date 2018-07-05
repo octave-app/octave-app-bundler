@@ -19,6 +19,7 @@ build_suffix=""
 build_step=""
 exit_on_error=y
 do_trace=n
+do_sign=n
 # be conservative regarding target CPU architecture
 build_arch=core2
 action=
@@ -58,6 +59,8 @@ function usage() {
       Exit on errors. For debugging use only; may be confusing.
     -t, --without-test
       Do not run 'make check'.
+    --sign
+      Sign the completed app bundle.
 
   Octave build options:
     -a, --variant <variant>
@@ -102,6 +105,7 @@ while [[ $1 != "" ]]; do
           echo "$1 requires an argument" >&2
           exit 1
         fi ;;
+    --sign) do_sign=y; shift 1;;
     -t|--without-test) with_test=n; shift 1;;
     -u|--build-suffix)
         if [ $# -gt 1 ]; then
@@ -555,6 +559,9 @@ EOSCRIPT
   # Redirect the app prefix's var/ to system local /var
   rm -rf "$app_build_usr/var"
   ln -s "/usr/local/var" "$app_build_usr/var"
+
+  # Clear resource fork and Finder information that codesign doesn't like
+  xattr -rc "$app_build" || true
 }
 
 function create_dmg() {
@@ -614,6 +621,10 @@ function test_app() {
   mv "$install_dir" "$app_build"
 }
 
+function sign_app() {
+  codesign -s "Andrew Janke" -v "$app_build"
+}
+
 # Main program
 
 # Handle special "actions" first
@@ -639,6 +650,9 @@ if [ -z "$build_step" ]; then
   freshen_staged_homebrew
   build_octave
   munge_build
+  if [[ "$do_sign" == "y" ]]; then
+    sign_app
+  fi
   if [ "$build_dmg" == "y" ]; then
     create_dmg
   fi
@@ -652,6 +666,7 @@ else
     freshen-homebrew) freshen_staged_homebrew ;;
     build)            build_octave ;;
     munge)            munge_build ;;
+    sign)             sign_app ;;
     dmg)              create_dmg ;;
     unstage)          unstage_app_build ;;
     test)             test_app ;;
