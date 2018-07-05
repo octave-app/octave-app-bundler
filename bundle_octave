@@ -58,7 +58,7 @@ function usage() {
     -e, --exit-on-errors
       Exit on errors. For debugging use only; may be confusing.
     -t, --without-test
-      Do not run 'make check'.
+      Do not run tests on completed app.
     --sign
       Sign the completed app bundle.
 
@@ -553,6 +553,15 @@ EOSCRIPT
 
   # Remove Homebrew itself
   rm -rf "$app_build_usr/Homebrew"
+  rm -f "$app_build_usr/etc/bash_completion.d/brew" \
+      "$app_build_usr/share/man/man1/README.md" \
+      "$app_build_usr/share/man/man1/brew-cask.1" \
+      "$app_build_usr/share/man/man1/brew.1" \
+      "$app_build_usr/share/doc/homebrew" \
+      "$app_build_usr/share/zsh/site-functions/_brew_cask" \
+      "$app_build_usr/share/zsh/site-functions/_brew" \
+      "$app_build_usr/bin/brew"
+
   # Remove STAGING so you can tell it's a real built app now
   rm -rf "$app_build/STAGING"
 
@@ -653,11 +662,13 @@ if [ -z "$build_step" ]; then
   if [[ "$do_sign" == "y" ]]; then
     sign_app
   fi
-  if [ "$build_dmg" == "y" ]; then
+  if [[ "$build_dmg" == "y" ]]; then
     create_dmg
   fi
   unstage_app_build
-  test_app
+  if [[ "$with_test" == "y" ]]; then
+    test_app
+  fi
   echo "Build finished."
 else
   # Run a single step
