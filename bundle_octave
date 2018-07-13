@@ -568,6 +568,7 @@ EOSCRIPT
   rm -rf "$app_build/STAGING"
 
   # Redirect the app prefix's var/ to system local /var
+  # Commented out because it seems to break code signing
   #rm -rf "$app_build_usr/var"
   #ln -s "/usr/local/var" "$app_build_usr/var"
 
