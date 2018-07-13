@@ -576,7 +576,7 @@ EOSCRIPT
 }
 
 function sign_app() {
-  # Signing must happen in installation location to make codesign happy
+  # Signing apparently must happen in installation location to make codesign happy
   # with its internal symlinks.
   if [[ -e "$install_dir" ]]; then
     echo >&2 "Error: file exists at $install_dir. Cannot stage app to sign."
@@ -584,7 +584,19 @@ function sign_app() {
   fi
   mv "$app_build" "$install_dir"
   # Let's try making all symlinks absolute to get validation to work
-  find "$install_dir" -type l -exec sh -c 'ln -sf $(realpath $(dirname {})/$(readlink {})) {}' \;
+  file_list=$(mktemp /tmp/octave-XXXXX)
+  find "$install_dir" -type l | sort > $file_list
+  while read link; do
+    link_dir=$(dirname "$link")
+    link_target=$(readlink "$link")
+    (
+      cd "$link_dir"
+      real_target=$(realpath "$link_target")
+      rm "$link"
+      ln -s "$real_target" "$link"
+    )
+  done <${file_list}
+  # Do the actual signing
   codesign -s "Andrew Janke" -v "$install_dir"
   mv "$install_dir" "$app_build"
 }
@@ -599,7 +611,7 @@ function create_dmg() {
     exit 1
   fi
 
-  # put existing DMG into Trash
+  # Delete existing DMG
   if [ -f "$dmg_dir/$dmg_name" ]; then
     echo "Deleting existing $dmg_dir/$dmg_name"
     rm -rf "$dmg_dir/$dmg_name"
