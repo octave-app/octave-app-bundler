@@ -354,7 +354,9 @@ function build_octave() {
   # grab the logs
   rm -rf build/logs
   mkdir -p build/logs
-  cp -pR "$HOME/Library/Logs/Homebrew/$octave_formula" build/logs
+  if [ -e "$HOME/Library/Logs/Homebrew/$octave_formula" ]; then
+    cp -pR "$HOME/Library/Logs/Homebrew/$octave_formula" build/logs
+  fi
   if [ -e "$install_usr/opt/$octave_formula/make-check.log" ]; then
     cp "$install_usr/opt/$octave_formula/make-check.log" build/logs
   fi
@@ -566,11 +568,25 @@ EOSCRIPT
   rm -rf "$app_build/STAGING"
 
   # Redirect the app prefix's var/ to system local /var
-  rm -rf "$app_build_usr/var"
-  ln -s "/usr/local/var" "$app_build_usr/var"
+  #rm -rf "$app_build_usr/var"
+  #ln -s "/usr/local/var" "$app_build_usr/var"
 
   # Clear resource fork and Finder information that codesign doesn't like
   xattr -rc "$app_build" || true
+}
+
+function sign_app() {
+  # Signing must happen in installation location to make codesign happy
+  # with its internal symlinks.
+  if [[ -e "$install_dir" ]]; then
+    echo >&2 "Error: file exists at $install_dir. Cannot stage app to sign."
+    exit 1
+  fi
+  mv "$app_build" "$install_dir"
+  # Let's try making all symlinks absolute to get validation to work
+  find "$install_dir" -type l -exec sh -c 'ln -sf $(realpath $(dirname {})/$(readlink {})) {}' \;
+  codesign -s "Andrew Janke" -v "$install_dir"
+  mv "$install_dir" "$app_build"
 }
 
 function create_dmg() {
@@ -630,10 +646,6 @@ function test_app() {
   mv "$install_dir" "$app_build"
 }
 
-function sign_app() {
-  codesign -s "Andrew Janke" -v "$app_build"
-}
-
 # Main program
 
 # Handle special "actions" first
@@ -660,7 +672,9 @@ if [ -z "$build_step" ]; then
   build_octave
   munge_build
   if [[ "$do_sign" == "y" ]]; then
+    unstage_app_build
     sign_app
+    stage_app_build
   fi
   if [[ "$build_dmg" == "y" ]]; then
     create_dmg
@@ -677,9 +691,9 @@ else
     freshen-homebrew) freshen_staged_homebrew ;;
     build)            build_octave ;;
     munge)            munge_build ;;
+    unstage)          unstage_app_build ;;
     sign)             sign_app ;;
     dmg)              create_dmg ;;
-    unstage)          unstage_app_build ;;
     test)             test_app ;;
     *)
       echo "Error: Invalid step name '$build_step'" >&2
