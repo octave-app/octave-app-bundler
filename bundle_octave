@@ -271,7 +271,7 @@ function require_staged_app_build() {
 
 function freshen_staged_homebrew() {
   require_staged_app_build
-  # check if we do full or update
+  # Check if we do full or update
   if [ -e "$install_usr/bin/brew" ]; then
     install_type='update'
   else
@@ -279,10 +279,10 @@ function freshen_staged_homebrew() {
   fi
 
   if [ "$install_type" == "update" ]; then
-    # update homebrew
+    # Update homebrew
     echo "Updating existing Homebrew installation in $install_usr."
   else
-    # install homebrew
+    # Install homebrew
     echo "Creating new Homebrew installation in $install_usr."
     mkdir -p "$install_usr/Homebrew"
     mkdir -p "$install_usr/bin" "$install_usr/var" "$install_usr/lib"
@@ -307,12 +307,12 @@ function freshen_staged_homebrew() {
   "$brew" cleanup # remove old versions
   "$brew" prune # remove links
 
-  # make sure trash is installed
+  # Make sure trash is installed
   if ! "$brew" ls | grep trash >/dev/null; then
     "$brew" install trash
   fi
 
-  # force conservative architecture builds in ENV
+  # Force conservative architecture builds in ENV
   SED=/usr/bin/sed
   $SED -i '' "s/march=native/march=${build_arch}/g" "$install_usr/Homebrew/Library/Homebrew/extend/ENV/super.rb" 
   $SED -i '' "s/march=native/march=${build_arch}/g" "$install_usr/Homebrew/Library/Homebrew/extend/ENV/std.rb" 
@@ -320,16 +320,16 @@ function freshen_staged_homebrew() {
 
 function build_octave() {
   require_staged_app_build
-  # set FC to point to GCC's gfortran
+  # Set FC to point to GCC's gfortran
   export FC="$install_usr/bin/gfortran"
 
-  # use GCC for all scientific libraries
+  # Use GCC for all scientific libraries
   if [ "$use_gcc" == "y" ]; then
     export HOMEBREW_CC=gcc-6
     export HOMEBREW_CXX=g++-6
   fi
 
-  # build octave
+  # Build octave
   octave_build_options=""
   if [ "$verbose" == "y" ]; then
     octave_build_options="$octave_build_options --verbose"
@@ -347,11 +347,11 @@ function build_octave() {
     octave_build_options="$octave_build_options --without-test"
   fi
 
-  # finally build octave
+  # Finally build octave
   echo "$brew" install $octave_formula $octave_build_options
   "$brew" install $octave_formula $octave_build_options
 
-  # grab the logs
+  # Grab the logs
   rm -rf build/logs
   mkdir -p build/logs
   if [ -e "$HOME/Library/Logs/Homebrew/$octave_formula" ]; then
@@ -365,7 +365,7 @@ function build_octave() {
 function munge_build() {
   require_staged_app_build
   echo "Munging app build at $app_build"
-  # get versions dynamically from the built program
+  # Get versions dynamically from the built program
   octave="$install_usr/bin/octave"
   oct_ver="$("$octave" --version | /usr/bin/sed -n 1p | /usr/bin/grep -o '\d\..*$' )"
   oct_ver_string="$("$octave" --version | /usr/bin/sed -n 1p)"
@@ -378,15 +378,15 @@ function munge_build() {
   gs_opt=$("$brew" --prefix "ghostscript_${gs_ver}")
   gs_share="$gs_opt/share/ghostscript"
 
-  # make a local copy for munging
+  # Make a local copy for munging
   mkdir -p build
   rm -rf "$app_build"
   cp -cpR "$install_dir" build
 
-  # use local font cache instead of global one
+  # Use local font cache instead of global one
   /usr/bin/sed -i '' 's/\/Applications.*fontconfig/~\/.cache\/fontconfig/g' "$app_build_usr/etc/fonts/fonts.conf" 
 
-  # create applescript to execute octave
+  # Create applescript to execute octave
   tmp_script=$(mktemp /tmp/octave-XXXX);
   if [ "$build_gui" == "y" ]; then
     read -r -d '' program_launch_code <<EOS || true
@@ -481,8 +481,8 @@ EOSCRIPT
   osacompile -o $app_build/Contents/Resources/Scripts/main.scpt $tmp_script
   rm $tmp_script
 
-  # create a nice iconset (using the icons shipped with octave)
-  # the following might fail for the development version
+  # Create a nice iconset (using the icons shipped with octave)
+  # The following might fail for the development version
   hicolor="$app_build_usr/opt/${octave_formula}/share/icons/hicolor"
   svg_icon="$hicolor/scalable/apps/octave.svg"
   tmp_iconset="$(mktemp -d /tmp/iconset-XXXX)/droplet.iconset"
@@ -498,7 +498,7 @@ EOSCRIPT
   cp "$hicolor/512x512/apps/octave.png" "$tmp_iconset/icon_512x512.png"
   iconutil -c icns -o "$app_build/Contents/Resources/applet.icns" "$tmp_iconset"
 
-  # create or update entries in the application's plist  
+  # Create or update entries in the application's plist  
   plistbuddy=/usr/libexec/PlistBuddy
   info_plist="$app_build/Contents/Info.plist"
   chmod a+w "$app_build/Contents/Info.plist"
@@ -516,7 +516,7 @@ EOSCRIPT
   plutil -convert xml1 "$app_build/Contents/Info.plist"
   chmod a=r "$app_build/Contents/Info.plist"
 
-  # add icon to octave-gui
+  # Add icon to octave-gui
   if [ "$build_gui" == "y" ]; then
     export python_script=$(mktemp /tmp/octave-XXXX);
     cat <<EOSCRIPT > $python_script
@@ -602,7 +602,7 @@ function sign_app() {
 }
 
 function create_dmg() {
-  # create a nice DMG disc image with create-dmg (MIT License)
+  # Create a nice DMG disc image with create-dmg (MIT License)
   echo "Building DMG"
   dmg_dir=build
 
