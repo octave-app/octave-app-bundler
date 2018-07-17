@@ -13,7 +13,7 @@ build_devel=n
 build_dmg=y
 use_java=y
 verbose=n
-with_test=y
+with_test=n
 variant=""
 build_suffix=""
 build_step=""
@@ -57,7 +57,7 @@ function usage() {
       Trace program execution (even more detail than --verbose).
     -e, --exit-on-errors
       Exit on errors. For debugging use only; may be confusing.
-    -t, --without-test
+    -t, --with-test
       Do not run tests on completed app.
     --sign
       Sign the completed app bundle.
@@ -106,7 +106,7 @@ while [[ $1 != "" ]]; do
           exit 1
         fi ;;
     --sign) do_sign=y; shift 1;;
-    -t|--without-test) with_test=n; shift 1;;
+    -t|--with-test) with_test=y; shift 1;;
     -u|--build-suffix)
         if [ $# -gt 1 ]; then
           build_suffix=$2; shift 2
