@@ -404,7 +404,7 @@ EOS
   fi
   cat <<EOSCRIPT >> $tmp_script
   on env_setup_cmd()
-    export_gs_options() & export_gnuterm() & export_path() & export_dyld()
+    export_gs_options() & export_gnuterm() & export_fc() & export_path() & export_dyld()
   end env_setup_cmd
 
   on export_gs_options()
@@ -422,6 +422,10 @@ EOS
   on export_dyld()
     return "export DYLD_FALLBACK_LIBRARY_PATH=\\"$install_usr/lib:/lib:/usr/lib\\";"
   end export_dyld
+
+  on export_fc()
+    return "export FC=\\"$install_usr/bin/gfortran\\"; export F77=\\"$install_usr/bin/gfortran\\";"
+  end export_fc
 
   on cache_fontconfig()
     set fileTarget to (path to home folder as text) & ".cache:fontconfig"
