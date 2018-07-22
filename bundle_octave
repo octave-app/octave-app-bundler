@@ -398,7 +398,7 @@ function munge_build() {
 
 % Use a distinct arch-specific package dir to avoid crashes with compiled packages
 default_pkg_prefix = pkg ("prefix");
-octave_app_pkg_prefix = [getenv ("HOME") "/Library/Application Support/Octave.app/${version_name}/pkg"];
+octave_app_pkg_prefix = [getenv("HOME") "/Library/Application Support/Octave.app/${version_name}/pkg"];
 % Create the directory ourselves to avoid a warning in the console
 mkdir (octave_app_pkg_prefix);
 pkg ("prefix", octave_app_pkg_prefix, octave_app_pkg_prefix);
