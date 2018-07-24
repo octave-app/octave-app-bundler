@@ -222,7 +222,6 @@ fi
 echo "Building ${app_name}.app at ${install_dir} from formula ${octave_formula}"
 
 # set some environment variables
-export HOMEBREW_OPTFLAGS="-march=${build_arch}"
 PATH="$install_usr/bin/:$PATH"
 
 function stage_app_build() {
