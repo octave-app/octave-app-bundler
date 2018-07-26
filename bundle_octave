@@ -206,7 +206,6 @@ install_dir_unstaged="${install_dir}-UNSTAGED"
 
 install_usr="$install_dir/Contents/Resources/usr"
 brew="$install_usr/bin/brew"
-trash="$install_usr/bin/trash"
 app_build="./build/${app_name}.app"
 app_build_usr="$app_build/Contents/Resources/usr"
 
@@ -310,11 +309,6 @@ function freshen_staged_homebrew() {
   "$brew" upgrade # compile new formulae
   "$brew" cleanup # remove old versions
   "$brew" prune # remove links
-
-  # Make sure trash is installed
-  if ! "$brew" ls | grep trash >/dev/null; then
-    "$brew" install trash
-  fi
 
   # Force conservative architecture builds in ENV
   SED=/usr/bin/sed
@@ -577,7 +571,7 @@ EOSCRIPT
   # cmake pkg-config
   # TODO: Detect which of these are actually installed, and remove them
   # NOTE: qt is only here because it shows up in manually-managed debug bulds
-  "$app_build_brew" rm trash lzip qt_5.11.1 || true
+  "$app_build_brew" rm lzip qt_5.11.1 || true
 
   # Remove Homebrew itself
   rm -rf "$app_build_usr/Homebrew"
