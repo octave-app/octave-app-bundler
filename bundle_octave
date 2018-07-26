@@ -379,7 +379,7 @@ function munge_build() {
   # Make a local copy for munging
   mkdir -p build
   rm -rf "$app_build"
-  cp -cpR "$install_dir" build
+  cp -pR "$install_dir" build
 
   # Use local font cache instead of global one
   /usr/bin/sed -i '' 's/\/Applications.*fontconfig/~\/.cache\/fontconfig/g' "$app_build_usr/etc/fonts/fonts.conf" 
