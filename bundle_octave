@@ -30,7 +30,7 @@ brew_remote_url=
 brew_remote_branch=
 
 this_program=$(basename $0)
-bundler_home=$(realpath $(dirname $0))
+bundler_home=$(dirname $0)
 
 
 function usage() {
