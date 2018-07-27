@@ -13,7 +13,7 @@ build_devel=n
 build_dmg=y
 use_java=y
 verbose=n
-with_test=y
+with_test=n
 variant=""
 build_suffix=""
 build_step=""
@@ -57,7 +57,7 @@ function usage() {
       Trace program execution (even more detail than --verbose).
     -e, --exit-on-errors
       Exit on errors. For debugging use only; may be confusing.
-    -t, --without-test
+    -t, --with-test
       Do not run tests on completed app.
     --sign
       Sign the completed app bundle.
@@ -106,7 +106,7 @@ while [[ $1 != "" ]]; do
           exit 1
         fi ;;
     --sign) do_sign=y; shift 1;;
-    -t|--without-test) with_test=n; shift 1;;
+    -t|--with-test) with_test=y; shift 1;;
     -u|--build-suffix)
         if [ $# -gt 1 ]; then
           build_suffix=$2; shift 2
@@ -189,6 +189,11 @@ else
   octave_formula="${octave_formula_base}_${octave_version}"
   app_base_name="${app_base_name_base}-${octave_version}"
 fi
+if [ -z "$variant" ]; then
+  version_name="${octave_version}"
+else
+  version_name="${octave_version}-${variant}"
+fi
 app_base_name="$(tr '[:lower:]' '[:upper:]' <<< ${app_base_name:0:1})${app_base_name:1}"
 app_name="${app_base_name}"
 if [ -z "$build_suffix" ]; then
@@ -201,7 +206,6 @@ install_dir_unstaged="${install_dir}-UNSTAGED"
 
 install_usr="$install_dir/Contents/Resources/usr"
 brew="$install_usr/bin/brew"
-trash="$install_usr/bin/trash"
 app_build="./build/${app_name}.app"
 app_build_usr="$app_build/Contents/Resources/usr"
 
@@ -217,7 +221,6 @@ fi
 echo "Building ${app_name}.app at ${install_dir} from formula ${octave_formula}"
 
 # set some environment variables
-export HOMEBREW_OPTFLAGS="-march=core2"
 PATH="$install_usr/bin/:$PATH"
 
 function stage_app_build() {
@@ -271,7 +274,7 @@ function require_staged_app_build() {
 
 function freshen_staged_homebrew() {
   require_staged_app_build
-  # check if we do full or update
+  # Check if we do full or update
   if [ -e "$install_usr/bin/brew" ]; then
     install_type='update'
   else
@@ -279,10 +282,10 @@ function freshen_staged_homebrew() {
   fi
 
   if [ "$install_type" == "update" ]; then
-    # update homebrew
+    # Update homebrew
     echo "Updating existing Homebrew installation in $install_usr."
   else
-    # install homebrew
+    # Install homebrew
     echo "Creating new Homebrew installation in $install_usr."
     mkdir -p "$install_usr/Homebrew"
     mkdir -p "$install_usr/bin" "$install_usr/var" "$install_usr/lib"
@@ -307,29 +310,24 @@ function freshen_staged_homebrew() {
   "$brew" cleanup # remove old versions
   "$brew" prune # remove links
 
-  # make sure trash is installed
-  if ! "$brew" ls | grep trash >/dev/null; then
-    "$brew" install trash
-  fi
-
-  # force conservative architecture builds in ENV
+  # Force conservative architecture builds in ENV
   SED=/usr/bin/sed
-  $SED -i '' "s/march=native/march=${build_arch}/g" "$install_usr/Homebrew/Library/Homebrew/extend/ENV/super.rb" 
-  $SED -i '' "s/march=native/march=${build_arch}/g" "$install_usr/Homebrew/Library/Homebrew/extend/ENV/std.rb" 
+  $SED -i '' "s/ARGV.build_bottle\?/true/g" "$install_usr/Homebrew/Library/Homebrew/extend/ENV/super.rb" 
+  $SED -i '' "s/ARGV.build_bottle\?/true/g" "$install_usr/Homebrew/Library/Homebrew/extend/ENV/std.rb" 
 }
 
 function build_octave() {
   require_staged_app_build
-  # set FC to point to GCC's gfortran
+  # Set FC to point to GCC's gfortran
   export FC="$install_usr/bin/gfortran"
 
-  # use GCC for all scientific libraries
+  # Use GCC for all scientific libraries
   if [ "$use_gcc" == "y" ]; then
     export HOMEBREW_CC=gcc-6
     export HOMEBREW_CXX=g++-6
   fi
 
-  # build octave
+  # Build octave
   octave_build_options=""
   if [ "$verbose" == "y" ]; then
     octave_build_options="$octave_build_options --verbose"
@@ -347,14 +345,16 @@ function build_octave() {
     octave_build_options="$octave_build_options --without-test"
   fi
 
-  # finally build octave
+  # Finally build octave
   echo "$brew" install $octave_formula $octave_build_options
   "$brew" install $octave_formula $octave_build_options
 
-  # grab the logs
+  # Grab the logs
   rm -rf build/logs
   mkdir -p build/logs
-  cp -pR "$HOME/Library/Logs/Homebrew/$octave_formula" build/logs
+  if [ -e "$HOME/Library/Logs/Homebrew/$octave_formula" ]; then
+    cp -pR "$HOME/Library/Logs/Homebrew/$octave_formula" build/logs
+  fi
   if [ -e "$install_usr/opt/$octave_formula/make-check.log" ]; then
     cp "$install_usr/opt/$octave_formula/make-check.log" build/logs
   fi
@@ -363,7 +363,7 @@ function build_octave() {
 function munge_build() {
   require_staged_app_build
   echo "Munging app build at $app_build"
-  # get versions dynamically from the built program
+  # Get versions dynamically from the built program
   octave="$install_usr/bin/octave"
   oct_ver="$("$octave" --version | /usr/bin/sed -n 1p | /usr/bin/grep -o '\d\..*$' )"
   oct_ver_string="$("$octave" --version | /usr/bin/sed -n 1p)"
@@ -376,15 +376,33 @@ function munge_build() {
   gs_opt=$("$brew" --prefix "ghostscript_${gs_ver}")
   gs_share="$gs_opt/share/ghostscript"
 
-  # make a local copy for munging
+  # Make a local copy for munging
   mkdir -p build
   rm -rf "$app_build"
-  cp -cpR "$install_dir" build
+  cp -pR "$install_dir" build
 
-  # use local font cache instead of global one
+  # Use local font cache instead of global one
   /usr/bin/sed -i '' 's/\/Applications.*fontconfig/~\/.cache\/fontconfig/g' "$app_build_usr/etc/fonts/fonts.conf" 
 
-  # create applescript to execute octave
+  # App-specific startup configuration
+  cat >>$app_build_usr/Cellar/${octave_formula}/${octave_version}/share/octave/site/m/startup/octaverc <<EOS
+
+% Octave.app special configuration
+
+% Use a distinct arch-specific package dir to avoid crashes with compiled packages
+default_pkg_prefix = pkg ("prefix");
+octave_app_pkg_prefix = [getenv("HOME") "/Library/Application Support/Octave.app/${version_name}/pkg"];
+% Create the directory ourselves to avoid a warning in the console
+mkdir (octave_app_pkg_prefix);
+pkg ("prefix", octave_app_pkg_prefix, octave_app_pkg_prefix);
+pkg ("local_list", [octave_app_pkg_prefix "/octave_packages"]);
+clear default_pkg_prefix octave_app_pkg_prefix
+
+% End Octave.app special configuration
+
+EOS
+
+  # Create applescript to execute octave
   tmp_script=$(mktemp /tmp/octave-XXXX);
   if [ "$build_gui" == "y" ]; then
     read -r -d '' program_launch_code <<EOS || true
@@ -402,7 +420,7 @@ EOS
   fi
   cat <<EOSCRIPT >> $tmp_script
   on env_setup_cmd()
-    export_gs_options() & export_gnuterm() & export_path() & export_dyld()
+    export_gs_options() & export_gnuterm() & export_fc() & export_path() & export_dyld()
   end env_setup_cmd
 
   on export_gs_options()
@@ -420,6 +438,10 @@ EOS
   on export_dyld()
     return "export DYLD_FALLBACK_LIBRARY_PATH=\\"$install_usr/lib:/lib:/usr/lib\\";"
   end export_dyld
+
+  on export_fc()
+    return "export FC=\\"$install_usr/bin/gfortran\\"; export F77=\\"$install_usr/bin/gfortran\\";"
+  end export_fc
 
   on cache_fontconfig()
     set fileTarget to (path to home folder as text) & ".cache:fontconfig"
@@ -479,8 +501,8 @@ EOSCRIPT
   osacompile -o $app_build/Contents/Resources/Scripts/main.scpt $tmp_script
   rm $tmp_script
 
-  # create a nice iconset (using the icons shipped with octave)
-  # the following might fail for the development version
+  # Create a nice iconset (using the icons shipped with octave)
+  # The following might fail for the development version
   hicolor="$app_build_usr/opt/${octave_formula}/share/icons/hicolor"
   svg_icon="$hicolor/scalable/apps/octave.svg"
   tmp_iconset="$(mktemp -d /tmp/iconset-XXXX)/droplet.iconset"
@@ -496,7 +518,7 @@ EOSCRIPT
   cp "$hicolor/512x512/apps/octave.png" "$tmp_iconset/icon_512x512.png"
   iconutil -c icns -o "$app_build/Contents/Resources/applet.icns" "$tmp_iconset"
 
-  # create or update entries in the application's plist  
+  # Create or update entries in the application's plist  
   plistbuddy=/usr/libexec/PlistBuddy
   info_plist="$app_build/Contents/Info.plist"
   chmod a+w "$app_build/Contents/Info.plist"
@@ -514,7 +536,7 @@ EOSCRIPT
   plutil -convert xml1 "$app_build/Contents/Info.plist"
   chmod a=r "$app_build/Contents/Info.plist"
 
-  # add icon to octave-gui
+  # Add icon to octave-gui
   if [ "$build_gui" == "y" ]; then
     export python_script=$(mktemp /tmp/octave-XXXX);
     cat <<EOSCRIPT > $python_script
@@ -549,7 +571,7 @@ EOSCRIPT
   # cmake pkg-config
   # TODO: Detect which of these are actually installed, and remove them
   # NOTE: qt is only here because it shows up in manually-managed debug bulds
-  "$app_build_brew" rm trash lzip qt_5.11.1 || true
+  "$app_build_brew" rm lzip qt_5.11.1 || true
 
   # Remove Homebrew itself
   rm -rf "$app_build_usr/Homebrew"
@@ -566,15 +588,42 @@ EOSCRIPT
   rm -rf "$app_build/STAGING"
 
   # Redirect the app prefix's var/ to system local /var
-  rm -rf "$app_build_usr/var"
-  ln -s "/usr/local/var" "$app_build_usr/var"
+  # Commented out because it seems to break code signing
+  #rm -rf "$app_build_usr/var"
+  #ln -s "/usr/local/var" "$app_build_usr/var"
 
   # Clear resource fork and Finder information that codesign doesn't like
   xattr -rc "$app_build" || true
 }
 
+function sign_app() {
+  # Signing apparently must happen in installation location to make codesign happy
+  # with its internal symlinks.
+  if [[ -e "$install_dir" ]]; then
+    echo >&2 "Error: file exists at $install_dir. Cannot stage app to sign."
+    exit 1
+  fi
+  mv "$app_build" "$install_dir"
+  # Let's try making all symlinks absolute to get validation to work
+  file_list=$(mktemp /tmp/octave-XXXXX)
+  find "$install_dir" -type l | sort > $file_list
+  while read link; do
+    link_dir=$(dirname "$link")
+    link_target=$(readlink "$link")
+    (
+      cd "$link_dir"
+      real_target=$(realpath "$link_target")
+      rm "$link"
+      ln -s "$real_target" "$link"
+    )
+  done <${file_list}
+  # Do the actual signing
+  codesign -s "Andrew Janke" -v "$install_dir"
+  mv "$install_dir" "$app_build"
+}
+
 function create_dmg() {
-  # create a nice DMG disc image with create-dmg (MIT License)
+  # Create a nice DMG disc image with create-dmg (MIT License)
   echo "Building DMG"
   dmg_dir=build
 
@@ -583,7 +632,7 @@ function create_dmg() {
     exit 1
   fi
 
-  # put existing DMG into Trash
+  # Delete existing DMG
   if [ -f "$dmg_dir/$dmg_name" ]; then
     echo "Deleting existing $dmg_dir/$dmg_name"
     rm -rf "$dmg_dir/$dmg_name"
@@ -602,7 +651,7 @@ function create_dmg() {
       --icon ${app_name}.app 125 180 \
       --hide-extension ${app_name}.app \
       --app-drop-link 415 180 \
-      --eula "${octave_app_tap}/assets/COPYING/COPYING" \
+      --eula "${octave_app_tap}/assets/COPYING/COPYING.rtf" \
       --add-file COPYING "${octave_app_tap}/assets/COPYING" 126 300 \
       --add-file VERSIONS "${app_build}/Contents/Resources/VERSIONS" 415 300 \
       --disk-image-size 2000 \
@@ -628,10 +677,6 @@ function test_app() {
   mv "$app_build" "$install_dir"
   osascript "$install_dir/Contents/Resources/Scripts/main.scpt" --run-test-suite
   mv "$install_dir" "$app_build"
-}
-
-function sign_app() {
-  codesign -s "Andrew Janke" -v "$app_build"
 }
 
 # Main program
@@ -660,7 +705,9 @@ if [ -z "$build_step" ]; then
   build_octave
   munge_build
   if [[ "$do_sign" == "y" ]]; then
+    unstage_app_build
     sign_app
+    stage_app_build
   fi
   if [[ "$build_dmg" == "y" ]]; then
     create_dmg
@@ -677,9 +724,9 @@ else
     freshen-homebrew) freshen_staged_homebrew ;;
     build)            build_octave ;;
     munge)            munge_build ;;
+    unstage)          unstage_app_build ;;
     sign)             sign_app ;;
     dmg)              create_dmg ;;
-    unstage)          unstage_app_build ;;
     test)             test_app ;;
     *)
       echo "Error: Invalid step name '$build_step'" >&2
