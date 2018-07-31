@@ -24,7 +24,7 @@ Again, if you just want to use Octave, you should [download the pre-built binary
 
 For those who do want to bundle their own Octave.app:
 
-Clone the [repo](https://github.com/octave-app/octave-app-bundler), `cd` to it, and run `./bundle_octave`. The defaults will build an app using a recent version of Octave.
+Clone the [repo](https://github.com/octave-app/octave-app-bundler) recursively with `git clone --recursive https://github.com/octave-app/octave-app-bundler`, `cd` to it, and run `./bundle_octave`. The defaults will build an app using a recent version of Octave.
 
 `bundle_octave` does have options, but they're mainly for use in debugging `bundle_octave` itself. They're not recommended for users, so avoid them unless you have a specific reason to use one. For details on the options, see `./bundle_octave --help`.
 
