@@ -312,8 +312,8 @@ function freshen_staged_homebrew() {
 
   # Force conservative architecture builds in ENV
   SED=/usr/bin/sed
-  $SED -i '' "s/ARGV.build_bottle\?/true/g" "$install_usr/Homebrew/Library/Homebrew/extend/ENV/super.rb" 
-  $SED -i '' "s/ARGV.build_bottle\?/true/g" "$install_usr/Homebrew/Library/Homebrew/extend/ENV/std.rb" 
+  $SED -E -i '' "s/ARGV.build_bottle./true/g" "$install_usr/Homebrew/Library/Homebrew/extend/ENV/super.rb" 
+  $SED -E -i '' "s/ARGV.build_bottle./true/g" "$install_usr/Homebrew/Library/Homebrew/extend/ENV/std.rb" 
 }
 
 function build_octave() {
