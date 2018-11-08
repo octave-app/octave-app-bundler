@@ -66,7 +66,7 @@ function usage() {
     -a, --variant <variant>
       Variant of Octave to build [$variant].
     -V, --octave-version <version>
-      Version of Octave to build (affects formula choice) [$octave_version].
+      Version of Octave formula to build (affects formula choice) [$octave_version].
     -c, --cli-only
       Do not build the GUI.
     -J, --no-java
@@ -117,7 +117,7 @@ while [[ $1 != "" ]]; do
     -v|--verbose) verbose=y; shift 1;;
     -V|--octave-version)
         if [ $# -gt 1 ]; then
-          octave_version=$2; shift 2
+          octave_formula_version=$2; shift 2
         else 
           echo "$1 requires an argument" >&2
           exit 1
@@ -142,7 +142,7 @@ if [ "$exit_on_error" = "y" ]; then
 fi
 if [ "$verbose" == "y" ]; then
   echo variant = \"$variant\"
-  echo octave_version = \"$octave_version\"
+  echo octave_formula_version = \"$octave_formula_version\"
   echo build_suffix = \"$build_suffix\"
   echo build_gui = \"$build_gui\"
   echo build_devel = \"$build_devel\"
@@ -162,9 +162,11 @@ fi
 # version lookup with a function
 function pick_default_octave_version() {
   if [ "$octave_formula_base" == "octave-octave-app" ]; then
-    octave_version="4.4.0"
+    octave_formula_version="4.4.1_0"
+    octave_version="${octave_formula_version//_[[:digit:]]/}"
   elif [ "$octave_formula_base" == "octave-unversioned" ]; then
     octave_version=""
+    octave_formula_version=""
   else
     echo "Error: Variant '${variant}' has no default version defined. You must supply one." >&2
     exit 1
@@ -179,14 +181,14 @@ else
   app_base_name_base="${octave_formula_base}"
 fi
 # Pick default version for variant
-if [ -z "${octave_version}" ]; then
+if [ -z "${octave_formula_version}" ]; then
   pick_default_octave_version
 fi
-if [ -z "$octave_version" ]; then
+if [ -z "$octave_formula_version" ]; then
   octave_formula="${octave_formula_base}"
   app_base_name="${app_base_name_base}"
 else
-  octave_formula="${octave_formula_base}_${octave_version}"
+  octave_formula="${octave_formula_base}_${octave_formula_version}"
   app_base_name="${app_base_name_base}-${octave_version}"
 fi
 if [ -z "$variant" ]; then
