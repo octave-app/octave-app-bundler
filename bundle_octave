@@ -373,9 +373,11 @@ function munge_build() {
 
   echo "Octave versions: ver='${oct_ver}' ver_string='${oct_ver_string}' copy='${oct_copy}'"
 
-  # Set path for ghostscript
-  gs_ver="$("$install_usr/bin/gs" --version)"
-  gs_opt=$("$brew" --prefix "ghostscript_${gs_ver}")
+  # Detect and set path for ghostscript
+  octave_formula_file="$install_usr/Homebrew/Library/Taps/octave-app/homebrew-octave-app/Formula/octave-octave-app_$octave_formula_version.rb"
+  gs_formula="$(grep -o -E 'ghostscript_.*[[:>:]]' ${octave_formula_file})"
+  #gs_ver="$("$install_usr/bin/gs" --version)"
+  gs_opt=$("$brew" --prefix "${gs_formula}")
   gs_share="$gs_opt/share/ghostscript"
 
   # Make a local copy for munging
@@ -574,7 +576,7 @@ EOSCRIPT
   # cmake pkg-config
   # TODO: Detect which of these are actually installed, and remove them
   # NOTE: qt is only here because it shows up in manually-managed debug bulds
-  "$app_build_brew" rm lzip qt_5.11.1 || true
+  "$app_build_brew" rm lzip || true
 
   # Remove Homebrew itself
   rm -rf "$app_build_usr/Homebrew"
