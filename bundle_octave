@@ -406,6 +406,9 @@ clear default_pkg_prefix octave_app_pkg_prefix
 
 EOS
 
+  # Custom functions
+  cp -R Mcode/* $app_build_usr/Cellar/${octave_formula}/${octave_version}/share/octave/site
+
   # Create applescript to execute octave
   tmp_script=$(mktemp /tmp/octave-XXXX);
   if [ "$build_gui" == "y" ]; then
