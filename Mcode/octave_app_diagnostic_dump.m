@@ -52,7 +52,7 @@ function octave_app_diagnostic_dump
     p
     p('matlabroot: %s', matlabroot)
     % Doing a shasum with tar makes it fast enough to be tolerable
-    [status,txt] = system(sprintf('cd %s; tar c . | shasum -a 256', app_root));
+    [status,txt] = system(sprintf('cd %s; tar c . | shasum -a 256 | cut -d " " -f 1', app_root));
     p('Octave.app shasum: %s', txt)
     
     % System
