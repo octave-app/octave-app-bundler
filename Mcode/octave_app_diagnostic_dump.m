@@ -3,6 +3,10 @@ function octave_app_diagnostic_dump
   %
   % Creates a file containing a diagnostic dump about this Octave.app installation
   % and the environment it is running in.
+  %
+  % The output is a human-readable (well, hacker-readable) file with a bunch of
+  % info in it. The file is not machine-readable, and its exact format is not
+  % specified and may change over time.
   
   outfile = 'octave_app_diagnostic_dump.txt';
   [fid,errmsg] = fopen(outfile, 'w');
@@ -22,6 +26,7 @@ function octave_app_diagnostic_dump
   end
   
   function section(name)
+    p();
     p(name);
     p('-----------------------------------');
     p();
@@ -37,14 +42,13 @@ function octave_app_diagnostic_dump
     [status,txt] = system('hostname');
     txt = chomp(txt);
     p('Host: %s' , txt);
-    p
     
     % Octave version and state
     section('Octave.app')
     p(evalc('ver'))
     p
-    p('Java:')
-    p(evalc('version -java'))
+    java_ver = version('-java');
+    p('Java: %s', java_ver)
     p
     p('matlabroot: %s', matlabroot)
     % Doing a shasum with tar makes it fast enough to be tolerable
@@ -92,9 +96,32 @@ function octave_app_diagnostic_dump
       p('%s: %s', env_vars{i}, getenv(env_vars{i}))
     end
     p
+    p('Path:')
+    path_str = getenv('PATH');
+    path_els = strsplit(path_str, ':');
+    for i = 1:numel(path_els)
+      p('  %s', path_els{i});
+    end
+    p
     p('Locale:')
     [status,txt] = system('locale');
     p(txt)
+    p
+    p('Resolved commands:')
+    cmds = {
+      'clang'
+      'clang++'
+      'gcc'
+      'g++'
+      'make'
+      'mkoctfile'
+      'tar'
+    };
+    for i = 1:numel(cmds)
+      [status,txt] = system(sprintf('which %s', cmds{i}));
+      p('%s: %s', cmds{i}, chomp(txt))
+    end
+    
     
     % Homebrew
     section('Homebrew')
