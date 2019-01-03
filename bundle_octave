@@ -407,7 +407,7 @@ clear default_pkg_prefix octave_app_pkg_prefix
 EOS
 
   # Custom functions
-  cp -R Mcode/* $app_build_usr/Cellar/${octave_formula}/${octave_version}/share/octave/site
+  cp -R Mcode/* $app_build_usr/Cellar/${octave_formula}/${octave_version}/share/octave/site/m
 
   # Create applescript to execute octave
   tmp_script=$(mktemp /tmp/octave-XXXX);
