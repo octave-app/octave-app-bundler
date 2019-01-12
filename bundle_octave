@@ -427,8 +427,12 @@ EOS
   fi
   cat <<EOSCRIPT >> $tmp_script
   on env_setup_cmd()
-    export_gs_options() & export_gnuterm() & export_fc() & export_path() & export_dyld()
+    export_lang() & export_gs_options() & export_gnuterm() & export_fc() & export_path() & export_dyld()
   end env_setup_cmd
+
+  on export_lang()
+    return "default_lang=$(osascript -e 'user locale of (get system info)'); export LANG=$default_lang.UTF-8"
+  end export_lang
 
   on export_gs_options()
     return "export GS_OPTIONS=\\"-sICCProfilesDir=$gs_share/$gs_ver/iccprofiles/ -sGenericResourceDir=$gs_share/$gs_ver/Resource/ -sFontResourceDir=$gs_share/$gs_ver/Resource/Font\\";"
