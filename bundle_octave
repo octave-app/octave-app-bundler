@@ -430,7 +430,7 @@ EOS
   end env_setup_cmd
 
   on export_lang()
-    return "default_lang=$(osascript -e 'user locale of (get system info)'); export LANG=\$default_lang.UTF-8;"
+    return "default_lang=\$(osascript -e 'user locale of (get system info)'); export LANG=\$default_lang.UTF-8;"
   end export_lang
 
   on export_gs_options()
