@@ -310,7 +310,6 @@ function freshen_staged_homebrew() {
   "$brew" update # get new formulae
   "$brew" upgrade # compile new formulae
   "$brew" cleanup # remove old versions
-  "$brew" prune # remove links
 
   # Force conservative architecture builds in ENV
   SED=/usr/bin/sed
