@@ -289,9 +289,8 @@ function freshen_staged_homebrew() {
   else
     # Install homebrew
     echo "Creating new Homebrew installation in $install_usr."
-    mkdir -p "$install_usr/Homebrew"
     mkdir -p "$install_usr/bin" "$install_usr/var" "$install_usr/lib"
-    curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "$install_usr/Homebrew"
+    git clone https://github.com/Homebrew/brew "$install_usr/Homebrew"
     ln -s "$install_usr/Homebrew/bin/brew" "$install_usr/bin/brew"
     if [ -n "$brew_remote_branch" ]; then
       (
