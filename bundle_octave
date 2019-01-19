@@ -185,24 +185,26 @@ else
   octave_formula_base="octave-$variant"
   app_base_name_base="${octave_formula_base}"
 fi
+app_base_name="$(tr '[:lower:]' '[:upper:]' <<< ${app_base_name_base:0:1})${app_base_name_base:1}"
 # Pick default version for variant
 if [ -z "${octave_formula_version}" ]; then
   pick_default_octave_version
-fi
-if [ -z "$octave_formula_version" ]; then
-  octave_formula="${octave_formula_base}"
-  app_base_name="${app_base_name_base}"
-else
-  octave_formula="${octave_formula_base}_${octave_formula_version}"
-  app_base_name="${app_base_name_base}-${octave_version}"
 fi
 if [ -z "$variant" ]; then
   version_name="${octave_version}"
 else
   version_name="${octave_version}-${variant}"
 fi
-app_base_name="$(tr '[:lower:]' '[:upper:]' <<< ${app_base_name:0:1})${app_base_name:1}"
-app_name="${app_base_name}"
+if [ -z "$octave_formula_version" ]; then
+  octave_formula="${octave_formula_base}"
+else
+  octave_formula="${octave_formula_base}_${octave_formula_version}"
+fi
+if [ -z "$octave_version" ]; then
+  app_name="${app_base_name}"
+else
+  app_name="${app_base_name}-${octave_version}"
+fi
 if [ -z "$build_suffix" ]; then
   oapp_release="${version_name}"
   app_name_with_release="${app_name}"
