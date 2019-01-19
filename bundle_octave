@@ -208,11 +208,12 @@ fi
 if [ -z "$build_suffix" ]; then
   oapp_release="${version_name}"
   app_name_with_release="${app_name}"
+  volume_name="${app_base_name} ${octave_version}"
 else
   oapp_release="${version_name}-${build_suffix}"
   app_name_with_release="${app_name}-${build_suffix}"
+  volume_name="${app_base_name} ${octave_version} ${build_suffix}"
 fi
-volume_name="${app_name_with_release}"
 dmg_name="${app_name_with_release}.dmg"
 install_dir="/Applications/${app_name}.app"
 install_dir_unstaged="${install_dir}-UNSTAGED"
