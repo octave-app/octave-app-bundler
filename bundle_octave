@@ -683,8 +683,8 @@ function create_dmg() {
       --volicon "${app_build}/Contents/Resources/applet.icns" \
       --window-size 550 500 \
       --icon-size 48 \
-      --icon ${app_name}.app 125 180 \
-      --hide-extension ${app_name}.app \
+      --icon "${app_name}.app" 125 180 \
+      --hide-extension "${app_name}.app" \
       --app-drop-link 415 180 \
       --eula "${octave_app_tap}/assets/COPYING/COPYING.rtf" \
       --add-file COPYING "${octave_app_tap}/assets/COPYING" 126 300 \
