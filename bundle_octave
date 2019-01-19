@@ -61,6 +61,8 @@ function usage() {
       Do not run tests on completed app.
     --sign
       Sign the completed app bundle.
+    -y, --dry-run
+      Compute values but do not actually build.
 
   Octave build options:
     -a, --variant <variant>
@@ -122,6 +124,7 @@ while [[ $1 != "" ]]; do
           echo "$1 requires an argument" >&2
           exit 1
         fi ;;
+    -y|--dry-run) do_dry_run=y; shift 1;;
     -x|--trace) do_trace=y; shift 1;;
     --) shift; break;;
     brew)
@@ -198,15 +201,15 @@ if [ -z "$variant" ]; then
 else
   version_name="${octave_version}-${variant}"
 fi
-if [ -z "$build_suffix" ]; then
-  oapp_release="${version_name}"
-  app_name_with_release="${app_base_name}"
-else
-  oapp_release="${version_name}-${build_suffix}"
-  app_name_with_release="${app_base_name}-${build_suffix}"
-fi
 app_base_name="$(tr '[:lower:]' '[:upper:]' <<< ${app_base_name:0:1})${app_base_name:1}"
 app_name="${app_base_name}"
+if [ -z "$build_suffix" ]; then
+  oapp_release="${version_name}"
+  app_name_with_release="${app_name}"
+else
+  oapp_release="${version_name}-${build_suffix}"
+  app_name_with_release="${app_name}-${build_suffix}"
+fi
 dmg_name="${app_name_with_release}.dmg"
 install_dir="/Applications/${app_name}.app"
 install_dir_unstaged="${install_dir}-UNSTAGED"
@@ -229,6 +232,11 @@ if [ "$verbose" == "y" ]; then
 fi
 
 echo "Building ${app_name}.app at ${install_dir} from formula ${octave_formula}"
+
+if [ -n "$do_dry_run" ]; then
+  echo "Dry run: not actually doing anything."
+  exit 0
+fi
 
 # set some environment variables
 PATH="$install_usr/bin/:$PATH"
