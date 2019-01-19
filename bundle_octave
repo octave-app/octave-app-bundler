@@ -212,6 +212,7 @@ else
   oapp_release="${version_name}-${build_suffix}"
   app_name_with_release="${app_name}-${build_suffix}"
 fi
+volume_name="${app_name_with_release}"
 dmg_name="${app_name_with_release}.dmg"
 install_dir="/Applications/${app_name}.app"
 install_dir_unstaged="${install_dir}-UNSTAGED"
@@ -230,6 +231,7 @@ if [ "$verbose" == "y" ]; then
   echo app_name = \"$app_name\"
   echo app_name_with_release = \"$app_name_with_release\"
   echo dmg_name = \"$dmg_name\"
+  echo volume_name = \"$volume_name\"
   echo install_dir = \"$install_dir\"
 fi
 
@@ -676,7 +678,7 @@ function create_dmg() {
   # get it wrong, and we run out of space when adding files.
   octave_app_tap="$install_usr/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
   "${bundler_home}/create-dmg/create-dmg" \
-      --volname "${app_name_with_release}" \
+      --volname "${volume_name}" \
       --volicon "${app_build}/Contents/Resources/applet.icns" \
       --window-size 550 500 \
       --icon-size 48 \
