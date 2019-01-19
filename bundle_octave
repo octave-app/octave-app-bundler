@@ -36,45 +36,45 @@ bundler_home=$(dirname $0)
 function usage() {
 
   cat <<EOHELP
- $this_program
- $this_program [OPTION] ...
- $this_program [OPTION ARG] ...
+  $this_program
+  $this_program [OPTION] ...
+  $this_program [OPTION ARG] ...
 
- Build an Octave application bundle for macOS.
+  Build an Octave application bundle for macOS.
 
- Several options are supported:
+  Several options are supported:
 
-  Packaging options:
-    -u, --build-suffix <suffix>
-      Set a build version suffix [$build_suffix].
-    -h, -?, --help
-      Display this help text.
-    -s, --step <step>
-      Run a single step of the build process (for debugging use).
-    -v, --verbose
-      Verbose output, and list state of all options.
-    -x, --trace
-      Trace program execution (even more detail than --verbose).
-    -e, --exit-on-errors
-      Exit on errors. For debugging use only; may be confusing.
-    -t, --with-test
-      Do not run tests on completed app.
-    --sign
-      Sign the completed app bundle.
-    -y, --dry-run
-      Compute values but do not actually build.
+    Packaging options:
+      -u, --build-suffix <suffix>
+        Set a build version suffix [$build_suffix].
+      -h, -?, --help
+        Display this help text.
+      -s, --step <step>
+        Run a single step of the build process (for debugging use).
+      -v, --verbose
+        Verbose output, and list state of all options.
+      -x, --trace
+        Trace program execution (even more detail than --verbose).
+      -e, --exit-on-errors
+        Exit on errors. For debugging use only; may be confusing.
+      -t, --with-test
+        Do not run tests on completed app.
+      --sign
+        Sign the completed app bundle.
+      -y, --dry-run
+        Compute values but do not actually build.
 
-  Octave build options:
-    -a, --variant <variant>
-      Variant of Octave to build [$variant].
-    -V, --octave-version <version>
-      Version of Octave formula to build (affects formula choice) [$octave_version].
-    -c, --cli-only
-      Do not build the GUI.
-    -J, --no-java
-      Compile without Java support.
-    -d, --build-devel
-      Build the latest development snapshot.
+    Octave build options:
+      -a, --variant <variant>
+        Variant of Octave to build [$variant].
+      -V, --octave-version <version>
+        Version of Octave formula to build (affects formula choice) [$octave_version].
+      -c, --cli-only
+        Do not build the GUI.
+      -J, --no-java
+        Compile without Java support.
+      -d, --build-devel
+        Build the latest development snapshot.
 EOHELP
 }
 
