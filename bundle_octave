@@ -196,13 +196,15 @@ if [ -z "$variant" ]; then
 else
   version_name="${octave_version}-${variant}"
 fi
+if [ -z "$build_suffix" ]; then
+  oapp_release="${version_name}"
+else
+  oapp_release="${version_name}-${build_suffix}"
+fi
 app_base_name="$(tr '[:lower:]' '[:upper:]' <<< ${app_base_name:0:1})${app_base_name:1}"
 app_name="${app_base_name}"
-if [ -z "$build_suffix" ]; then
-  dmg_name="${app_name}.dmg"
-else
-  dmg_name="${app_name}-${build_suffix}.dmg"
-fi
+app_release_name="${app_base_name}-${oapp_release}"
+dmg_name="${app_release_name}.dmg"
 install_dir="/Applications/${app_name}.app"
 install_dir_unstaged="${install_dir}-UNSTAGED"
 
@@ -387,7 +389,8 @@ function munge_build() {
   /usr/bin/sed -i '' 's/\/Applications.*fontconfig/~\/.cache\/fontconfig/g' "$app_build_usr/etc/fonts/fonts.conf" 
 
   # App-specific startup configuration
-  cat >>$app_build_usr/Cellar/${octave_formula}/${octave_version}/share/octave/site/m/startup/octaverc <<EOS
+  keg="$app_build_usr/Cellar/${octave_formula}/${octave_version}"
+  cat >>"$keg/share/octave/site/m/startup/octaverc" <<EOS
 
 % Octave.app special configuration
 
@@ -404,8 +407,11 @@ clear default_pkg_prefix octave_app_pkg_prefix
 
 EOS
 
+  # Drop a build version indicator
+  echo "$oapp_release" > "$keg/share/octave/site/Octave.app-RELEASE.txt"
+
   # Custom functions
-  cp -R Mcode/* $app_build_usr/Cellar/${octave_formula}/${octave_version}/share/octave/site/m
+  cp -R Mcode/* "$keg/share/octave/site/m"
 
   # Create applescript to execute octave
   tmp_script=$(mktemp /tmp/octave-XXXX);
