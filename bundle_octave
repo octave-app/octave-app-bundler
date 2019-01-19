@@ -676,7 +676,7 @@ function create_dmg() {
   # get it wrong, and we run out of space when adding files.
   octave_app_tap="$install_usr/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
   "${bundler_home}/create-dmg/create-dmg" \
-      --volname "${app_name}" \
+      --volname "${app_name_with_release}" \
       --volicon "${app_build}/Contents/Resources/applet.icns" \
       --window-size 550 500 \
       --icon-size 48 \
