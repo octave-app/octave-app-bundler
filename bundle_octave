@@ -629,6 +629,9 @@ EOSCRIPT
 
   # Clear resource fork and Finder information that codesign doesn't like
   xattr -rc "$app_build" || true
+
+  # Lock down the app M-files and brewed libs to prevent accidental user editing
+  chmod -R a-w "$app_build_usr/Cellar"
 }
 
 function sign_app() {
