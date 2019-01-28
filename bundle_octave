@@ -401,6 +401,7 @@ function munge_build() {
 
   # Make a local copy for munging
   mkdir -p build
+  chmod -R u+w "$app_build"
   rm -rf "$app_build"
   cp -pR "$install_dir" build
 
