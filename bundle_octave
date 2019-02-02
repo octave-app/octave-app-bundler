@@ -13,7 +13,6 @@ build_devel=n
 build_dmg=y
 use_java=y
 verbose=n
-with_test=n
 variant=""
 build_suffix=""
 build_step=""
@@ -108,7 +107,6 @@ while [[ $1 != "" ]]; do
           exit 1
         fi ;;
     --sign) do_sign=y; shift 1;;
-    -t|--with-test) with_test=y; shift 1;;
     -u|--build-suffix)
         if [ $# -gt 1 ]; then
           build_suffix=$2; shift 2
@@ -153,7 +151,6 @@ if [ "$verbose" == "y" ]; then
   echo dmg_dir = \"$dmg_dir\"
   echo use_gcc = \"$use_gcc\"
   echo use_java = \"$use_java\"
-  echo with_test = \"$with_test\"
   echo octave_app_bundler_home = \"$bundler_home\"
 fi
 
@@ -361,9 +358,6 @@ function build_octave() {
   fi
   if [ "$use_java" != "y" ]; then
     octave_build_options="$octave_build_options --without-java" 
-  fi
-  if [ "$with_test" == "n" ]; then
-    octave_build_options="$octave_build_options --without-test"
   fi
 
   # Finally build octave
@@ -752,9 +746,6 @@ if [ -z "$build_step" ]; then
     create_dmg
   fi
   unstage_app_build
-  if [[ "$with_test" == "y" ]]; then
-    test_app
-  fi
   echo "Build finished."
 else
   # Run a single step
