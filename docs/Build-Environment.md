@@ -21,6 +21,8 @@ You can probably get it to work with Parallels or VirtualBox, too.
   * Customize the VM's settings.
     * Name it something memorable. I like to have my VM names start with the same letters as the macOS version, so I'll name it “elke” or something similar.
     * Increase the disk size to 80 GB.
+      * Do not make it smaller. You'll run out of space.
+      * Do not make it larger. You'll use up more of your host OS's disk space due to data block churn.
     * Increase the CPUs to 4 vCPUs.
 * Run the OS installer by powering up the VM.
   * Before running the installer itself, run Disk Utility and use it to re-partition the disk so all available space is used by the main “Mac HD” partition.
