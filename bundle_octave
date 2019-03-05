@@ -486,19 +486,19 @@ EOS
   end cache_fontconfig
 
   on run_octave_gui()
-    return "cd ~;clear;$install_usr/opt/$octave_formula/bin/octave --force-gui | logger 2>&1;"
+    return "cd ~; clear; $install_usr/opt/$octave_formula/bin/octave --force-gui | logger 2>&1;"
   end run_octave_gui
 
   on run_octave_cli()
-    return "cd ~;clear;$install_usr/opt/$octave_formula/bin/octave;exit;"
+    return "cd ~; clear; $install_usr/opt/$octave_formula/bin/octave; exit;"
   end run_octave_cli
 
   on run_octave_test_suite()
-    return "cd ~;clear;$install_usr/opt/$octave_formula/bin/octave --no-window-system --eval '__run_test_suite__' > ~/octave-app-fntest.log 2>&1;exit;"
+    return "cd ~; clear; $install_usr/opt/$octave_formula/bin/octave --no-window-system --eval '__run_test_suite__' > ~/octave-app-fntest.log 2>&1; exit;"
   end run_octave_test_suite
 
   on run_octave_open(filename)
-    return "cd ~;clear;$install_usr/opt/$octave_formula/bin/octave --persist --eval \\"edit " & filename & "\\" | logger 2>&1;"
+    return "cd ~; clear; $install_usr/opt/$octave_formula/bin/octave --persist --eval \\"edit " & filename & "\\" | logger 2>&1;"
   end run_octave_open
 
   on path_check()
