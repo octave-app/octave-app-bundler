@@ -344,6 +344,11 @@ function build_octave() {
     export HOMEBREW_CXX=g++-6
   fi
 
+  # Work around netpbm download error by installing svn first
+  # See https://github.com/octave-app/octave-app-bundler/issues/72
+  echo "$brew" install svn
+  "$brew" install svn
+
   # Build octave
   octave_build_options=""
   if [ "$verbose" == "y" ]; then
@@ -358,8 +363,6 @@ function build_octave() {
   if [ "$use_java" != "y" ]; then
     octave_build_options="$octave_build_options --without-java" 
   fi
-
-  # Finally build octave
   echo "$brew" install $octave_formula $octave_build_options
   "$brew" install $octave_formula $octave_build_options
 
