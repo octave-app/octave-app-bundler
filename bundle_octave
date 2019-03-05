@@ -321,7 +321,6 @@ function freshen_staged_homebrew() {
       )
     fi
     "$brew" tap octave-app/octave-app
-    "$brew" tap octave-app/octave-app-bases
   fi
 
   "$brew" update # get new formulae
