@@ -549,6 +549,9 @@ EOSCRIPT
   cp "$hicolor/256x256/apps/octave.png" "$tmp_iconset/icon_256x256.png"
   cp "$hicolor/512x512/apps/octave.png" "$tmp_iconset/icon_256x256@2x.png"
   cp "$hicolor/512x512/apps/octave.png" "$tmp_iconset/icon_512x512.png"
+  if [[ -e "$hicolor/1024x1024/apps/octave.png" ]]; then
+    cp "$hicolor/1024x1024/apps/octave.png" "$tmp_iconset/icon_512x512@2x.png"
+  fi
   iconutil -c icns -o "$app_build/Contents/Resources/applet.icns" "$tmp_iconset"
 
   # Create or update entries in the application's plist  
