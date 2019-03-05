@@ -162,7 +162,7 @@ fi
 # version lookup with a function
 function pick_default_octave_version() {
   if [ "$octave_formula_base" == "octave-octave-app" ]; then
-    octave_formula_version="4.4.1"
+    octave_formula_version="5.1.0"
     octave_version="${octave_formula_version//_[[:digit:]]/}"
   elif [ "$octave_formula_base" == "octave-unversioned" ]; then
     octave_version=""
