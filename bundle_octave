@@ -346,8 +346,8 @@ function build_octave() {
 
   # Work around netpbm download error by installing svn first
   # See https://github.com/octave-app/octave-app-bundler/issues/72
-  echo "$brew" install svn
-  "$brew" install svn
+  echo "$brew" install subversion
+  "$brew" install subversion
 
   # Build octave
   octave_build_options=""
