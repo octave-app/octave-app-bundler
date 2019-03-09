@@ -41,3 +41,12 @@ git clone https://github.com/octave-app/octave-app-bundler
 ```
 
 Now you can `cd octave-app-bundler` and run `./bundle_octave` to build Octave.app.
+
+
+## Historical Build Environments
+
+We have a policy of supporting the last three versions of macOS available at the time of an Octave release, because that's as far back as Homebrew itself supports.
+
+Octave.app 4.4.0 and 4.4.1 were built on OS X 10.11 El Capitan with Xcode 8.2.1.
+
+Octave.app 5.1.0 and later are looking to build on macOS 10.12 with Xcode 9.2, but it isn't working yet. (See https://github.com/octave-app/octave-app-bundler/issues/75.)
