@@ -386,7 +386,7 @@ function munge_build() {
   require_staged_app_build
   echo "Munging app build at $app_build"
   # Get versions dynamically from the built program
-  octave="$install_usr/bin/octave"
+  octave="$install_usr/opt/$octave_formula/bin/octave"
   oct_ver="$("$octave" --version | /usr/bin/sed -n 1p | /usr/bin/grep -o '\d\..*$' )"
   oct_ver_string="$("$octave" --version | /usr/bin/sed -n 1p)"
   oct_copy="$("$octave" --version | /usr/bin/sed -n 2p | /usr/bin/cut -c 15- )"
@@ -394,8 +394,7 @@ function munge_build() {
   echo "Octave versions: ver='${oct_ver}' ver_string='${oct_ver_string}' copy='${oct_copy}'"
 
   # Detect and set path for ghostscript
-  octave_formula_file="$install_usr/Homebrew/Library/Taps/octave-app/homebrew-octave-app/Formula/octave-octave-app_$octave_formula_version.rb"
-  gs_formula="$(grep -o -E 'ghostscript_.*[[:>:]]' ${octave_formula_file})"
+  gs_formula="ghostscript"
   #gs_ver="$("$install_usr/bin/gs" --version)"
   gs_opt=$("$brew" --prefix "${gs_formula}")
   gs_share="$gs_opt/share/ghostscript"
