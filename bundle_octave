@@ -344,11 +344,6 @@ function build_octave() {
     export HOMEBREW_CXX=g++-6
   fi
 
-  # Work around netpbm download error by installing svn first
-  # See https://github.com/octave-app/octave-app-bundler/issues/72
-  echo "$brew" install subversion
-  "$brew" install subversion
-
   # Work around broken Qt 5.12.1 bottle by forcing from-source install
   # See https://github.com/octave-app/octave-app-bundler/issues/78
   echo "$brew" install -s qt
