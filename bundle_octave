@@ -346,8 +346,10 @@ function build_octave() {
 
   # Work around broken Qt 5.12.1 bottle by forcing from-source install
   # See https://github.com/octave-app/octave-app-bundler/issues/78
-  echo "$brew" install -s qt
-  "$brew" install -s qt
+  #echo ""
+  #echo "Pre-installing Qt to avoid Qt 5.12 bottle breakage"
+  #echo "$brew" install -s qt
+  #"$brew" install -s qt
 
   # Build octave
   octave_build_options=""
