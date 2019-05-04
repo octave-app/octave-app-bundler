@@ -186,6 +186,8 @@ app_base_name="$(tr '[:lower:]' '[:upper:]' <<< ${app_base_name_base:0:1})${app_
 # Pick default version for variant
 if [ -z "${octave_formula_version}" ]; then
   pick_default_octave_version
+else
+  octave_version="${octave_formula_version//_[[:digit:]]/}"
 fi
 if [ -z "$variant" ]; then
   version_name="${octave_version}"
