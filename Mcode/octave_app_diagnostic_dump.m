@@ -203,8 +203,8 @@ function octave_app_diagnostic_dump
       p('%s: %s', var, txt);
     end
     p
-    p('octave_config_info:')
-    p(evalc('octave_config_info'))
+    p('__octave_config_info__:')
+    p(evalc('__octave_config_info__'))
     
     % pkg
     % Unnecessary since 'ver' output includes it
