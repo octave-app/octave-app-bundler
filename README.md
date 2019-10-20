@@ -14,7 +14,7 @@ More general information about installing Octave is available at http://wiki.oct
 This project is maintained by the [octave-app Organization](https://github.com/octave-app).
 [Sebastian Schoeps](https://github.com/schoeps) developed the original code. [Andrew Janke](https://github.com/apjanke) is a co-maintainer.
 
-The home repo for this project is [octave-app/octave-app-bundler on GitHub](https://github.com/octave-app/octave-app-bundler). Please report any bugs on the Issue Tracker there.
+The home repo for this project is [octave-app/octave-app-bundler on GitHub](https://github.com/octave-app/octave-app-bundler). But bugs should be reported on the [Issue Tracker for the main octave-app project](https://github.com/octave-app/octave-app/issues).
 
 Homebrew formulae used for Octave.app are in the [octave-app/octave-app tap](https://github.com/octave-app/homebrew-octave-app).
 
