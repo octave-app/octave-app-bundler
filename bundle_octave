@@ -22,6 +22,7 @@ do_sign=n
 # be conservative regarding target CPU architecture
 build_arch=core2
 action=
+use_desktop=y
 
 # define these if we need to use a special branch of Homebrew
 brew_remote_name=
@@ -70,6 +71,8 @@ function usage() {
         Version of Octave formula to build (affects formula choice) [$octave_version].
       -c, --cli-only
         Do not build the GUI.
+      -C, --cli-frontend
+        Use the CLI as the front end, while still building graphics/Qt support.
       -J, --no-java
         Compile without Java support.
       -d, --build-devel
@@ -87,6 +90,7 @@ while [[ $1 != "" ]]; do
           exit 1
         fi ;;
     -c|--cli-only) build_gui=n; shift 1;;
+    -C|--cli-frontend) use_desktop=n; shift 1;;
     -d|--build-devel) build_devel=y; shift 1;;
     -E|--ignore-errors) exit_on_error=n; shift 1;;
     -f|--octave-formula) 
@@ -141,7 +145,8 @@ done
 if [ "$exit_on_error" = "y" ]; then
   set -e
 fi
-if [ "$verbose" == "y" ]; then
+
+function echo_options() {
   echo variant = \"$variant\"
   echo octave_formula_version = \"$octave_formula_version\"
   echo build_suffix = \"$build_suffix\"
@@ -152,6 +157,10 @@ if [ "$verbose" == "y" ]; then
   echo use_gcc = \"$use_gcc\"
   echo use_java = \"$use_java\"
   echo octave_app_bundler_home = \"$bundler_home\"
+  echo no_desktop = \"$no_desktop\"
+}
+if [ "$verbose" == "y" ]; then
+  echo_options
 fi
 
 if [ "$do_trace" == "y" ]; then
@@ -223,16 +232,7 @@ app_build="./build/${app_name}.app"
 app_build_usr="$app_build/Contents/Resources/usr"
 
 if [ "$verbose" == "y" ]; then
-  echo octave_formula_base = \"$octave_formula_base\"
-  echo octave_formula = \"$octave_formula\"
-  echo oapp_release = \"$oapp_release\"
-  echo app_base_name_base = \"$app_base_name_base\"
-  echo app_base_name = \"$app_base_name\"
-  echo app_name = \"$app_name\"
-  echo app_name_with_release = \"$app_name_with_release\"
-  echo dmg_name = \"$dmg_name\"
-  echo volume_name = \"$volume_name\"
-  echo install_dir = \"$install_dir\"
+  echo_options
 fi
 
 echo "Building ${app_name}.app at ${install_dir} from formula ${octave_formula}"
@@ -348,6 +348,8 @@ function build_octave() {
 
   # Work around broken Qt 5.12.1 bottle by forcing from-source install
   # See https://github.com/octave-app/octave-app-bundler/issues/78
+  # This should probably be conditionally enabled by detecting which
+  # version of Qt we're building against.
   #echo ""
   #echo "Pre-installing Qt to avoid Qt 5.12 bottle breakage"
   #echo "$brew" install -s qt
@@ -514,6 +516,33 @@ EOS
     end if
   end path_check
 
+EOSCRIPT
+if [ "$no_desktop" = "y" ]; then
+  cat <<EOSCRIPT >> $tmp_script
+  on open argv
+    path_check()
+    cache_fontconfig()
+    set filename to "\"" & POSIX path of item 1 of argv & "\""
+    set cmd to env_setup_cmd() & run_octave_open(filename)
+    tell application "Terminal"
+      activate
+      do script cmd
+    end tell
+  end open
+
+  on run argv
+    path_check()
+    cache_fontconfig()
+    set cmd to env_setup_cmd() & run_octave_cli()
+    tell application "Terminal"
+      activate
+      do script cmd
+    end tell
+  end run
+
+EOSCRIPT
+else
+  cat <<EOSCRIPT >> $tmp_script
   on open argv
     path_check()
     cache_fontconfig()
@@ -532,7 +561,9 @@ EOS
       $program_launch_code
     end
   end run
+
 EOSCRIPT
+fi
 
   osacompile -o $app_build/Contents/Resources/Scripts/main.scpt $tmp_script
   rm $tmp_script
