@@ -81,7 +81,6 @@ function octave_app_diagnostic_dump
       'GNUTERM'
       'GS'
       'GS_OPTIONS'
-      'HOME'
       'LANG'
       'LC_COLLATE'
       'LC_CTYPE'
@@ -96,7 +95,6 @@ function octave_app_diagnostic_dump
       'SHELL'
       'TERM'
       'TMPDIR'
-      'USER'      
     };
     for i = 1:numel(env_vars)
       p('%s: %s', env_vars{i}, getenv(env_vars{i}))
