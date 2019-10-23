@@ -1,4 +1,4 @@
-function octave_app_diagnostic_dump
+function octave_app_diagnostic_dump(varargin)
   %OCTAVE_APP_DIAGNOSTIC_DUMP Create a diagnostic dump for Octave.app
   %
   % Creates a file containing a diagnostic dump about this Octave.app installation
@@ -7,16 +7,26 @@ function octave_app_diagnostic_dump
   % The output is a human-readable (well, hacker-readable) file with a bunch of
   % info in it. The file is not machine-readable, and its exact format is not
   % specified and may change over time.
+
+  % Backdoor options:
+  %   octave_app_diagnostic_dump -stdout  - display to stdout instead of a file
   
-  outfile = 'octave_app_diagnostic_dump.txt';
-  [fid,errmsg] = fopen(outfile, 'w');
-  if ~fid
-    error('Failed opening output file ''%s'' for writing: %s', outfile, errmsg);
+  if ismember('-stdout', varargin)
+    outfile = '<stdout>';
+    fid = 1;
+  else
+    outfile = 'octave_app_diagnostic_dump.txt';
+    [fid,errmsg] = fopen(outfile, 'w');
+    if ~fid
+      error('Failed opening output file ''%s'' for writing: %s', outfile, errmsg);
+    end
   end
   
   printf('Creating diagnostic dump. Please be patient...\n');
   do_it;
-  fclose(fid);
+  if fid > 2
+    fclose(fid);
+  end
   printf('Dump complete. Output file is: %s\n', outfile);
   
   function p(varargin)
@@ -35,6 +45,7 @@ function octave_app_diagnostic_dump
   function do_it
     % Locate ourselves
     mroot = matlabroot;
+    % Wow what a kludge
     app_root = fileparts(fileparts(fileparts(fileparts(fileparts(fileparts(mroot))))));
     
     p('Octave.app diagnostic dump')
@@ -42,10 +53,18 @@ function octave_app_diagnostic_dump
     [status,txt] = system('hostname');
     txt = chomp(txt);
     p('Host: %s' , txt);
-    
+    p
+
+    section('Notes')
+    p('Note to maintainers: Paths in this dump have been sanitized. User HOME paths have been')
+    p('replaced with "~". A "~" might not have been a literal tilde in the original value.')
+    p
+
     % Octave version and state
     section('Octave.app')
-    p(evalc('ver'))
+    p("Sanitized ver:")
+    sanitized_ver = sanitize_path_strs(evalc('ver'));
+    p(sanitized_ver)
     p
     blas_ver = version('-blas');
     p('BLAS: %s', blas_ver);
@@ -56,7 +75,7 @@ function octave_app_diagnostic_dump
     java_ver = version('-java');
     p('Java: %s', java_ver)
     p
-    p('matlabroot: %s', matlabroot)
+    p('matlabroot: %s', sanitize_path_strs(matlabroot))
     % Doing a shasum with tar makes it fast enough to be tolerable
     [status,txt] = system(sprintf('cd %s; tar c . | shasum -a 256 | cut -d " " -f 1', app_root));
     p('Octave.app shasum: %s', txt)
@@ -97,12 +116,13 @@ function octave_app_diagnostic_dump
       'TMPDIR'
     };
     for i = 1:numel(env_vars)
-      p('%s: %s', env_vars{i}, getenv(env_vars{i}))
+      p('%s: %s', env_vars{i}, sanitize_path_strs(getenv(env_vars{i})))
     end
     p
     p('Path:')
     path_str = getenv('PATH');
     path_els = strsplit(path_str, ':');
+    path_els = sanitize_path_strs(path_els);
     for i = 1:numel(path_els)
       p('  %s', path_els{i});
     end
@@ -123,7 +143,7 @@ function octave_app_diagnostic_dump
     };
     for i = 1:numel(cmds)
       [status,txt] = system(sprintf('which %s', cmds{i}));
-      p('%s: %s', cmds{i}, chomp(txt))
+      p('%s: %s', cmds{i}, sanitize_path_strs(chomp(txt)))
     end
     
     
@@ -137,9 +157,9 @@ function octave_app_diagnostic_dump
     end
     if exist(brew_cmd) == 2
       [status,txt] = system(sprintf('%s config', brew_cmd));
-      p('brew config:\n%s', txt)
+      p('brew config:\n%s', sanitize_path_strs(txt))
       [status,txt] = system(sprintf('%s doctor 2>&1', brew_cmd));
-      p('brew doctor:\n%s', txt)
+      p('brew doctor:\n%s', sanitize_path_strs(txt))
     end
     
     % Compilation stuff
@@ -204,11 +224,11 @@ function octave_app_diagnostic_dump
     for i = 1:numel(mkoct_vars)
       var = mkoct_vars{i};
       txt = chomp(mkoctfile('-p', var));
-      p('%s: %s', var, txt);
+      p('%s: %s', var, sanitize_path_strs(txt));
     end
     p
     p('__octave_config_info__:')
-    p(evalc('__octave_config_info__'))
+    p(sanitize_path_strs(evalc('__octave_config_info__')))
     
     % pkg
     % Unnecessary since 'ver' output includes it
@@ -229,5 +249,31 @@ function str = chomp(str)
   end
   if str(end) == sprintf('\n')
     str(end) = [];
+  end
+end
+
+function out = sanitize_path_strs(in)
+  persistent replacements
+  if isempty(replacements)
+    replacements = {
+      getenv('HOME')    '~'
+      matlabroot        '<OCTAVE_ROOT>'
+    };
+  end
+
+  if iscell(in)
+    out = cellfun(@sanitize_path_strs, in, "UniformOutput", false);
+  elseif isstruct(in)
+    out = structfun(@sanitize_path_strs, in, "UniformOutput", false);
+  elseif isnumeric(in) || islogical(in)
+    out = in;
+  elseif ischar(in)
+    out = in;
+    for i = 1:size(replacements, 1)
+      [orig, repl] = replacements{i,:};
+      out = strrep(out, orig, repl);
+    end
+  else
+    error("%s: invalid input type: %s", "sanitize_path_strs", class(str));
   end
 end
