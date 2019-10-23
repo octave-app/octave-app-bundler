@@ -47,6 +47,12 @@ function octave_app_diagnostic_dump
     section('Octave.app')
     p(evalc('ver'))
     p
+    blas_ver = version('-blas');
+    p('BLAS: %s', blas_ver);
+    lapack_ver = version('-lapack');
+    p('LAPACK: %s', lapack_ver);
+    fftw_ver = version('-fftw');
+    p('FFTW: %s', fftw_ver)
     java_ver = version('-java');
     p('Java: %s', java_ver)
     p
