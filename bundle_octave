@@ -305,7 +305,7 @@ function freshen_staged_homebrew() {
 
   if [ "$install_type" == "update" ]; then
     # Update homebrew
-    echo "Updating existing Homebrew installation in $install_usr."
+    echo "Updating existing Homebrew installation in $install_usr"
   else
     # Install homebrew
     echo "Creating new Homebrew installation in $install_usr."
