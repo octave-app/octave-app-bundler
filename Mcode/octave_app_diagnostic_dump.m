@@ -50,14 +50,12 @@ function octave_app_diagnostic_dump(varargin)
     
     p('Octave.app diagnostic dump')
     p('Created: %s', datestr(now))
-    [status,txt] = system('hostname');
-    txt = chomp(txt);
-    p('Host: %s' , txt);
     p
 
     section('Notes')
     p('Note to maintainers: Paths in this dump have been sanitized. User HOME paths have been')
     p('replaced with "~". A "~" might not have been a literal tilde in the original value.')
+    p('User name has also been sanitized, and replaced with "${USER}".')
     p
 
     % Octave version and state
@@ -259,6 +257,7 @@ function out = sanitize_path_strs(in)
       getenv('HOME')    '~'
       getenv('USER')    '${USER}'
       matlabroot        '<OCTAVE_ROOT>'
+      getenv('HOST')    '${HOST}'
     };
   end
 
