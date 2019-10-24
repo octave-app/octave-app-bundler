@@ -257,6 +257,7 @@ function out = sanitize_path_strs(in)
   if isempty(replacements)
     replacements = {
       getenv('HOME')    '~'
+      getenv('USER')    '${USER}'
       matlabroot        '<OCTAVE_ROOT>'
     };
   end
