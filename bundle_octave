@@ -308,7 +308,7 @@ function freshen_staged_homebrew() {
     echo "Updating existing Homebrew installation in $install_usr"
   else
     # Install homebrew
-    echo "Creating new Homebrew installation in $install_usr."
+    echo "Creating new Homebrew installation in $install_usr"
     mkdir -p "$install_usr/bin" "$install_usr/var" "$install_usr/lib"
     git clone https://github.com/Homebrew/brew "$install_usr/Homebrew"
     ln -s "$install_usr/Homebrew/bin/brew" "$install_usr/bin/brew"
