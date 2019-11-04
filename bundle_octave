@@ -157,7 +157,7 @@ function echo_options() {
   echo use_gcc = \"$use_gcc\"
   echo use_java = \"$use_java\"
   echo octave_app_bundler_home = \"$bundler_home\"
-  echo no_desktop = \"$no_desktop\"
+  echo use_desktop = \"$use_desktop\"
 }
 if [ "$verbose" == "y" ]; then
   echo_options
@@ -517,31 +517,7 @@ EOS
   end path_check
 
 EOSCRIPT
-if [ "$no_desktop" = "y" ]; then
-  cat <<EOSCRIPT >> $tmp_script
-  on open argv
-    path_check()
-    cache_fontconfig()
-    set filename to "\"" & POSIX path of item 1 of argv & "\""
-    set cmd to env_setup_cmd() & run_octave_open(filename)
-    tell application "Terminal"
-      activate
-      do script cmd
-    end tell
-  end open
-
-  on run argv
-    path_check()
-    cache_fontconfig()
-    set cmd to env_setup_cmd() & run_octave_cli()
-    tell application "Terminal"
-      activate
-      do script cmd
-    end tell
-  end run
-
-EOSCRIPT
-else
+if [ "$use_desktop" = "y" ]; then
   cat <<EOSCRIPT >> $tmp_script
   on open argv
     path_check()
@@ -560,6 +536,30 @@ else
     else
       $program_launch_code
     end
+  end run
+
+EOSCRIPT
+else
+  cat <<EOSCRIPT >> $tmp_script
+  on open argv
+    path_check()
+    cache_fontconfig()
+    set filename to "\\"" & POSIX path of item 1 of argv & "\\""
+    set cmd to env_setup_cmd() & run_octave_open(filename)
+    tell application "Terminal"
+      activate
+      do script cmd
+    end tell
+  end open
+
+  on run argv
+    path_check()
+    cache_fontconfig()
+    set cmd to env_setup_cmd() & run_octave_cli()
+    tell application "Terminal"
+      activate
+      do script cmd
+    end tell
   end run
 
 EOSCRIPT
