@@ -662,6 +662,11 @@ EOSCRIPT
 
   # Lock down the app M-files and brewed libs to prevent accidental user editing
   chmod -R a-w "$app_build_usr/Cellar"
+  # But Qt needs to write to the .qhc files and local dirs when using the help
+  # viewer (wtf, Qt?)
+  find "$app_build_usr/Cellar/$octave_formula" -name '*.qhc' | xargs chmod u+w
+  find "$app_build_usr/Cellar/$octave_formula" -type d -exec chmod u+w "{}" \;
+  
 }
 
 function sign_app() {
