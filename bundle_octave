@@ -664,9 +664,8 @@ EOSCRIPT
   chmod -R a-w "$app_build_usr/Cellar"
   # But Qt needs to write to the .qhc files and local dirs when using the help
   # viewer (wtf, Qt?)
-  # Disabling this now, because it's supposedly fixed in Qt 5.14.1.
-  #find "$app_build_usr/Cellar/$octave_formula" -name '*.qhc' | xargs chmod u+w
-  #find "$app_build_usr/Cellar/$octave_formula" -type d -exec chmod u+w "{}" \;
+  find "$app_build_usr/Cellar/$octave_formula" -name '*.qhc' | xargs chmod u+w
+  find "$app_build_usr/Cellar/$octave_formula" -type d -exec chmod u+w "{}" \;
   
 }
 
