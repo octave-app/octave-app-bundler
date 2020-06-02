@@ -510,7 +510,7 @@ EOS
   end run_octave_open
 
   on path_check()
-    if not (POSIX path of (path to me) contains "$install_dir") then
+    if not (POSIX path of (path to me) starts with "$install_dir") then
       display dialog "Please run Octave from the $install_dir folder" with icon stop with title "Error" buttons {"OK"}
       error number -128
     end if
