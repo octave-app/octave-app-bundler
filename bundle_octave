@@ -517,8 +517,8 @@ EOS
   end path_check
 
 EOSCRIPT
-if [ "$use_desktop" = "y" ]; then
-  cat <<EOSCRIPT >> $tmp_script
+  if [ "$use_desktop" = "y" ]; then
+    cat <<EOSCRIPT >> $tmp_script
   on open argv
     path_check()
     cache_fontconfig()
@@ -539,8 +539,8 @@ if [ "$use_desktop" = "y" ]; then
   end run
 
 EOSCRIPT
-else
-  cat <<EOSCRIPT >> $tmp_script
+  else
+    cat <<EOSCRIPT >> $tmp_script
   on open argv
     path_check()
     cache_fontconfig()
@@ -563,7 +563,7 @@ else
   end run
 
 EOSCRIPT
-fi
+  fi
 
   osacompile -o $app_build/Contents/Resources/Scripts/main.scpt $tmp_script
   rm $tmp_script
