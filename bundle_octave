@@ -31,6 +31,12 @@ brew_remote_branch=
 
 this_program=$(basename $0)
 bundler_home=$(dirname $0)
+
+if ! which gsed >/dev/null; then
+  echo >&2 Error: Could not find gsed. This tool requires gsed.
+  exit 1
+fi
+
 this_macos_ver_majmin=$(sw_vers -productVersion | gsed -E 's/^(\w+\.\w+).*/\1/')
 
 function usage() {
@@ -371,6 +377,8 @@ function build_octave() {
   fi
   echo "$brew" install $octave_formula $octave_build_options
   "$brew" install $octave_formula $octave_build_options
+
+  # Hack: remove large build-time-only dependencies to reduce app size
   if "$brew" ls | grep rust >/dev/null; then
     "$brew" rm rust
   fi
