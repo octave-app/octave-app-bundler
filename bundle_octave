@@ -371,6 +371,9 @@ function build_octave() {
   fi
   echo "$brew" install $octave_formula $octave_build_options
   "$brew" install $octave_formula $octave_build_options
+  if "$brew" ls | grep rust >/dev/null; then
+    "$brew" rm rust
+  fi
 
   # Grab the logs
   rm -rf build/logs
