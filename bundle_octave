@@ -31,7 +31,7 @@ brew_remote_branch=
 
 this_program=$(basename $0)
 bundler_home=$(dirname $0)
-
+this_macos_ver_majmin=$(sw_vers -productVersion | gsed -E 's/^(\w+\.\w+).*/\1/')
 
 function usage() {
 
@@ -607,6 +607,7 @@ EOSCRIPT
   $plistbuddy -c "Add :CFBundleDocumentTypes:0:CFBundleTypeOSTypes array" "$info_plist"
   $plistbuddy -c "Add :CFBundleDocumentTypes:0:CFBundleTypeOSTypes: string \"Mfile\"" "$info_plist"
   $plistbuddy -c "Add :CFBundleDocumentTypes:0:CFBundleTypeRole string \"Editor\"" "$info_plist"
+  $plistbuddy -c "Set :LSMinimumSystemVersionByArchitecture:x86_64 \"$this_macos_ver_majmin\"" "$info_plist"
   plutil -convert xml1 "$app_build/Contents/Info.plist"
   chmod a=r "$app_build/Contents/Info.plist"
 
