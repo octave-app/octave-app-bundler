@@ -473,7 +473,7 @@ EOS
   end export_gnuterm
 
   on export_path()
-    return "export PATH=\\"$install_usr/bin/:$PATH\\";"
+    return "export PATH=\\"$install_usr/bin/:\$PATH\\";"
   end export_path
 
   on export_dyld()
@@ -497,7 +497,7 @@ EOS
   end cache_fontconfig
 
   on run_octave_gui()
-    return "cd ~; clear; $install_usr/opt/$octave_formula/bin/octave -q --force-gui | logger 2>&1;"
+    return "cd ~; clear; $install_usr/opt/$octave_formula/bin/octave -q --gui | logger 2>&1;"
   end run_octave_gui
 
   on run_octave_cli()
@@ -513,15 +513,15 @@ EOS
   end run_octave_open
 
   on path_check()
-    if not (POSIX path of (path to me) contains "$install_dir") then
+    if not (POSIX path of (path to me) starts with "$install_dir") then
       display dialog "Please run Octave from the $install_dir folder" with icon stop with title "Error" buttons {"OK"}
       error number -128
     end if
   end path_check
 
 EOSCRIPT
-if [ "$use_desktop" = "y" ]; then
-  cat <<EOSCRIPT >> $tmp_script
+  if [ "$use_desktop" = "y" ]; then
+    cat <<EOSCRIPT >> $tmp_script
   on open argv
     path_check()
     cache_fontconfig()
@@ -542,8 +542,8 @@ if [ "$use_desktop" = "y" ]; then
   end run
 
 EOSCRIPT
-else
-  cat <<EOSCRIPT >> $tmp_script
+  else
+    cat <<EOSCRIPT >> $tmp_script
   on open argv
     path_check()
     cache_fontconfig()
@@ -566,7 +566,7 @@ else
   end run
 
 EOSCRIPT
-fi
+  fi
 
   osacompile -o $app_build/Contents/Resources/Scripts/main.scpt $tmp_script
   rm $tmp_script
