@@ -470,7 +470,7 @@ EOS
   end export_gnuterm
 
   on export_path()
-    return "export PATH=\\"$install_usr/bin/:$PATH\\";"
+    return "export PATH=\\"$install_usr/bin/:\$PATH\\";"
   end export_path
 
   on export_dyld()
