@@ -494,7 +494,7 @@ EOS
   end cache_fontconfig
 
   on run_octave_gui()
-    return "cd ~; clear; $install_usr/opt/$octave_formula/bin/octave -q --force-gui | logger 2>&1;"
+    return "cd ~; clear; $install_usr/opt/$octave_formula/bin/octave -q --gui | logger 2>&1;"
   end run_octave_gui
 
   on run_octave_cli()
