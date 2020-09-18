@@ -428,7 +428,8 @@ function munge_build() {
 
 % Octave.app special configuration
 
-% Use a distinct arch-specific package dir to avoid crashes with compiled packages
+% Use a distinct version-specific package dir to avoid crashes with compiled packages
+% (Because compiled oct-files have linkage dependency on the exact path to the Octave installation.)
 default_pkg_prefix = pkg ("prefix");
 octave_app_pkg_prefix = [getenv("HOME") "/Library/Application Support/Octave.app/${version_name}/pkg"];
 % Create the directory ourselves to avoid a warning in the console
