@@ -17,6 +17,9 @@
 ## along with Octave; see the file COPYING.  If not, see
 ## <https://www.gnu.org/licenses/>.
 
+## This is Octave.app's custom modification of Octave's ver() function.
+## It is extended to pick up the Octave.app release information.
+
 ## -*- texinfo -*-
 ## @deftypefn  {} {} ver
 ## @deftypefnx {} {} ver Octave
@@ -50,9 +53,6 @@
 ##
 ## @seealso{version, usejava, pkg}
 ## @end deftypefn
-
-## This is Octave.app's custom modification of Octave's ver() function.
-## It is extended to pick up the Octave.app release information.
 
 ## Author: William Poetra Yoga Hadisoeseno <williampoetra@gmail.com>
 
