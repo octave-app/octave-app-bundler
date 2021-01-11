@@ -378,8 +378,8 @@ function build_octave() {
   echo "$brew" install $octave_formula $octave_build_options
   "$brew" install $octave_formula $octave_build_options
 
-  # Hack: remove large build-time-only dependencies to reduce app size
-  if "$brew" ls | grep rust >/dev/null; then
+  # HACK: remove large build-time-only dependencies to reduce app size
+  if "$brew" list --formula | grep rust >/dev/null; then
     "$brew" rm rust
   fi
 
