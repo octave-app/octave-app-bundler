@@ -478,7 +478,7 @@ EOS
   end export_gs_options
 
   on export_gnuplot()
-    return "export GNUTERM=\\"qt\\"; export PATH=\\"$install_usr/opt/gnuplot-octave-app/bin:\$PATH\\"";"
+    return "export GNUTERM=\\"qt\\"; export PATH=\\"$install_usr/opt/gnuplot-octave-app/bin:\$PATH\\";"
   end export_gnuplot
 
   on export_path()
