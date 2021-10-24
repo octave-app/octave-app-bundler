@@ -52,7 +52,8 @@ function usage() {
 
     Packaging options:
       -u, --build-suffix <suffix>
-        Set a build version suffix [$build_suffix].
+        Set a build version suffix [$build_suffix]. This can be used for beta builds, too,
+        like `-u beta1`.
       -h, -?, --help
         Display this help text.
       -s, --step <step>
