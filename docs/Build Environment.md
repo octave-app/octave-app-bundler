@@ -1,5 +1,4 @@
-Octave.app Build Environment
-============================
+# Octave.app Build Environment
 
 Octave.app uses a clean, dedicated VM as a build environment.
 
@@ -8,7 +7,9 @@ This older OS is used so that the build app supports all macOS versions going th
 (Building it on a newer version of macOS would require users to run that version.
 Unless we can figure out how to use target API versions to target an older macOS SDK while building on a newer macOS.)
 
-##  Creating a build box
+## Creating a build box
+
+NOTE: This is out of date, because as of 2023-01, Homebrew no longer supports OS X 10.11. You need macOS 11 or later.
 
 This describes in detail how I set up my build box.
 This is done using VMware Fusion.
@@ -23,7 +24,7 @@ You can probably get it to work with Parallels or VirtualBox, too.
     * Increase the disk size to 80 GB.
       * Do not make it smaller. You'll run out of space.
       * Do not make it larger. You'll use up more of your host OS's disk space due to data block churn.
-    * Increase the CPUs to 4 vCPUs.
+    * Increase the CPUs to 4 vCPUs or more. (Preferably much more.)
 * Run the OS installer by powering up the VM.
   * Before running the installer itself, run Disk Utility and use it to re-partition the disk so all available space is used by the main “Mac HD” partition.
 * Install stuff on the guest OS.
@@ -31,17 +32,19 @@ You can probably get it to work with Parallels or VirtualBox, too.
     * Run it once manually to accept the license agreement and install the command line tools.
   * Install MacTeX.
   * Do not install Homebrew!
+  * Actually, no: *do* install Homebrew, because you will need it to get `gsed` and some other dev tools which `bundle_octave` depends on. Sorry. Then install this brewd stuff:
+    * `brew install gsed`
 
 Then set up the build script by cloning the `octave-app-bundler` repo.
 
-```
-mkdir -p local/repos
-cd local/repos
+```bash
+cd ~
+mkdir -p repos
+cd repos
 git clone https://github.com/octave-app/octave-app-bundler
 ```
 
-Now you can `cd octave-app-bundler` and run `./bundle_octave` to build Octave.app.
-
+Now you can `cd ~/repos/octave-app-bundler` and run `./bundle_octave` to build Octave.app.
 
 ## Historical Build Environments
 
@@ -49,4 +52,4 @@ We have a policy of supporting the last three versions of macOS available at the
 
 Octave.app 4.4.0 and 4.4.1 were built on OS X 10.11 El Capitan with Xcode 8.2.1.
 
-Octave.app 5.1.0 and later are looking to build on macOS 10.12 with Xcode 9.2, but it isn't working yet. (See https://github.com/octave-app/octave-app-bundler/issues/75.)
+Octave.app 5.1.0 and later are looking to build on macOS 10.12 with Xcode 9.2, but it isn't working yet. (See <https://github.com/octave-app/octave-app-bundler/issues/75>.)

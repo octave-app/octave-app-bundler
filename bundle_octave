@@ -298,7 +298,7 @@ function pick_default_octave_version() {
     octave_version=""
     octave_formula_version=""
   else
-    die "Variant '${variant}' has no default version defined. You must supply one." >&2
+    die "Variant '${variant}' has no default version defined. You must supply one."
   fi
 }
 

@@ -1,15 +1,14 @@
-Octave.app Testing Script
-=========================
+# Octave.app Testing Script
 
 This is a list of actions the maintainer needs to do to test a build of Octave.app.
 
-# Steps
+## Steps
 
-## Prepare
+### Prepare
 
 * Make sure the existing /Applications/Octave-&lt;version>.app is deleted.
 
-## Install
+### Install
 
 * Double-click the Octave-&lt;version>.dmg file to open it.
 * Double-click the COPYING file; verify that it opens and is readable.
@@ -18,7 +17,7 @@ This is a list of actions the maintainer needs to do to test a build of Octave.a
   * Check the Octave version string at the top to make sure it makes sense.
 * Drag the Octave icon to the Applications folder link in the DMG to install it.
 
-## Run
+### Run
 
 * Double-click /Applications/Octave-&lt;version>.app to run it.
 * Run `__run_test_suite__` in the command window to run the full suite of unit tests. Check that they all pass.
@@ -26,7 +25,7 @@ This is a list of actions the maintainer needs to do to test a build of Octave.a
 
 * Run each of the following plotting commands, and see that their output looks reasonable. (E.g. visible, not half-size within the figure window, and so on.)
 
-```
+```matlab
 sombrero
 surf(peaks)
 ```

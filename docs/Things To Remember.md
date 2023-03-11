@@ -1,5 +1,4 @@
-Things to Remember
-==================
+# Things to Remember
 
 ## Always use customized Qt formulae
 
@@ -9,3 +8,4 @@ Always use one of our customized `qt*` formulae, which will force it to build fr
 
 I've reported this to Homebrew before, but they don't care, because they don't support non-standard installation prefixes.
 
+(Sorry about this.)
