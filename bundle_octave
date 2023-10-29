@@ -16,20 +16,32 @@
 # Note: Older versions of this had support for explicit build architectures (using
 # $build_arch), but that disappeared as of 2021. May need to re-add it to support
 # older Macs.
+#
+# TODO: This is breaking again due to netpbm needing svn to download its source code
+# when installing to an alternate prefix.
+#
+# ==> Cloning https://svn.code.sf.net/p/netpbm/code/stable
+# ==> Checking out 4686
+# You must: brew install svn
+# Error: octave-octave-app@8.3.0: Failed to download resource "netpbm"
 
 set -o errexit
 # set -o nounset  # fails due to arg parsing technique that needs to be fixed
 set -o pipefail
 if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
 
+# Default stuff to build. This is updated frequently to match the latest version of Octave.app
+# we're currently working on.
 default_octave_formula_version="8.3.0"
+default_build_suffix='alpha1'
+
 build_gui=y
 build_devel=n
 build_dmg=y
 use_java=y
 verbose=n
 variant=""
-build_suffix=""
+build_suffix="$default_build_suffix"
 build_step=""
 exit_on_error=y
 do_trace=n
@@ -53,9 +65,15 @@ function die() {
   exit 1
 }
 
+# Build-time dependencies on system-installed programs. We use system-installed ones instead
+# of installing them in to Octave.app to avoid bloating the app.
 if ! which gsed >/dev/null; then
   die "Could not find gsed. This tool requires gsed, not just regular (BSD) sed."
 fi
+# Not requiring svn for now because we're installing it inside the app to make brew happy
+# if ! which svn >/dev/null; then
+#   die "Could not find svn. This tool requires Subversion to be installed on your machine."
+# fi
 
 this_macos_ver_majmin=$(sw_vers -productVersion | gsed -E 's/^(\w+\.\w+).*/\1/')
 
@@ -370,6 +388,14 @@ function freshen_staged_homebrew() {
         git checkout "$octapp_tap_branch"
       )
     fi
+    echo "Installing special required build-time packages"
+    # svn is needed to fetch the netpbm source
+    # TODO: Could this be fixed by adding a build-time dependency on svn to the netpbm formula?
+    # TODO: Better yet, can we just require a system-level svn? Doesn't seem to work when done
+    # in a separate Homebrew installation (maybe due to brew's environment isolation), so for
+    # now, install it in Octave.app and let it bloat up. If we have to do it this way, then we
+    # should maybe add subversion and its exclusive deps to the list of packages to prune later.
+    "$brew" install subversion
   fi
 
   "$brew" update # get new formulae
