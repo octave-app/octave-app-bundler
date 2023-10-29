@@ -11,11 +11,18 @@
 # Style note: Most variables in this script are globals, but they're in
 # lower case anyway, for readability and aesthetics.
 
+# TODO: Support for alternate branches of the octave-app tap, so we can build using
+# formulae there as a way of testing them before merging to main.
+# Note: Older versions of this had support for explicit build architectures (using
+# $build_arch), but that disappeared as of 2021. May need to re-add it to support
+# older Macs.
+
 set -o errexit
-set -o nounset
+# set -o nounset  # fails due to arg parsing technique that needs to be fixed
 set -o pipefail
 if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
 
+default_octave_formula_version="8.3.0"
 build_gui=y
 build_devel=n
 build_dmg=y
@@ -27,8 +34,6 @@ build_step=""
 exit_on_error=y
 do_trace=n
 do_sign=n
-# Be conservative regarding target CPU architecture
-build_arch=core2
 action=
 use_desktop=y
 codesign_author_name="Andrew Janke"
@@ -102,7 +107,7 @@ function usage() {
 EOHELP
 }
 
-while [[ $1 != "" ]]; do
+while [[ "${1-}" != "" ]]; do
   case "$1" in
     -a|--variant)
       if [[ $# -gt 1 ]]; then
@@ -172,6 +177,7 @@ done
 
 function echo_options() {
   cat <<EOS
+Options:
 variant = ${variant}
 octave_formula_version = ${octave_formula_version}
 build_suffix = ${build_suffix}
@@ -183,6 +189,7 @@ use_gcc = ${use_gcc}
 use_java = ${use_java}
 octave_app_bundler_home = ${bundler_home}
 use_desktop = ${use_desktop}
+
 EOS
 }
 
@@ -200,9 +207,13 @@ fi
 
 # Bash 3 does not have associative arrays, so we need to do the version lookup with a
 # function. (MacOS is stuck on Bash 3.x for GPL licensing reasons.)
+#
+# The octave_version is a version number of a main Octave release, in "x.y.z" form. The
+# octave_formula_version is an Octave.app-specific thing which may include suffixes like "_u1"
+# to indicate different Octave.app builds or definitions that use the same Octave release.
 function pick_default_octave_version() {
   if [[ "$octave_formula_base" == "octave-octave-app" ]]; then
-    octave_formula_version="6.3.0"
+    octave_formula_version="$default_octave_formula_version"
     octave_version="${octave_formula_version//_[[:digit:]]/}"
   elif [[ "$octave_formula_base" == "octave-unversioned" ]]; then
     octave_version=""
@@ -260,10 +271,6 @@ install_usr="$install_dir/Contents/Resources/usr"
 brew="$install_usr/bin/brew"
 app_build="./build/${app_name}.app"
 app_build_usr="$app_build/Contents/Resources/usr"
-
-if [[ "$verbose" == "y" ]]; then
-  echo_options
-fi
 
 echo "Building ${app_name}.app at ${install_dir} from formula ${octave_formula}"
 
