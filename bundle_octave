@@ -41,6 +41,8 @@ codesign_author_name="Andrew Janke"
 brew_remote_name=
 brew_remote_url=
 brew_remote_branch=
+# Define this if you need an alternate branch of the octave-app tap for the octapp formulae
+octapp_tap_branch='new-2023-versions'
 
 this_program=$(basename $0)
 bundler_home=$(dirname $0)
@@ -349,7 +351,7 @@ function freshen_staged_homebrew() {
     ln -s "${install_usr}/Homebrew/bin/brew" "${install_usr}/bin/brew"
     if [[ -n "$brew_remote_branch" ]]; then
       (
-        echo "Checking out branch ${brew_remote_branch} from remote ${brew_remote_url}"
+        echo "Checking out Homebrew branch ${brew_remote_branch} from remote ${brew_remote_url}"
         "$brew" update
         cd "${install_usr}/Homebrew"
         git remote add "$brew_remote_name" "$brew_remote_url"
@@ -358,6 +360,16 @@ function freshen_staged_homebrew() {
       )
     fi
     "$brew" tap octave-app/octave-app
+    if [[ -n "$octapp_tap_branch" ]]; then
+      (
+        echo "Checking out octave-app tap branch ${octapp_tap_branch}"
+        "$brew" update
+        # TODO: support new AS dir layout
+        cd "${install_usr}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
+        git fetch --all
+        git checkout "$octapp_tap_branch"
+      )
+    fi
   fi
 
   "$brew" update # get new formulae
