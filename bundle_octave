@@ -16,7 +16,7 @@
 # Note: Older versions of this had support for explicit build architectures (using
 # $build_arch), but that disappeared as of 2021. May need to re-add it to support
 # older Macs.
-#
+
 # TODO: This is breaking again due to netpbm needing svn to download its source code
 # when installing to an alternate prefix.
 #
@@ -24,6 +24,26 @@
 # ==> Checking out 4686
 # You must: brew install svn
 # Error: octave-octave-app@8.3.0: Failed to download resource "netpbm"
+
+# TODO: Fix this "python not found" error at the end of the build. Might be as simple as
+# using 'python3' instead, since that exists on macOS 12 and 14.
+#
+# For pkg-config to find octave-octave-app@8.3.0 you may need to set:
+#   export PKG_CONFIG_PATH="/Applications/Octave-8.3.0.app/Contents/Resources/usr/opt/octave-octave-app@8.3.0/lib/pkgconfig"
+# Uninstalling /Applications/Octave-8.3.0.app/Contents/Resources/usr/Cellar/rust/1.72.1... (38,925 files, 853.2MB)
+# Munging app build at ./build/Octave-8.3.0.app
+# Octave versions: ver='8.3.0' ver_string='GNU Octave, version 8.3.0' copy='1993-2023 The Octave Project Developers.'
+# ./bundle_octave: line 695: /usr/bin/python: No such file or directory
+
+# TODO: version style controls for app name
+#   # valid: 'major', 'minor', 'patch', 'full', or 'none'
+#   appname_ver_style='minor'
+# TODO: Also, spaces in app name instead of dashes
+# TODO: Also, an "x64" in the app name for Intel builds
+# TODO: Which means we need a way to detect whether we're running on Intel or AS
+
+
+
 
 set -o errexit
 # set -o nounset  # fails due to arg parsing technique that needs to be fixed
@@ -34,20 +54,19 @@ if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
 # we're currently working on.
 default_octave_formula_version="8.3.0"
 default_build_suffix='alpha1'
+# Whether the build suffix is included in the app name, which is the end-user-visible name used
+# in the "Octave-*.app" file name, and other user-visible places. Generally, turn this on when
+# doing beta and other prerelease or testing builds, and turn it off for real releases, including
+# "u1" updates and the like.
+do_build_suffix_in_app_name=y
 
-build_gui=y
-build_devel=n
-build_dmg=y
-use_java=y
-verbose=n
-variant=""
+# Controls for what gets built
 build_suffix="$default_build_suffix"
-build_step=""
-exit_on_error=y
-do_trace=n
-do_sign=n
-action=
+build_gui=y
+use_java=y
 use_desktop=y
+variant=""
+build_devel=n
 codesign_author_name="Andrew Janke"
 # Define these if we need to use a special branch of Homebrew
 brew_remote_name=
@@ -55,6 +74,15 @@ brew_remote_url=
 brew_remote_branch=
 # Define this if you need an alternate branch of the octave-app tap for the octapp formulae
 octapp_tap_branch='new-2023-versions'
+
+# Controls for how this bundle_octave execution runs
+action=
+build_step=""
+build_dmg=y
+do_sign=n
+verbose=n
+exit_on_error=y
+do_trace=n
 
 this_program=$(basename $0)
 bundler_home=$(dirname $0)
@@ -282,6 +310,9 @@ else
   oapp_release="${version_name}-${build_suffix}"
   app_name_with_release="${app_name}-${build_suffix}"
   volume_name="${app_base_name} ${octave_version} ${build_suffix}"
+  if [[ "$do_build_suffix_in_app_name" = y ]]; then
+    app_name="${app_name}_${build_suffix}"
+  fi
 fi
 dmg_name="${app_name_with_release}.dmg"
 install_dir="/Applications/${app_name}.app"
