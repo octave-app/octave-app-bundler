@@ -873,7 +873,7 @@ function create_dmg() {
       --eula "${octave_app_tap}/assets/COPYING/COPYING.rtf" \
       --add-file COPYING "${octave_app_tap}/assets/COPYING" 126 300 \
       --add-file VERSIONS "${app_build}/Contents/Resources/VERSIONS" 415 300 \
-      --disk-image-size 4500 \
+      --disk-image-size 6400 \
       --background "${bundler_home}/assets/background.tiff" \
       "${dmg_dir}/${dmg_name}" \
       "$app_build"
