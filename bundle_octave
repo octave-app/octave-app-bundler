@@ -7,6 +7,11 @@
 # If you want to do your compilations single-threaded, which will be slower
 # but produce more readable output, set the environment variable
 # HOMEBREW_MAKE_JOBS=1 before running bundle_octave.
+#
+# Environment variables:
+#
+# OCTAPP_CREATEDMG_HOME - Path to the create-dmg repo or installation, if it's not
+# at the default ~/repos/create-dmg location.
 
 # Style note: Most variables in this script are globals, but they're in
 # lower case anyway, for readability and aesthetics.
@@ -93,18 +98,33 @@ function die() {
   exit 1
 }
 
-# Build-time dependencies on system-installed programs. We use system-installed ones instead
-# of installing them in to Octave.app to avoid bloating the app.
-if ! which gsed >/dev/null; then
-  die "Could not find gsed. This tool requires gsed, not just regular (BSD) sed."
-fi
-if ! which python3 >/dev/null; then
-  die "Could not find python3. This tool requires Python 3.x, and the command must be 'python3' and not just 'python'."
-fi
-# Not requiring svn for now because we're installing it inside the app to make brew happy
-# if ! which svn >/dev/null; then
-#   die "Could not find svn. This tool requires Subversion to be installed on your machine."
-# fi
+function detect_dependencies() {
+  # Build-time dependencies on system-installed programs. We use system-installed ones instead
+  # of installing them in to Octave.app to avoid bloating the app.
+  if ! which gsed >/dev/null; then
+    die "Could not find gsed. This tool requires gsed, not just regular (BSD) sed."
+  fi
+  if ! which python3 >/dev/null; then
+    die "Could not find python3. This tool requires Python 3.x, and the command must be 'python3' and not just 'python'."
+  fi
+  if [[ -n "$OCTAPP_CREATEDMG_HOME" ]]; then
+    createdmg_home="$OCTAPP_CREATEDMG_HOME"
+  else
+    createdmg_home="$HOME/repos/create-dmg"
+  fi
+  if [[ ! -f "${createdmg_home}/create-dmg" ]]; then
+    echo >&2 "No create-dmg install found at ${createdmg_home}"
+    echo >&2 "Please clone or install the create-dmg repo there, or set the"
+    echo >&2 "OCTAPP_CREATEDMG_HOME environment variable to point to your create-dmg."
+    exit 1
+  fi
+  # Not requiring svn for now because we're installing it inside the app to make brew happy
+  # if ! which svn >/dev/null; then
+  #   die "Could not find svn. This tool requires Subversion to be installed on your machine."
+  # fi
+}
+
+detect_dependencies
 
 this_macos_ver_majmin=$(sw_vers -productVersion | gsed -E 's/^(\w+\.\w+).*/\1/')
 
@@ -318,8 +338,8 @@ if [[ -z "$build_suffix" ]]; then
   app_name_with_release="${app_name}"
   volume_name="${app_base_name} ${octave_version}"
 else
-  oapp_release="${version_name}-${build_suffix}"
-  app_name_with_release="${app_name}-${build_suffix}"
+  oapp_release="${version_name}_${build_suffix}"
+  app_name_with_release="${app_name}_${build_suffix}"
   volume_name="${app_base_name} ${octave_version} ${build_suffix}"
   if [[ "$do_build_suffix_in_app_name" = y ]]; then
     app_name="${app_name}_${build_suffix}"
@@ -345,6 +365,7 @@ fi
 PATH="${install_usr}/bin/:$PATH"
 
 function stage_app_build() {
+  echo "Staging app build..."
   if [[ -e "$install_dir" ]]; then
     if [[ -f "${install_dir}/STAGING" ]]; then
       echo "Looks like $app_name is already staged; re-using in place"
@@ -371,6 +392,7 @@ EOS
 }
 
 function unstage_app_build() {
+  echo "Unstaging app build..."
   if [[ ! -e "${install_dir}/STAGING" ]]; then
     die "Error: ${install_dir} does not look like a staged build. Not moving."
   fi
@@ -392,6 +414,7 @@ function require_staged_app_build() {
 }
 
 function freshen_staged_homebrew() {
+  echo "Freshening Homebrew..."
   require_staged_app_build
   # Check if we do full or update
   if [[ -e "${install_usr}/bin/brew" ]]; then
@@ -451,6 +474,7 @@ function freshen_staged_homebrew() {
 }
 
 function build_octave() {
+  echo "Building Octave..."
   require_staged_app_build
   # Set FC to point to GCC's gfortran
   export FC="${install_usr}/bin/gfortran"
@@ -504,8 +528,9 @@ function build_octave() {
 }
 
 function munge_build() {
+  echo "Munging build..."
   require_staged_app_build
-  echo "Munging app build at ${app_build}"
+  echo "Munging build at ${app_build}"
   # Get versions dynamically from the built program
   octave="$install_usr/opt/$octave_formula/bin/octave"
   # x.y.z semver-ish version string
@@ -530,7 +555,7 @@ function munge_build() {
   cp -pR "$install_dir" build
 
   # Use local font cache instead of global one
-  /usr/bin/sed -i '' 's/\/Applications.*fontconfig/~\/.cache\/fontconfig/g' "$app_build_usr/etc/fonts/fonts.conf"
+  /usr/bin/sed -i '' 's/\/Applications.*fontconfig/~\/.cache\/fontconfig/g' "${app_build_usr}/etc/fonts/fonts.conf"
 
   # App-specific startup configuration
   keg="${app_build_usr}/Cellar/${octave_formula}/${octave_version}"
@@ -817,6 +842,7 @@ function sign_app() {
   #
   # This currently does not work. It'll run, but the resulting app is not recognized
   # by macOS as signed for me.
+  echo "Signing app..."
 
   # Signing apparently must happen in the installation location to make codesign happy
   # with its internal symlinks.
@@ -844,8 +870,8 @@ function sign_app() {
 
 function create_dmg() {
   # Create a nice DMG disc image with create-dmg (MIT License)
-  echo "Building DMG"
-  dmg_dir=build
+  echo "Creating DMG..."
+  local dmg_dir=build
 
   if [[ ! -d "$app_build" ]]; then
     die "No app build present at $app_build. Please run the build and munge steps first."
@@ -861,8 +887,8 @@ function create_dmg() {
   # will still be created, only some beautification cannot be applied.
   # We manually set the image size because create-dmg's automatic sizing seems to
   # get it wrong, and we run out of space when adding files.
-  octave_app_tap="${install_usr}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
-  "${bundler_home}/create-dmg/create-dmg" \
+  local octave_app_tap="${install_usr}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
+  "${createdmg_home}/create-dmg" \
       --volname "${volume_name}" \
       --volicon "${app_build}/Contents/Resources/applet.icns" \
       --window-size 550 500 \
@@ -878,7 +904,7 @@ function create_dmg() {
       "${dmg_dir}/${dmg_name}" \
       "$app_build"
 
-  echo "DMG ready: ${dmg_dir}/${dmg_name}"
+  echo "DMG ready at: ${dmg_dir}/${dmg_name}"
 }
 
 function test_app() {
