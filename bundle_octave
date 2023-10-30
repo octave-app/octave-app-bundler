@@ -42,9 +42,6 @@
 # TODO: Also, an "x64" in the app name for Intel builds
 # TODO: Which means we need a way to detect whether we're running on Intel or AS
 
-
-
-
 set -o errexit
 # set -o nounset  # fails due to arg parsing technique that needs to be fixed
 set -o pipefail
@@ -53,7 +50,10 @@ if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
 # Default stuff to build. This is updated frequently to match the latest version of Octave.app
 # we're currently working on.
 default_octave_formula_version="8.3.0"
-default_build_suffix='alpha1'
+# This should be 'alpha1' right now, but I'm temporarily using a no-suffix build name so I
+# can reuse the partial build I have on eilonwy, which would take a couple hours to rebuild.
+# default_build_suffix='alpha1'
+default_build_suffix=''
 # Whether the build suffix is included in the app name, which is the end-user-visible name used
 # in the "Octave-*.app" file name, and other user-visible places. Generally, turn this on when
 # doing beta and other prerelease or testing builds, and turn it off for real releases, including
@@ -98,6 +98,9 @@ function die() {
 if ! which gsed >/dev/null; then
   die "Could not find gsed. This tool requires gsed, not just regular (BSD) sed."
 fi
+if ! which python3 >/dev/null; then
+  die "Could not find python3. This tool requires Python 3.x, and the command must be 'python3' and not just 'python'."
+fi
 # Not requiring svn for now because we're installing it inside the app to make brew happy
 # if ! which svn >/dev/null; then
 #   die "Could not find svn. This tool requires Subversion to be installed on your machine."
@@ -108,11 +111,16 @@ this_macos_ver_majmin=$(sw_vers -productVersion | gsed -E 's/^(\w+\.\w+).*/\1/')
 function usage() {
 
   cat <<EOHELP
-  $this_program
-  $this_program [OPTION] ...
-  $this_program [OPTION ARG] ...
+  ${this_program}
+  ${this_program} [OPTION [ARG]] ...
+  ${this_program} brew <brew_args ...>
 
   Build an Octave.app application bundle for macOS.
+
+  The '${this_program} brew ...' calling form runs an arbitrary 'brew' command in the Homebrew
+  installation inside the staged app bundle.
+
+  All other calling forms do regular build operations.
 
   Several options are supported:
 
@@ -121,23 +129,10 @@ function usage() {
         Set a build version suffix. Used to distinguish revisions and updates
         to Octave.app's packaging, like 'u1' or 'u2'. This can be used for beta builds, too,
         like `-u beta1`. [$build_suffix]
-      -h, -?, --help
-        Display this help text.
-      -s, --step <step>
-        Run a single step of the build process (for debugging use).
-      -v, --verbose
-        Verbose output, and list state of all options.
-      -x, --trace
-        Trace program execution (even more detail than --verbose). You can also set the
-        TRACE=1 environment variable to get the same effect.
-      -e, --exit-on-errors
-        Exit on errors. For debugging use only; may be confusing.
       -t, --with-test
         Do not run tests on completed app.
       --sign
         Sign the completed app bundle.
-      -y, --dry-run
-        Compute values but do not actually build.
 
     Octave build options:
       -a, --variant <variant>
@@ -151,7 +146,23 @@ function usage() {
       -J, --no-java
         Compile without Java support.
       -d, --build-devel
-        Build the latest development snapshot.
+        Build the latest Octave development snapshot instead of a released version.
+
+    Debugging options:
+      -h, -?, --help
+        Display this help text.
+      -s, --step <step>
+        Run a single step of the build process (for debugging use).
+      -v, --verbose
+        Verbose output, and list state of all options.
+      -x, --trace
+        Trace program execution (even more detail than --verbose). You can also set the
+        TRACE=1 environment variable to get the same effect.
+      -e, --exit-on-errors
+        Exit on errors. This is now on by default, though it was off in older versions.
+      -y, --dry-run
+        Compute values but do not actually build.
+
 EOHELP
 }
 
@@ -203,10 +214,10 @@ while [[ "${1-}" != "" ]]; do
         else
           die "option $1 requires an argument"
         fi ;;
-    -y|--dry-run)
-      do_dry_run=y; shift 1 ;;
     -x|--trace)
       do_trace=y; shift 1 ;;
+    -y|--dry-run)
+      do_dry_run=y; shift 1 ;;
     --)
       shift
       break ;;
@@ -374,7 +385,7 @@ function require_staged_app_build() {
   if [[ ! -f "${install_dir}/STAGING" ]]; then
     echo >&2 "Error: This step requires a staged app build, but there is no app build staged at ${install_dir}."
     if [[ -n "$build_step" ]]; then
-      echo >&2 "Error: Please run `${this_program} -s stage` to stage an app build and then retry."
+      echo >&2 "Error: Please run '${this_program} -s stage' to stage an app build and then retry."
     fi
     exit 1
   fi
@@ -497,21 +508,22 @@ function munge_build() {
   echo "Munging app build at ${app_build}"
   # Get versions dynamically from the built program
   octave="$install_usr/opt/$octave_formula/bin/octave"
+  # x.y.z semver-ish version string
   oct_ver="$("$octave" --version | /usr/bin/sed -n 1p | /usr/bin/grep -o '\d\..*$' )"
   oct_ver_string="$("$octave" --version | /usr/bin/sed -n 1p)"
-  oct_copy="$("$octave" --version | /usr/bin/sed -n 2p | /usr/bin/cut -c 15- )"
+  oct_copyright="$("$octave" --version | /usr/bin/sed -n 2p | /usr/bin/cut -c 15- )"
 
-  echo "Octave versions: ver='${oct_ver}' ver_string='${oct_ver_string}' copy='${oct_copy}'"
+  echo "Octave versions: ver='${oct_ver}' ver_string='${oct_ver_string}' copy='${oct_copyright}'"
 
   # Detect and set path for ghostscript
   gs_formula="ghostscript"
-  gs_ver="$("$install_usr/bin/gs" --version)"
+  gs_ver="$("${install_usr}/bin/gs" --version)"
   gs_opt=$("$brew" --prefix "$gs_formula")
-  gs_share="$gs_opt/share/ghostscript"
+  gs_share="${gs_opt}/share/ghostscript"
 
-  # Make a local copy for munging
+  # Make a local copy for munging, clobbering any existing copy
   mkdir -p build
-  if [[ -d "$app_build" ]]; then
+  if [[ -e "$app_build" ]]; then
     chmod -R u+w "$app_build"
     rm -rf "$app_build"
   fi
@@ -547,7 +559,7 @@ EOS
   cp -R Mcode/* "${keg}/share/octave/site/m"
 
   # Create applescript to execute octave
-  tmp_script=$(mktemp /tmp/octave-XXXX);
+  local tmp_script=$(mktemp /tmp/octave-XXXX)
   if [[ "$build_gui" == "y" ]]; then
     read -r -d '' program_launch_code <<EOS || true
     set cmd to env_setup_cmd() & run_octave_gui()
@@ -678,8 +690,8 @@ EOSCRIPT
   osacompile -o "${app_build}/Contents/Resources/Scripts/main.scpt" "$tmp_script"
   rm "$tmp_script"
 
-  # Create a nice iconset (using the icons shipped with octave)
-  # The following might fail for the development version
+  # Create a nice iconset (using the icons shipped with Octave)
+  # The following might fail for the development version; TODO: conditionalize or trap the error
   hicolor_dir="${app_build_usr}/opt/${octave_formula}/share/icons/hicolor"
   svg_icon="${hicolor_dir}/scalable/apps/octave.svg"
   tmp_iconset="$(mktemp -d /tmp/iconset-XXXX)/droplet.iconset"
@@ -706,7 +718,7 @@ EOSCRIPT
   $plistbuddy -c "Add :CFBundleIdentifier string org.octave-app.Octave" "$info_plist"
   $plistbuddy -c "Add :CFBundleShortVersionString string $oct_ver" "$info_plist"
   $plistbuddy -c "Add :CFBundleVersion string \"$oct_ver_string\"" "$info_plist"
-  $plistbuddy -c "Add :NSHumanReadableCopyright string \"$oct_copy\"" "$info_plist"
+  $plistbuddy -c "Add :NSHumanReadableCopyright string \"$oct_copyright\"" "$info_plist"
   $plistbuddy -c "Add :CFBundleDocumentTypes array" "$info_plist"
   $plistbuddy -c "Add :CFBundleDocumentTypes:0 dict" "$info_plist"
   $plistbuddy -c "Add :CFBundleDocumentTypes:0:CFBundleTypeExtensions array" "$info_plist"
@@ -718,20 +730,33 @@ EOSCRIPT
   plutil -convert xml1 "${app_build}/Contents/Info.plist"
   chmod a=r "${app_build}/Contents/Info.plist"
 
-  # Add icon to octave-gui
-  if [[ "$build_gui" == "y" ]]; then
-    #TODO: Is this 'export' necessary?
-    export python_script=$(mktemp /tmp/octave-XXXX);
-    cat <<EOSCRIPT > "$python_script"
-#!/usr/bin/env python
-import Cocoa
-import sys
-Cocoa.NSWorkspace.sharedWorkspace().setIcon_forFile_options_(Cocoa.NSImage.alloc().initWithContentsOfFile_(sys.argv[1].decode("utf-8")), sys.argv[2].decode("utf-8"), 0) or sys.exit("Unable to set file icon")
-EOSCRIPT
-    /usr/bin/python "$python_script" "${app_build}/Contents/Resources/applet.icns" ${app_build_usr}/Cellar/${octave_formula}/*/libexec/octave/*/exec/*/octave-gui
-  fi
+  # Add icon to octave-gui (DISABLED)
+  # This is broken as of macOS 12, and maybe earlier. It fails with a "ModuleNotFoundError: No module named 'Cocoa'" error.
+  # Looks like the Cocoa module doesn't exist in the newer Pythons shipped with macOS. It may have been a Python 2 thing;
+  # macOS has switched to Python 3 since the last time this worked.
+#   if [[ "$build_gui" == "y" ]]; then
+#     local python_script_tmp=$(mktemp /tmp/octave-XXXX);
+#     cat <<EOSCRIPT > "$python_script_tmp"
+# #!/usr/bin/env python
+# # This is a Python 2.x script, and requires the macOS-specific Cocoa module
+# import sys
+# import Cocoa
+#
+# icons_file = sys.argv[1].decode("utf-8")
+# oct_gui_file = sys.argv[2].decode("utf-8")
+# wksp = Cocoa.NSWorkspace.sharedWorkspace()
+# icons_data = Cocoa.NSImage.alloc().initWithContentsOfFile_(icons_file)
+# ok = wksp.setIcon_forFile_options_(icons_data, oct_gui_file, 0)
+# if not ok:
+#   sys.exit("Unable to set file icons for file " + oct_gui_file + " from icons file " + icons_file)
+#
+# EOSCRIPT
+#     # The glob here should produce exactly one file; it's just done for convenience in building the file path
+#     # TODO: Replace the glob with an exact path.
+#     /usr/bin/python3 "$python_script_tmp" "${app_build}/Contents/Resources/applet.icns" "${app_build_usr}/Cellar/${octave_formula}/*/libexec/octave/*/exec/*/octave-gui"
+#   fi
 
-  # List all formulae in the VERSIONS file
+  # List all included formulae in the VERSIONS file
   versions_file="${app_build}/Contents/Resources/VERSIONS"
   rm -f "${versions_file}"
   touch "${versions_file}"
@@ -751,8 +776,9 @@ EOSCRIPT
   app_build_brew="${app_build_usr}/bin/brew"
 
   # Remove Homebrew itself
-  rm -rf "$app_build_usr/Homebrew"
-  rm -f "$app_build_usr/etc/bash_completion.d/brew" \
+  # So Octave.app users don't use it and modify their app installation; it's not about saving space
+  rm -rf "$app_build_usr/Homebrew" \
+      "$app_build_usr/etc/bash_completion.d/brew" \
       "$app_build_usr/share/man/man1/README.md" \
       "$app_build_usr/share/man/man1/brew-cask.1" \
       "$app_build_usr/share/man/man1/brew.1" \
@@ -761,35 +787,41 @@ EOSCRIPT
       "$app_build_usr/share/zsh/site-functions/_brew" \
       "$app_build_usr/bin/brew"
 
-  # Remove STAGING so you can tell it's a real built app now
-  rm -rf "${app_build}/STAGING"
-
   # Redirect the app prefix's var/ to system local /var
-  # Commented out because it seems to break code signing
+  # Disabled because it seems to break code signing
   #rm -rf "$app_build_usr/var"
   #ln -s "/usr/local/var" "$app_build_usr/var"
 
   # Clear resource fork and Finder information that codesign doesn't like
-  xattr -rc "$app_build" || true
+  # Suppress errors because xattr seems to raise "no such file" errors for files
+  # that sure look like they're there.
+  # Disabled for now, since we're not doing code signing anyway.
+  # xattr -rc "$app_build" || true
 
-  # Lock down the app M-files and brewed libs to prevent accidental user editing
+  # Lock down files to prevent accidental modification by users
+  # Lock down the app M-files and brewed packages
   chmod -R a-w "${app_build_usr}/Cellar"
   # But Qt needs to write to the .qhc files and local dirs when using the help
-  # viewer (wtf, Qt?)
+  # viewer (really, Qt?)
   find "${app_build_usr}/Cellar/${octave_formula}" -name '*.qhc' | xargs chmod u+w
-  find "${app_build_usr}/Cellar/${octave_formula}" -type d -exec chmod u+w "{}" \;
+  find "${app_build_usr}/Cellar/${octave_formula}" -type d | xargs chmod u+w
 
+  # Remove the STAGING flag file so you can tell it's a real built app now
+  rm -rf "${app_build}/STAGING"
+
+  echo "Munging complete. Removed STAGING flag file."
 }
 
 function sign_app() {
-  # Sign the app bundle using Apple code signing.
+  # Sign the app bundle using Apple code signing (BROKEN)
+  #
   # This currently does not work. It'll run, but the resulting app is not recognized
-  # by macOS as signed.
+  # by macOS as signed for me.
 
   # Signing apparently must happen in the installation location to make codesign happy
   # with its internal symlinks.
   if [[ -e "$install_dir" ]]; then
-    die "file exists at ${install_dir{}. Cannot stage app to sign."
+    die "file exists at ${install_dir}. Cannot stage app to sign."
   fi
   mv "$app_build" "$install_dir"
   # Let's try making all symlinks absolute to get validation to work
@@ -903,16 +935,16 @@ else
   # Run a single step
   case "$build_step" in
     stage)            stage_app_build ;;
+    unstage)          unstage_app_build ;;
     freshen-homebrew) freshen_staged_homebrew ;;
     build)            build_octave ;;
     munge)            munge_build ;;
-    unstage)          unstage_app_build ;;
     sign)             sign_app ;;
     dmg)              create_dmg ;;
     test)             test_app ;;
     *)
       echo >&2 "Error: Invalid step name '${build_step}'"
-      echo >&2 "Error: Valid steps are: stage freshen-homebrew build munge unstage sign dmg test"
+      echo >&2 "Error: Valid steps are: stage unstage freshen-homebrew build munge sign dmg test"
       exit 1
       ;;
   esac
