@@ -28,13 +28,14 @@
 # ==> Cloning https://svn.code.sf.net/p/netpbm/code/stable
 # ==> Checking out 4686
 # You must: brew install svn
-# Error: octave-octave-app@8.3.0: Failed to download resource "netpbm"
+# Error: octave-octapp@8.3.0: Failed to download resource "netpbm"
 
 # TODO: Fix this "python not found" error at the end of the build. Might be as simple as
 # using 'python3' instead, since that exists on macOS 12 and 14.
 #
-# For pkg-config to find octave-octave-app@8.3.0 you may need to set:
-#   export PKG_CONFIG_PATH="/Applications/Octave-8.3.0.app/Contents/Resources/usr/opt/octave-octave-app@8.3.0/lib/pkgconfig"
+# For pkg-config to find octave-octapp@8.3.0 you may need to set:
+#   export PKG_CONFIG_PATH="/Applications/Octave-8.3.0.app/Contents/Resources/usr/opt/octave-octapp@8.3.0/lib/pkgconfig"
+#
 # Uninstalling /Applications/Octave-8.3.0.app/Contents/Resources/usr/Cellar/rust/1.72.1... (38,925 files, 853.2MB)
 # Munging app build at ./build/Octave-8.3.0.app
 # Octave versions: ver='8.3.0' ver_string='GNU Octave, version 8.3.0' copy='1993-2023 The Octave Project Developers.'
@@ -54,11 +55,9 @@ if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
 
 # Default stuff to build. This is updated frequently to match the latest version of Octave.app
 # we're currently working on.
-default_octave_formula_version="8.3.0"
-# This should be 'alpha1' right now, but I'm temporarily using a no-suffix build name so I
-# can reuse the partial build I have on eilonwy, which would take a couple hours to rebuild.
-# default_build_suffix='alpha1'
-default_build_suffix=''
+default_octave_formula_version="8.4.0"
+# Set this to something nonempty when doing prerelease builds or updates
+default_build_suffix='alpha1'
 # Whether the build suffix is included in the app name, which is the end-user-visible name used
 # in the "Octave-*.app" file name, and other user-visible places. Generally, turn this on when
 # doing beta and other prerelease or testing builds, and turn it off for real releases, including
@@ -70,19 +69,20 @@ build_suffix="$default_build_suffix"
 build_gui=y
 use_java=y
 use_desktop=y
-variant=""
+variant=
 build_devel=n
-codesign_author_name="Andrew Janke"
+codesign_author_name='Andrew Janke'
 # Define these if we need to use a special branch of Homebrew
 brew_remote_name=
 brew_remote_url=
 brew_remote_branch=
-# Define this if you need an alternate branch of the octave-app tap for the octapp formulae
-octapp_tap_branch='new-2023-versions'
+# Set this if you need an alternate branch of the octave-app tap for the octapp formulae
+# octapp_tap_branch='new-2023-versions'
+octapp_tap_branch=
 
 # Controls for how this bundle_octave execution runs
 action=
-build_step=""
+build_step=
 build_dmg=y
 do_sign=n
 verbose=n
@@ -105,7 +105,7 @@ function detect_dependencies() {
     die "Could not find gsed. This tool requires gsed, not just regular (BSD) sed."
   fi
   if ! which python3 >/dev/null; then
-    die "Could not find python3. This tool requires Python 3.x, and the command must be 'python3' and not just 'python'."
+    die "Could not find python3. This tool requires Python 3.x, and the command must be 'python3' and not plain 'python'."
   fi
   if [[ -n "$OCTAPP_CREATEDMG_HOME" ]]; then
     createdmg_home="$OCTAPP_CREATEDMG_HOME"
@@ -291,7 +291,7 @@ fi
 # octave_formula_version is an Octave.app-specific thing which may include suffixes like "_u1"
 # to indicate different Octave.app builds or definitions that use the same Octave release.
 function pick_default_octave_version() {
-  if [[ "$octave_formula_base" == "octave-octave-app" ]]; then
+  if [[ "$octave_formula_base" == "octave-octapp" ]]; then
     octave_formula_version="$default_octave_formula_version"
     octave_version="${octave_formula_version//_[[:digit:]]/}"
   elif [[ "$octave_formula_base" == "octave-unversioned" ]]; then
@@ -305,7 +305,7 @@ function pick_default_octave_version() {
 # Calculate all our various names
 
 if [[ -z "$variant" ]]; then
-  octave_formula_base="octave-octave-app"
+  octave_formula_base="octave-octapp"
   app_base_name_base="octave"
 else
   octave_formula_base="octave-${variant}"
@@ -613,7 +613,7 @@ EOS
   end export_gs_options
 
   on export_gnuplot()
-    return "export GNUTERM=\\"qt\\"; export PATH=\\"${install_usr}/opt/gnuplot-octave-app/bin:\$PATH\\";"
+    return "export GNUTERM=\\"qt\\"; export PATH=\\"${install_usr}/opt/gnuplot-octapp/bin:\$PATH\\";"
   end export_gnuplot
 
   on export_path()
