@@ -15,11 +15,15 @@ This changelog file was added late in the project's history, in 2023-10, and the
 - Add support for Apple Silicon ("AS").
   - Support Homebrew's new file layout on AS.
 - Change app and DMG naming conventions.
-  - Include build suffix in app name (with option to turn that off).
+  - Include build suffix in app name, by default.
   - Use "_" instead of "-" to separate version and build suffix.
 - Include subversion in Octave.app build, because it is now needed for downloading netpbm.
-- Remove create-dmg Git submodule and reference it as an external program, to support SSH GitHub access, and because I dislike Git submodules.
-- Code refactoring.
+- Remove create-dmg Git submodule and reference it as an external program
+  - To support GitHub access via SSH, and because I dislike Git submodules.
+
+### Internal
+
+- Big refactoring for nicer, cleaner Bash code.
 
 ## [10acffb2e94c7636ffb31f74818287c68fb0460b] - 2020-10-24
 

@@ -8,13 +8,40 @@
 # but produce more readable output, set the environment variable
 # HOMEBREW_MAKE_JOBS=1 before running bundle_octave.
 #
+# If you're working on getting a release out, consider calling this through one
+# of the wip_bundle_* wrapper scripts, for convenience and consistency.
+#
 # Environment variables:
 #
 # OCTAPP_CREATEDMG_HOME - Path to the create-dmg repo or installation, if it's not
-# at the default ~/repos/create-dmg location.
+#   at the default ~/repos/create-dmg location.
+# TRACE – Set this to 1 to enable low-level debug tracing of the code in this script.
 
-# Style note: Most variables in this script are globals, but they're in
-# lower case anyway, for readability and aesthetics.
+# Code notes:
+#
+# This must run under Bash 3.x; can't use Bash 4+ stuff like associative arrays.
+#
+# Path globals:
+#
+# * $INSTALL_DIR - The .app dir/bundle under /Applications, which is both its initial
+#     build and final installation location.
+# * $INSTALL_USR - The Contents/Resources/usr dir under the app at $INSTALL_DIR. This
+#     is where most of the brew-managed packages live.
+# * $APP_BUILD - The copy of the .app under ./build, where we munge it in to its final
+#     form, and create the distribution DMG from.
+# * $APP_BUILD_USR - The usr dir under the app at $APP_BUILD, analagous to $INSTALL_USR.
+#
+# Names and label globals:
+# TODO: Fill this out. Maybe move it to a separate .md doc file.
+#
+# * $APP_NAME -
+# * $
+# * $OCTAVE_FORMULA_VERSION - The version of the octave brew formula used, which may have
+#     a "_<revision>" suffix.
+# * $OCTAVE_VERSION - The version of Octave, which without any revision suffix like in
+#     the formula version.
+#
+# TODO: "$INSTALL_DIR" is a lousy name for this. Come up with something better.
 
 # TODO: Support for alternate branches of the octave-app tap, so we can build using
 # formulae there as a way of testing them before merging to main.
@@ -49,95 +76,81 @@
 # TODO: Which means we need a way to detect whether we're running on Intel or AS
 
 set -o errexit
-# set -o nounset  # fails due to arg parsing technique that needs to be fixed
+set -o nounset
 set -o pipefail
 if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
 
-# Default stuff to build. This is updated frequently to match the latest version of Octave.app
-# we're currently working on.
-default_octave_formula_version="8.4.0"
-# Set this to something nonempty when doing prerelease builds or updates
-default_build_suffix='alpha1'
-# Whether the build suffix is included in the app name, which is the end-user-visible name used
-# in the "Octave-*.app" file name, and other user-visible places. Generally, turn this on when
-# doing beta and other prerelease or testing builds, and turn it off for real releases, including
-# "u1" updates and the like.
-do_build_suffix_in_app_name=y
+# Function definitions
+#
+# (Scroll down to the very bottom to see the main script logic.)
 
-# Controls for what gets built
-build_suffix="$default_build_suffix"
-build_gui=y
-use_java=y
-use_desktop=y
-variant=
-build_devel=n
-codesign_author_name='Andrew Janke'
-# Define these if we need to use a special branch of Homebrew
-brew_remote_name=
-brew_remote_url=
-brew_remote_branch=
-# Set this if you need an alternate branch of the octave-app tap for the octapp formulae
-# octapp_tap_branch='new-2023-versions'
-octapp_tap_branch=
+# Utility functions
 
-# Controls for how this bundle_octave execution runs
-action=
-build_step=
-build_dmg=y
-do_sign=n
-verbose=n
-exit_on_error=y
-do_trace=n
+THIS_PROGRAM=$(basename $0)
 
-this_program=$(basename $0)
-bundler_home=$(dirname $0)
+function info() {
+  echo "$*"
+}
+
+function error() {
+  echo >&2 "${THIS_PROGRAM}: ERROR: $*"
+}
 
 function die() {
   local msg="$1"
-  echo >&2 "${this_program}: ERROR: $1"
+  error "$msg"
   exit 1
+}
+
+# Special functions to turn errexit on/off, to support the special no-errexit debugging
+# control.
+
+function disable_errexit() {
+  set +o errexit
+}
+
+function enable_errexit() {
+  if [[ $EXIT_ON_ERROR == 'n' ]]; then
+    # Leave it disabled bc a debugging option asked for that.
+    # In fact, explicitly disable it, because it starts off enabled due to the
+    # code-safety settings at the very top of this script; this will get it right at the
+    # start of main()
+    set +o errexit
+  else
+    set -o errexit
+  fi
 }
 
 function detect_dependencies() {
   # Build-time dependencies on system-installed programs. We use system-installed ones instead
   # of installing them in to Octave.app to avoid bloating the app.
   if ! which gsed >/dev/null; then
-    die "Could not find gsed. This tool requires gsed, not just regular (BSD) sed."
+    die "Could not find gsed. This tool requires gsed, not just regular macOS (BSD) sed."
   fi
   if ! which python3 >/dev/null; then
-    die "Could not find python3. This tool requires Python 3.x, and the command must be 'python3' and not plain 'python'."
+    die "Could not find python3. ${THIS_PROGRAM} requires Python 3.x, and the command must be 'python3' and not plain 'python'."
   fi
-  if [[ -n "$OCTAPP_CREATEDMG_HOME" ]]; then
-    createdmg_home="$OCTAPP_CREATEDMG_HOME"
+  if [[ -n "${OCTAPP_CREATEDMG_HOME:-}" ]]; then
+    CREATEDMG_HOME="$OCTAPP_CREATEDMG_HOME"
   else
-    createdmg_home="$HOME/repos/create-dmg"
+    CREATEDMG_HOME="$HOME/repos/create-dmg"
   fi
-  if [[ ! -f "${createdmg_home}/create-dmg" ]]; then
-    echo >&2 "No create-dmg install found at ${createdmg_home}"
-    echo >&2 "Please clone or install the create-dmg repo there, or set the"
-    echo >&2 "OCTAPP_CREATEDMG_HOME environment variable to point to your create-dmg."
-    exit 1
+  if [[ ! -f "${CREATEDMG_HOME}/create-dmg" ]]; then
+    die "No create-dmg found at ${CREATEDMG_HOME}.
+Please clone or install the create-dmg repo there, or set the OCTAPP_CREATEDMG_HOME
+environment variable to point to your create-dmg repo or installation."
   fi
-  # Not requiring svn for now because we're installing it inside the app to make brew happy
-  # if ! which svn >/dev/null; then
-  #   die "Could not find svn. This tool requires Subversion to be installed on your machine."
-  # fi
 }
 
-detect_dependencies
-
-this_macos_ver_majmin=$(sw_vers -productVersion | gsed -E 's/^(\w+\.\w+).*/\1/')
-
 function usage() {
-
   cat <<EOHELP
-  ${this_program}
-  ${this_program} [OPTION [ARG]] ...
-  ${this_program} brew <brew_args ...>
+  ${THIS_PROGRAM}
+  ${THIS_PROGRAM} [OPTION [ARG]] ...
+  ${THIS_PROGRAM} brew <brew_args ...>
 
   Build an Octave.app application bundle for macOS.
 
-  The '${this_program} brew ...' calling form runs an arbitrary 'brew' command in the Homebrew
+  The '${THIS_PROGRAM} brew ...' calling form runs an arbitrary 'brew' command in the Homebrew
   installation inside the staged app bundle.
 
   All other calling forms do regular build operations.
@@ -148,7 +161,7 @@ function usage() {
       -u, --build-suffix <suffix>
         Set a build version suffix. Used to distinguish revisions and updates
         to Octave.app's packaging, like 'u1' or 'u2'. This can be used for beta builds, too,
-        like `-u beta1`. [$build_suffix]
+        like `-u beta1`. [$BUILD_SUFFIX]
       -t, --with-test
         Do not run tests on completed app.
       --sign
@@ -156,9 +169,9 @@ function usage() {
 
     Octave build options:
       -a, --variant <variant>
-        Variant of Octave.app to build [$variant].
+        Variant of Octave.app to build [$VARIANT].
       -V, --octave-version <version>
-        Version of Octave formula to build (affects formula choice) [$octave_version].
+        Version of Octave formula to build (affects formula choice) [$OCTAVE_VERSION].
       -c, --cli-only
         Do not build the GUI.
       -C, --cli-frontend
@@ -186,238 +199,156 @@ function usage() {
 EOHELP
 }
 
-while [[ "${1-}" != "" ]]; do
-  case "$1" in
-    -a|--variant)
-      if [[ $# -gt 1 ]]; then
-        variant=$2; shift 2
-      else
-        die "option $1 requires an argument"
-      fi ;;
-    -c|--cli-only)
-      build_gui=n; shift 1 ;;
-    -C|--cli-frontend)
-      use_desktop=n; shift 1 ;;
-    -d|--build-devel)
-      build_devel=y; shift 1 ;;
-    -E|--ignore-errors)
-      exit_on_error=n; shift 1 ;;
-    -f|--octave-formula)
-      if [[ $# -gt 1 ]]; then
-        octave_formula_base=$2; shift 2
-      else
-        die "option $1 requires an argument"
-      fi ;;
-    -g|--use-gcc)
-      use_gcc=y; shift 1 ;;
-    -h|--help|-\?)
-      usage; exit 0 ;;
-    -J|--no-java)
-      use_java=n; shift 1 ;;
-    -s|--step)
-      if [[ $# -gt 1 ]]; then
-        build_step=$2; shift 2
-      else
-        die "option $1 requires an argument"
-      fi ;;
-    --sign) do_sign=y; shift 1 ;;
-    -u|--build-suffix)
-        if [[ $# -gt 1 ]]; then
-          build_suffix=$2; shift 2
-        else
-          die "option $1 requires an argument"
-        fi ;;
-    -v|--verbose) verbose=y; shift 1 ;;
-    -V|--octave-version)
-        if [[ $# -gt 1 ]]; then
-          octave_formula_version=$2; shift 2
-        else
-          die "option $1 requires an argument"
-        fi ;;
-    -x|--trace)
-      do_trace=y; shift 1 ;;
-    -y|--dry-run)
-      do_dry_run=y; shift 1 ;;
-    --)
-      shift
-      break ;;
-    brew)
-      action="brew"
-      shift 1
-      break
-      ;;
-    *)
-      echo >&2 "Error: Invalid option: $1"
-      echo >&2 "See ${this_program} --help for help."
-      exit 1
-      ;;
-  esac
-done
-
 function echo_options() {
   cat <<EOS
 Options:
-variant = ${variant}
-octave_formula_version = ${octave_formula_version}
-build_suffix = ${build_suffix}
-build_gui = ${build_gui}
-build_devel = ${build_devel}
-build_dmg = ${build_gui}
-dmg_dir = ${dmg_dir}
-use_gcc = ${use_gcc}
-use_java = ${use_java}
-octave_app_bundler_home = ${bundler_home}
-use_desktop = ${use_desktop}
+variant = ${VARIANT}
+octave_formula_version = ${OCTAVE_FORMULA_VERSION}
+build_suffix = ${BUILD_SUFFIX}
+build_gui = ${DO_BUILD_GUI}
+build_devel = ${DO_BUILD_DEVEL}
+build_dmg = ${DO_BUILD_DMG}
+use_gcc = ${USE_GCC}
+use_java = ${DO_JAVA}
+octappbundler_home = ${OCTAPPBUNDLER_HOME}
+build_desktop = ${DO_BUILD_DESKTOP}
 
 EOS
 }
 
-if [[ "$exit_on_error" = "y" ]]; then
-  set -o errexit
-else
-  set +o errexit
-fi
-if [[ "$verbose" == "y" ]]; then
-  echo_options
-fi
-if [[ "$do_trace" == "y" ]]; then
-  set -o xtrace
-fi
-
-# Bash 3 does not have associative arrays, so we need to do the version lookup with a
-# function. (MacOS is stuck on Bash 3.x for GPL licensing reasons.)
-#
-# The octave_version is a version number of a main Octave release, in "x.y.z" form. The
-# octave_formula_version is an Octave.app-specific thing which may include suffixes like "_u1"
+# The OCTAVE_VERSION is a version number of a main Octave release, in "x.y.z" form. The
+# OCTAVE_FORMULA_VERSION is an Octave.app-specific thing which may include suffixes like "_u1"
 # to indicate different Octave.app builds or definitions that use the same Octave release.
+#
+# Pre:  Needs OCTAVE_FORMULA_BASE, DEFAULT_OCTAVE_FORMULA_VERSION,VARIANT
+# Post: Sets OCTAVE_FORMULA_VERSION
 function pick_default_octave_version() {
-  if [[ "$octave_formula_base" == "octave-octapp" ]]; then
-    octave_formula_version="$default_octave_formula_version"
-    octave_version="${octave_formula_version//_[[:digit:]]/}"
-  elif [[ "$octave_formula_base" == "octave-unversioned" ]]; then
-    octave_version=""
-    octave_formula_version=""
+  # Bash 3 does not have associative arrays, so we need to do the version lookup with a
+  # function. (MacOS is stuck on Bash 3.x for GPL licensing reasons.)
+  if [[ "$OCTAVE_FORMULA_BASE" == "octave-octapp" ]]; then
+    OCTAVE_FORMULA_VERSION="$DEFAULT_OCTAVE_FORMULA_VERSION"
+  elif [[ "$OCTAVE_FORMULA_BASE" == "octave-unversioned" ]]; then
+    OCTAVE_FORMULA_VERSION=""
   else
-    die "Variant '${variant}' has no default version defined. You must supply one."
+    die "Variant '${VARIANT}' (formula base ${OCTAVE_FORMULA_BASE}) has no default version defined. You must supply one."
   fi
 }
 
-# Calculate all our various names
+# Picks names, populating various global variables
+function pick_names_for_things() {
+  local app_base_name app_base_name_base
 
-if [[ -z "$variant" ]]; then
-  octave_formula_base="octave-octapp"
-  app_base_name_base="octave"
-else
-  octave_formula_base="octave-${variant}"
-  app_base_name_base="${octave_formula_base}"
-fi
-app_base_name="$(tr '[:lower:]' '[:upper:]' <<< ${app_base_name_base:0:1})${app_base_name_base:1}"
-# Pick default version for variant
-if [[ -z "${octave_formula_version}" ]]; then
-  pick_default_octave_version
-else
-  octave_version="${octave_formula_version//_[[:digit:]]/}"
-fi
-if [[ -z "$variant" ]]; then
-  version_name="${octave_version}"
-else
-  version_name="${octave_version}-${variant}"
-fi
-if [[ -z "$octave_formula_version" ]]; then
-  octave_formula="${octave_formula_base}"
-else
-  octave_formula="${octave_formula_base}@${octave_formula_version}"
-fi
-if [[ -z "$octave_version" ]]; then
-  app_name="${app_base_name}"
-else
-  app_name="${app_base_name}-${octave_version}"
-fi
-if [[ -z "$build_suffix" ]]; then
-  oapp_release="${version_name}"
-  app_name_with_release="${app_name}"
-  volume_name="${app_base_name} ${octave_version}"
-else
-  oapp_release="${version_name}_${build_suffix}"
-  app_name_with_release="${app_name}_${build_suffix}"
-  volume_name="${app_base_name} ${octave_version} ${build_suffix}"
-  if [[ "$do_build_suffix_in_app_name" = y ]]; then
-    app_name="${app_name}_${build_suffix}"
+  if [[ -z "$VARIANT" ]]; then
+    OCTAVE_FORMULA_BASE="octave-octapp"
+    app_base_name_base="octave"
+  else
+    OCTAVE_FORMULA_BASE="octave-${variant}"
+    app_base_name_base="${OCTAVE_FORMULA_BASE}"
   fi
-fi
-dmg_name="${app_name_with_release}.dmg"
-install_dir="/Applications/${app_name}.app"
-install_dir_unstaged="${install_dir}-UNSTAGED"
-
-install_usr="$install_dir/Contents/Resources/usr"
-brew="$install_usr/bin/brew"
-app_build="./build/${app_name}.app"
-app_build_usr="$app_build/Contents/Resources/usr"
-
-echo "Building ${app_name}.app at ${install_dir} from formula ${octave_formula}"
-
-if [[ -n "$do_dry_run" ]]; then
-  echo "${this_program}: DRY RUN: not actually doing anything."
-  exit 0
-fi
-
-# set some environment variables
-PATH="${install_usr}/bin/:$PATH"
+  app_base_name="$(tr '[:lower:]' '[:upper:]' <<< ${app_base_name_base:0:1})${app_base_name_base:1}"
+  # Pick default version for variant
+  if [[ -z "${OCTAVE_FORMULA_VERSION:-}" ]]; then
+    pick_default_octave_version
+  fi
+  OCTAVE_VERSION="${OCTAVE_FORMULA_VERSION//_[[:digit:]]/}"
+  if [[ -z "$VARIANT" ]]; then
+    VERSION_NAME="${OCTAVE_VERSION}"
+  else
+    VERSION_NAME="${OCTAVE_VERSION}-${variant}"
+  fi
+  if [[ -z "$OCTAVE_FORMULA_VERSION" ]]; then
+    OCTAVE_FORMULA="${OCTAVE_FORMULA_BASE}"
+  else
+    OCTAVE_FORMULA="${OCTAVE_FORMULA_BASE}@${OCTAVE_FORMULA_VERSION}"
+  fi
+  if [[ -z "$OCTAVE_VERSION" ]]; then
+    APP_NAME="${app_base_name}"
+  else
+    APP_NAME="${app_base_name}-${OCTAVE_VERSION}"
+  fi
+  if [[ -z "$BUILD_SUFFIX" ]]; then
+    OCTAPP_RELEASE="${VERSION_NAME}"
+    APP_NAME_WITH_RELEASE="${APP_NAME}"
+    DMG_VOLUME_NAME="${app_base_name} ${OCTAVE_VERSION}"
+  else
+    OCTAPP_RELEASE="${VERSION_NAME}_${BUILD_SUFFIX}"
+    APP_NAME_WITH_RELEASE="${APP_NAME}_${BUILD_SUFFIX}"
+    DMG_VOLUME_NAME="${app_base_name} ${OCTAVE_VERSION} ${BUILD_SUFFIX}"
+    if [[ "$DO_BUILD_SUFFIX_IN_APP_NAME" = y ]]; then
+      APP_NAME="${APP_NAME}_${BUILD_SUFFIX}"
+    fi
+  fi
+  DMG_FILE="${APP_NAME_WITH_RELEASE}.dmg"
+}
 
 function stage_app_build() {
-  echo "Staging app build..."
-  if [[ -e "$install_dir" ]]; then
-    if [[ -f "${install_dir}/STAGING" ]]; then
-      echo "Looks like $app_name is already staged; re-using in place"
+  info "Staging app build..."
+  if [[ -e "$INSTALL_DIR" ]]; then
+    if [[ -f "$INSTALL_DIR/STAGING" ]]; then
+      info "Looks like $APP_NAME is already staged; re-using in place"
     else
-      echo "Error: ${install_dir} exists, but is not a staged build." >&2
-      echo "Error: Please move ${install_dir} out of the way before running ${this_program}" >&2
-      exit 1
+      die "Error: $INSTALL_DIR exists, but is not a staged build. Please move ${INSTALL_DIR} out of the way before running ${THIS_PROGRAM}."
     fi
-  elif [[ -e "$install_dir_unstaged" ]]; then
-    echo "Re-staging existing build dir from ${install_dir_unstaged}"
-    mv "$install_dir_unstaged" "$install_dir"
+  elif [[ -e "$INSTALL_DIR_UNSTAGED" ]]; then
+    info "Re-staging existing build dir from $INSTALL_DIR_UNSTAGED"
+    mv "$INSTALL_DIR_UNSTAGED" "$INSTALL_DIR"
   else
     # Create new staged app
-    echo "Creating new staged app build at ${install_dir}"
-    osacompile -o "$install_dir" -e " "
-    cat <<EOS > "$install_dir/STAGING"
+    info "Creating new staged app build at $INSTALL_DIR"
+    osacompile -o "$INSTALL_DIR" -e " "
+    cat <<EOS > "$INSTALL_DIR/STAGING"
 This directory is not a real app!
 
-This is a staged build for octave-app-bundler. If you found this at ${install_dir},
-then there was probably a failed build, and this directory needs to be manually
-deleted or moved aside.
+This is a staged build created by octave-app-bundler, the build tool for Octave.app.
+It cannot be used as a regular app.
+
+If you found this at ${INSTALL_DIR}, then there was probably a failed build, and this
+directory needs to be manually deleted or moved aside to clean things up.
+
+For more info about Octave.app and octave-app-bundler, see:
+  https://github.com/octave-app/octave-app-bundler
+
 EOS
   fi
 }
 
 function unstage_app_build() {
-  echo "Unstaging app build..."
-  if [[ ! -e "${install_dir}/STAGING" ]]; then
-    die "Error: ${install_dir} does not look like a staged build. Not moving."
+  info "Unstaging app build..."
+  if [[ ! -e "${INSTALL_DIR}/STAGING" ]]; then
+    die "${INSTALL_DIR} does not look like a staged build from this tool. Not moving it."
   fi
-  if [[ -e "${install_dir_unstaged}" ]]; then
-    die "Error: There is already an unstaged app build at ${install_dir_unstaged}. Cannot un-stage."
+  if [[ -e "${INSTALL_DIR_UNSTAGED}" ]]; then
+    die "There is already an unstaged app build at ${INSTALL_DIR_UNSTAGED}. Cannot un-stage."
   fi
-  mv "$install_dir" "$install_dir_unstaged"
-  echo "Un-staged build to ${install_dir_unstaged}"
+  mv "$INSTALL_DIR" "$INSTALL_DIR_UNSTAGED"
+  info "Unstaged the build to ${INSTALL_DIR_UNSTAGED}"
 }
 
 function require_staged_app_build() {
-  if [[ ! -f "${install_dir}/STAGING" ]]; then
-    echo >&2 "Error: This step requires a staged app build, but there is no app build staged at ${install_dir}."
-    if [[ -n "$build_step" ]]; then
-      echo >&2 "Error: Please run '${this_program} -s stage' to stage an app build and then retry."
+  local err_msg
+  if [[ ! -f "${INSTALL_DIR}/STAGING" ]]; then
+    err_msg="This step requires a staged app build, but there is no app build staged at ${INSTALL_DIR}."
+    if [[ -n "$BUILD_STEP" ]]; then
+      err_msg="${err_msg}\nPlease run '${THIS_PROGRAM} -s stage' to stage an app build and then retry."
     fi
-    exit 1
+    die "$err_msg"
+  fi
+}
+
+
+function require_built_app() {
+  if [[ ! -f "$INSTALL_BUILT" ]]; then
+    die "No built app found at ${INSTALL_BUILT}. You may need to re-run the build."
   fi
 }
 
 function freshen_staged_homebrew() {
-  echo "Freshening Homebrew..."
+  local install_type sed
+
+  info "Freshening Homebrew in the staged build..."
   require_staged_app_build
-  # Check if we do full or update
-  if [[ -e "${install_usr}/bin/brew" ]]; then
+  # Check if we need to do a full install or update existing install
+  if [[ -e "${INSTALL_USR}/bin/brew" ]]; then
     install_type='update'
   else
     install_type='full'
@@ -425,35 +356,35 @@ function freshen_staged_homebrew() {
 
   if [[ "$install_type" == "update" ]]; then
     # Update homebrew
-    echo "Updating existing Homebrew installation in ${install_usr}"
+    info "Updating existing Homebrew installation in ${INSTALL_USR}"
   else
     # Install homebrew
-    echo "Creating new Homebrew installation in ${install_usr}"
-    mkdir -p "${install_usr}/bin" "${install_usr}/var" "${install_usr}/lib"
-    git clone https://github.com/Homebrew/brew "${install_usr}/Homebrew"
-    ln -s "${install_usr}/Homebrew/bin/brew" "${install_usr}/bin/brew"
-    if [[ -n "$brew_remote_branch" ]]; then
+    info "Creating new Homebrew installation in ${INSTALL_USR}"
+    mkdir -p "${INSTALL_USR}/bin" "${INSTALL_USR}/var" "${INSTALL_USR}/lib"
+    git clone 'https://github.com/Homebrew/brew' "${INSTALL_USR}/Homebrew"
+    ln -s "${INSTALL_USR}/Homebrew/bin/brew" "${INSTALL_USR}/bin/brew"
+    if [[ -n "$BREW_REMOTE_BRANCH" ]]; then
       (
-        echo "Checking out Homebrew branch ${brew_remote_branch} from remote ${brew_remote_url}"
+        info "Checking out Homebrew branch ${BREW_REMOTE_BRANCH} from remote ${BREW_REMOTE_URL}"
         "$brew" update
-        cd "${install_usr}/Homebrew"
-        git remote add "$brew_remote_name" "$brew_remote_url"
+        cd "${INSTALL_USR}/Homebrew"
+        git remote add "$BREW_REMOTE_URL" "$BREW_REMOTE_URL"
         git fetch --all
-        git checkout "$brew_remote_branch"
+        git checkout "$BREW_REMOTE_BRANCH"
       )
     fi
     "$brew" tap octave-app/octave-app
-    if [[ -n "$octapp_tap_branch" ]]; then
+    if [[ -n "$OCTAPP_TAP_BRANCH" ]]; then
       (
-        echo "Checking out octave-app tap branch ${octapp_tap_branch}"
+        info "Checking out octave-app tap branch ${OCTAPP_TAP_BRANCH}"
         "$brew" update
-        # TODO: support new AS dir layout
-        cd "${install_usr}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
+        # TODO: support new AS dir layout?
+        cd "${INSTALL_USR}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
         git fetch --all
-        git checkout "$octapp_tap_branch"
+        git checkout "$OCTAPP_TAP_BRANCH"
       )
     fi
-    echo "Installing special required build-time packages"
+    info "Installing special required build-time packages"
     # svn is needed to fetch the netpbm source
     # TODO: Could this be fixed by adding a build-time dependency on svn to the netpbm formula?
     # TODO: Better yet, can we just require a system-level svn? Doesn't seem to work when done
@@ -467,98 +398,142 @@ function freshen_staged_homebrew() {
   "$brew" upgrade # compile new formulae
   "$brew" cleanup # remove old versions
 
-  # Force conservative architecture builds in ENV
-  SED='/usr/bin/sed'
-  $SED -E -i '' "s/ARGV.build_bottle./true/g" "${install_usr}/Homebrew/Library/Homebrew/extend/ENV/super.rb"
-  $SED -E -i '' "s/ARGV.build_bottle./true/g" "${install_usr}/Homebrew/Library/Homebrew/extend/ENV/std.rb"
+  # Force conservative architecture builds in brew's ENV
+  sed='/usr/bin/sed'
+  "$sed" -E -i '' "s/ARGV.build_bottle./true/g" "${INSTALL_USR}/Homebrew/Library/Homebrew/extend/ENV/super.rb"
+  "$sed" -E -i '' "s/ARGV.build_bottle./true/g" "${INSTALL_USR}/Homebrew/Library/Homebrew/extend/ENV/std.rb"
 }
 
-function build_octave() {
-  echo "Building Octave..."
-  require_staged_app_build
-  # Set FC to point to GCC's gfortran
-  export FC="${install_usr}/bin/gfortran"
+function build_octave_in_staged_app() {
+  local build_opts
+  local -a
 
+  info "Building Octave.app..."
+  require_staged_app_build
+
+  if [[ -e "$INSTALL_BUILT" ]]; then
+    die "A built app aleady exists at $INSTALL_BUILT. Needs manual cleanup."
+  fi
+
+  # Set FC to point to gfortran from the brewed gcc inside the built Octave.app
+  export FC="${INSTALL_USR}/bin/gfortran"
   # Use GCC for all scientific libraries
-  if [[ "$use_gcc" == "y" ]]; then
+  if [[ "$USE_GCC" == 'y' ]]; then
     export HOMEBREW_CC=gcc-6
     export HOMEBREW_CXX=g++-6
   fi
 
-  # Work around broken Qt 5.12.1 bottle by forcing from-source install
-  # See https://github.com/octave-app/octave-app-bundler/issues/78
-  # This should probably be conditionally enabled by detecting which
-  # version of Qt we're building against.
-  #echo ""
-  #echo "Pre-installing Qt to avoid Qt 5.12 bottle breakage"
-  #echo "$brew" install -s qt
-  #"$brew" install -s qt
-
-  # Build octave
-  octave_build_options=""
-  if [[ "$verbose" == "y" ]]; then
-    octave_build_options="$octave_build_options --verbose"
+  # Build octave (and its deps)
+  build_opts=""
+  if [[ "$VERBOSE" == "y" ]]; then
+    build_opts="$build_opts --verbose"
   fi
-  if [[ "$build_devel" == "y" ]]; then
-    octave_build_options="$octave_build_options --HEAD"
+  if [[ "$DO_BUILD_DEVEL" == "y" ]]; then
+    build_opts="$build_opts --HEAD"
   fi
-  if [[ "$build_gui" != "y" ]]; then
-    octave_build_options="$octave_build_options --without-qt"
+  if [[ "$DO_BUILD_GUI" != "y" ]]; then
+    build_opts="$build_opts --without-qt"
   fi
-  if [[ "$use_java" != "y" ]]; then
-    octave_build_options="$octave_build_options --without-java"
+  if [[ "$DO_JAVA" != "y" ]]; then
+    build_opts="$build_opts --without-java"
   fi
-  echo "$brew" install $octave_formula $octave_build_options
-  "$brew" install $octave_formula $octave_build_options
+  echo "$brew" install "$OCTAVE_FORMULA" $build_opts
+  "$brew" install "$OCTAVE_FORMULA" $build_opts
 
   # HACK: remove large build-time-only dependencies to reduce app size
-  if "$brew" list --formula | grep rust >/dev/null; then
-    "$brew" rm rust
+  local big_pkg
+  for big_pkg in "$BIG_BUILD_ONLY_PKGS[@]"; do
+    if "$brew" list --formula | grep -x "$big_pkg"; then
+      "$brew" rm "$big_pkg"
+    fi
+  done
+
+  # Capture the logs
+  rm -rf "$BUILD_LOG_DIR"
+  # TODO: Capture logs for all formulae, not just octapp
+  local brew_octapp_logs_dir="$HOME/Library/Logs/Homebrew/${OCTAVE_FORMULA}"
+  mkdir -p "$BUILD_LOG_DIR/brew"
+  if [[ -d "$brew_octapp_logs_dir"  ]]; then
+    cp -pR "$brew_octapp_logs_dir" "$BUILD_LOG_DIR/brew"
+  fi
+  local octave_test_log="$INSTALL_USR/opt/$OCTAVE_FORMULA/make-check.log"
+  if [[ -e "$octave_test_log" ]]; then
+    cp "$octave_test_log" "$BUILD_LOG_DIR"
   fi
 
-  # Grab the logs
-  rm -rf build/logs
-  mkdir -p build/logs
-  if [[ -e "$HOME/Library/Logs/Homebrew/${octave_formula}" ]]; then
-    cp -pR "$HOME/Library/Logs/Homebrew/${octave_formula}" build/logs
+  # Capture the version info from built binaries to a simple file for use later
+  # Get versions dynamically from the built program
+  local octave oct_ver oct_ver_string oct_copyright octapp_ver_file formulae_versions_file
+  local gs_formula gs_ver gs_opt gs_share
+  octapp_ver_file="$INSTALL_DIR/octapp-ver-info.sh"
+  formulae_vers_file="$INSTALL_DIR/octapp-formulae-vers.txt"
+  octave="$INSTALL_USR/opt/$OCTAVE_FORMULA/bin/octave"
+  # x.y.z semver-ish version string
+  oct_ver_string=$("$octave" --version | /usr/bin/sed -n 1p)
+  oct_ver=$(echo "$oct_ver_string" | /usr/bin/grep -o '\d\..*$' )
+  oct_copyright=$("$octave" --version | /usr/bin/sed -n 2p | /usr/bin/cut -c 15- )
+  gs_ver=$("${INSTALL_USR}/bin/gs" --version)
+  gs_opt=$("$brew" --prefix "$gs_formula")
+  gs_share="${gs_opt}/share/ghostscript"
+  cat >"$octapp_ver_file" <<EOS
+oct_ver='$oct_ver'
+oct_ver_string='$oct_ver_string'
+oct_copyright='$oct_copyright'
+gs_ver='$gs_ver'
+gs_opt='$gs_opt'
+gs_share='$gs_share'
+EOS
+  "$brew" octave-app-list-formulae >> "${formulae_versions_file}"
+
+  info "Saved version info to $oct_ver_file and $formulae_versions_file"
+
+  # And stash it in the "BUILT" location
+  move_build_to_stash
+}
+
+# Moves the completed build to a -BUILD copy. At that point it's "pristine" and should no
+# longer be modified.
+function move_build_to_stash() {
+  if [[ -e "$INSTALL_BUILT" ]]; then
+    die "Cannot stash built app. A build aleady exists at $INSTALL_BUILT. Needs manual cleanup."
   fi
-  if [[ -e "$install_usr/opt/$octave_formula/make-check.log" ]]; then
-    cp "$install_usr/opt/$octave_formula/make-check.log" build/logs
-  fi
+  mv "$INSTALL_DIR" "$INSTALL_BUILT"
+  info "Stored pristine build at ${INSTALL_BUILT} (from $INSTALL_DIR)"
 }
 
 function munge_build() {
-  echo "Munging build..."
-  require_staged_app_build
-  echo "Munging build at ${app_build}"
-  # Get versions dynamically from the built program
-  octave="$install_usr/opt/$octave_formula/bin/octave"
-  # x.y.z semver-ish version string
-  oct_ver="$("$octave" --version | /usr/bin/sed -n 1p | /usr/bin/grep -o '\d\..*$' )"
-  oct_ver_string="$("$octave" --version | /usr/bin/sed -n 1p)"
-  oct_copyright="$("$octave" --version | /usr/bin/sed -n 2p | /usr/bin/cut -c 15- )"
+  local octave oct_ver oct_ver_string oct_copyright
+  local octapp_ver_file formulae_versions_file
+  local gs_formula gs_ver gs_opt gs_share
+  local keg vers_code
 
-  echo "Octave versions: ver='${oct_ver}' ver_string='${oct_ver_string}' copy='${oct_copyright}'"
+  info "Munging build at ${APP_BUILD}..."
+  require_built_app # was require_staged_app_build
+  mkdir -p build/logs
 
-  # Detect and set path for ghostscript
-  gs_formula="ghostscript"
-  gs_ver="$("${install_usr}/bin/gs" --version)"
-  gs_opt=$("$brew" --prefix "$gs_formula")
-  gs_share="${gs_opt}/share/ghostscript"
-
-  # Make a local copy for munging, clobbering any existing copy
-  mkdir -p build
-  if [[ -e "$app_build" ]]; then
-    chmod -R u+w "$app_build"
-    rm -rf "$app_build"
+  # Make a local copy of the app for munging, clobbering any existing copy
+  if [[ -e "$APP_BUILD" ]]; then
+    info "Deleting old munged app at $APP_BUILD"
+    chmod -R u+w "$APP_BUILD"
+    rm -rf "$APP_BUILD"
   fi
-  cp -pR "$install_dir" build
+  info "Grabbing copy of build from $INSTALL_BUILT"
+  mkdir -p "$BUILD_DIR"
+  cp -pR "$INSTALL_BUILT" "$APP_BUILD"
 
-  # Use local font cache instead of global one
-  /usr/bin/sed -i '' 's/\/Applications.*fontconfig/~\/.cache\/fontconfig/g' "${app_build_usr}/etc/fonts/fonts.conf"
+  # Get ver info from our custom data file
+  octapp_ver_file="$APP_BUILD/octapp-ver-info.sh"
+  formulae_vers_file="$APP_BUILD/octapp-formulae-vers.txt"
+  vers_code=$(cat "${octapp_ver_file}")
+  eval "$vers_code"
+  info "Octave versions: ver='${oct_ver}' ver_string='${oct_ver_string}' copyright='${oct_copyright}'"
+
+  # Have app use its internal font cache instead of global one
+  /usr/bin/sed -i '' 's/\/Applications.*fontconfig/~\/.cache\/fontconfig/g' \
+    "${APP_BUILD_USR}/etc/fonts/fonts.conf"
 
   # App-specific startup configuration
-  keg="${app_build_usr}/Cellar/${octave_formula}/${octave_version}"
+  keg="${APP_BUILD_USR}/Cellar/${OCTAVE_FORMULA}/${OCTAVE_VERSION}"
   cat >>"${keg}/share/octave/site/m/startup/octaverc" <<EOS
 
 % Octave.app special configuration
@@ -566,7 +541,7 @@ function munge_build() {
 % Use a distinct version-specific package dir to avoid crashes with compiled packages
 % (Because compiled oct-files have linkage dependency on the exact path to the Octave installation.)
 default_pkg_prefix = pkg ("prefix");
-octave_app_pkg_prefix = [getenv("HOME") "/Library/Application Support/Octave.app/${version_name}/pkg"];
+octave_app_pkg_prefix = [getenv("HOME") "/Library/Application Support/Octave.app/${VERSION_NAME}/pkg"];
 % Create the directory ourselves to avoid a warning in the console
 mkdir (octave_app_pkg_prefix);
 pkg ("prefix", octave_app_pkg_prefix, octave_app_pkg_prefix);
@@ -578,14 +553,14 @@ clear default_pkg_prefix octave_app_pkg_prefix
 EOS
 
   # Drop a build version indicator
-  echo "$oapp_release" > "${keg}/share/octave/site/Octave.app-RELEASE.txt"
+  echo "$OCTAPP_RELEASE" > "${keg}/share/octave/site/Octave.app-RELEASE.txt"
 
   # Custom functions
   cp -R Mcode/* "${keg}/share/octave/site/m"
 
   # Create applescript to execute octave
   local tmp_script=$(mktemp /tmp/octave-XXXX)
-  if [[ "$build_gui" == "y" ]]; then
+  if [[ "$DO_BUILD_GUI" == "y" ]]; then
     read -r -d '' program_launch_code <<EOS || true
     set cmd to env_setup_cmd() & run_octave_gui()
     do shell script cmd
@@ -599,7 +574,7 @@ EOS
     end tell
 EOS
   fi
-  cat <<EOSCRIPT >> $tmp_script
+  cat <<EOSCRIPT >> "$tmp_script"
   on env_setup_cmd()
     export_lang() & export_gs_options() & export_gnuplot() & export_fc() & export_path() & export_dyld()
   end env_setup_cmd
@@ -613,19 +588,19 @@ EOS
   end export_gs_options
 
   on export_gnuplot()
-    return "export GNUTERM=\\"qt\\"; export PATH=\\"${install_usr}/opt/gnuplot-octapp/bin:\$PATH\\";"
+    return "export GNUTERM=\\"qt\\"; export PATH=\\"${INSTALL_USR}/opt/gnuplot-octapp/bin:\$PATH\\";"
   end export_gnuplot
 
   on export_path()
-    return "export PATH=\\"${install_usr}/bin/:\$PATH\\";"
+    return "export PATH=\\"${INSTALL_USR}/bin/:\$PATH\\";"
   end export_path
 
   on export_dyld()
-    return "export DYLD_FALLBACK_LIBRARY_PATH=\\"${install_usr}/lib:/lib:/usr/lib\\";"
+    return "export DYLD_FALLBACK_LIBRARY_PATH=\\"${INSTALL_USR}/lib:/lib:/usr/lib\\";"
   end export_dyld
 
   on export_fc()
-    return "export FC=\\"${install_usr}/bin/gfortran\\"; export F77=\\"${install_usr}/bin/gfortran\\";"
+    return "export FC=\\"${INSTALL_USR}/bin/gfortran\\"; export F77=\\"${INSTALL_USR}/bin/gfortran\\";"
   end export_fc
 
   on cache_fontconfig()
@@ -635,36 +610,36 @@ EOS
     on error
       display dialog "Font cache not found, so first plotting will be slow. Create font cache now?" with icon caution buttons {"Yes", "No"}
       if button returned of result = "Yes" then
-        do shell script "${install_usr}/bin/fc-cache -frv;"
+        do shell script "${INSTALL_USR}/bin/fc-cache -frv;"
       end if
     end try
   end cache_fontconfig
 
   on run_octave_gui()
-    return "cd ~; clear; ${install_usr}/opt/${octave_formula}/bin/octave -q --gui | logger 2>&1;"
+    return "cd ~; clear; ${INSTALL_USR}/opt/${OCTAVE_FORMULA}/bin/octave -q --gui | logger 2>&1;"
   end run_octave_gui
 
   on run_octave_cli()
-    return "cd ~; clear; ${install_usr}/opt/${octave_formula}/bin/octave -q; exit;"
+    return "cd ~; clear; ${INSTALL_USR}/opt/${OCTAVE_FORMULA}/bin/octave -q; exit;"
   end run_octave_cli
 
   on run_octave_test_suite()
-    return "cd ~; clear; ${install_usr}/opt/${octave_formula}/bin/octave --no-window-system --eval '__run_test_suite__' > ~/octave-app-fntest.log 2>&1; exit;"
+    return "cd ~; clear; ${INSTALL_USR}/opt/${OCTAVE_FORMULA}/bin/octave --no-window-system --eval '__run_test_suite__' > ~/octave-app-fntest.log 2>&1; exit;"
   end run_octave_test_suite
 
   on run_octave_open(filename)
-    return "cd ~; clear; ${install_usr}/opt/${octave_formula}/bin/octave -q --persist --eval \\"edit " & filename & "\\" | logger 2>&1;"
+    return "cd ~; clear; ${INSTALL_USR}/opt/${OCTAVE_FORMULA}/bin/octave -q --persist --eval \\"edit " & filename & "\\" | logger 2>&1;"
   end run_octave_open
 
   on path_check()
-    if not (POSIX path of (path to me) starts with "${install_dir}") then
-      display dialog "Please run Octave from the ${install_dir} folder" with icon stop with title "Error" buttons {"OK"}
+    if not (POSIX path of (path to me) starts with "${INSTALL_DIR}") then
+      display dialog "Please run Octave from the ${INSTALL_DIR} folder" with icon stop with title "Error" buttons {"OK"}
       error number -128
     end if
   end path_check
 
 EOSCRIPT
-  if [[ "$use_desktop" = "y" ]]; then
+  if [[ "$DO_BUILD_DESKTOP" = "y" ]]; then
     cat <<EOSCRIPT >> "$tmp_script"
   on open argv
     path_check()
@@ -712,12 +687,14 @@ EOSCRIPT
 EOSCRIPT
   fi
 
-  osacompile -o "${app_build}/Contents/Resources/Scripts/main.scpt" "$tmp_script"
+  osacompile -o "${APP_BUILD}/Contents/Resources/Scripts/main.scpt" "$tmp_script"
+  cp "$tmp_script" build/logs
   rm "$tmp_script"
 
   # Create a nice iconset (using the icons shipped with Octave)
   # The following might fail for the development version; TODO: conditionalize or trap the error
-  hicolor_dir="${app_build_usr}/opt/${octave_formula}/share/icons/hicolor"
+  local hicolor_dir svg_icon tmp_iconset
+  hicolor_dir="${APP_BUILD_USR}/opt/${OCTAVE_FORMULA}/share/icons/hicolor"
   svg_icon="${hicolor_dir}/scalable/apps/octave.svg"
   tmp_iconset="$(mktemp -d /tmp/iconset-XXXX)/droplet.iconset"
   mkdir -p "$tmp_iconset"
@@ -733,12 +710,13 @@ EOSCRIPT
   if [[ -e "${hicolor_dir}/1024x1024/apps/octave.png" ]]; then
     cp "${hicolor_dir}/1024x1024/apps/octave.png" "${tmp_iconset}/icon_512x512@2x.png"
   fi
-  iconutil -c icns -o "${app_build}/Contents/Resources/applet.icns" "${tmp_iconset}"
+  iconutil -c icns -o "${APP_BUILD}/Contents/Resources/applet.icns" "${tmp_iconset}"
 
   # Create or update entries in the application's plist
+  local plistbuddy info_plist
   plistbuddy=/usr/libexec/PlistBuddy
-  info_plist="${app_build}/Contents/Info.plist"
-  chmod a+w "${app_build}/Contents/Info.plist"
+  info_plist="${APP_BUILD}/Contents/Info.plist"
+  chmod a+w "${APP_BUILD}/Contents/Info.plist"
   $plistbuddy -c "Add :NSUIElement integer 1" "$info_plist"
   $plistbuddy -c "Add :CFBundleIdentifier string org.octave-app.Octave" "$info_plist"
   $plistbuddy -c "Add :CFBundleShortVersionString string $oct_ver" "$info_plist"
@@ -751,15 +729,15 @@ EOSCRIPT
   $plistbuddy -c "Add :CFBundleDocumentTypes:0:CFBundleTypeOSTypes array" "$info_plist"
   $plistbuddy -c "Add :CFBundleDocumentTypes:0:CFBundleTypeOSTypes: string \"Mfile\"" "$info_plist"
   $plistbuddy -c "Add :CFBundleDocumentTypes:0:CFBundleTypeRole string \"Editor\"" "$info_plist"
-  $plistbuddy -c "Set :LSMinimumSystemVersionByArchitecture:x86_64 \"$this_macos_ver_majmin\"" "$info_plist"
-  plutil -convert xml1 "${app_build}/Contents/Info.plist"
-  chmod a=r "${app_build}/Contents/Info.plist"
+  $plistbuddy -c "Set :LSMinimumSystemVersionByArchitecture:x86_64 \"$MACHINE_MACOS_VER_MAJMIN\"" "$info_plist"
+  plutil -convert xml1 "${APP_BUILD}/Contents/Info.plist"
+  chmod a=r "${APP_BUILD}/Contents/Info.plist"
 
   # Add icon to octave-gui (DISABLED)
   # This is broken as of macOS 12, and maybe earlier. It fails with a "ModuleNotFoundError: No module named 'Cocoa'" error.
   # Looks like the Cocoa module doesn't exist in the newer Pythons shipped with macOS. It may have been a Python 2 thing;
   # macOS has switched to Python 3 since the last time this worked.
-#   if [[ "$build_gui" == "y" ]]; then
+#   if [[ "$DO_BUILD_GUI" == "y" ]]; then
 #     local python_script_tmp=$(mktemp /tmp/octave-XXXX);
 #     cat <<EOSCRIPT > "$python_script_tmp"
 # #!/usr/bin/env python
@@ -778,63 +756,66 @@ EOSCRIPT
 # EOSCRIPT
 #     # The glob here should produce exactly one file; it's just done for convenience in building the file path
 #     # TODO: Replace the glob with an exact path.
-#     /usr/bin/python3 "$python_script_tmp" "${app_build}/Contents/Resources/applet.icns" "${app_build_usr}/Cellar/${octave_formula}/*/libexec/octave/*/exec/*/octave-gui"
+#     /usr/bin/python3 "$python_script_tmp" "${APP_BUILD}/Contents/Resources/applet.icns" "${APP_BUILD_USR}/Cellar/${OCTAVE_FORMULA}/*/libexec/octave/*/exec/*/octave-gui"
 #   fi
 
   # List all included formulae in the VERSIONS file
-  versions_file="${app_build}/Contents/Resources/VERSIONS"
+  local versions_file octave_app_str app_build_brew
+  versions_file="${APP_BUILD}/Contents/Resources/VERSIONS"
   rm -f "${versions_file}"
   touch "${versions_file}"
   octave_app_str="Octave.app"
-  if [[ -n "$variant" ]]; then
+  if [[ -n "$VARIANT" ]]; then
     octave_app_str="${octave_app_str} (variant ${variant})"
   fi
   octave_app_str="${octave_app_str}, version $oct_ver"
-  if [[ -n "${build_suffix}" ]]; then
-    octave_app_str="${octave_app_str}, build ${build_suffix}"
+  if [[ -n "${BUILD_SUFFIX}" ]]; then
+    octave_app_str="${octave_app_str}, build ${BUILD_SUFFIX}"
   fi
-  echo "Octave.app version: ${octave_app_str}"
+  info "Octave.app version: ${octave_app_str}"
   echo "This is ${octave_app_str}" >> "${versions_file}"
   echo "" >> "$versions_file"
   "$brew" octave-app-list-formulae >> "${versions_file}"
 
-  app_build_brew="${app_build_usr}/bin/brew"
+  app_build_brew="${APP_BUILD_USR}/bin/brew"
 
   # Remove Homebrew itself
-  # So Octave.app users don't use it and modify their app installation; it's not about saving space
-  rm -rf "$app_build_usr/Homebrew" \
-      "$app_build_usr/etc/bash_completion.d/brew" \
-      "$app_build_usr/share/man/man1/README.md" \
-      "$app_build_usr/share/man/man1/brew-cask.1" \
-      "$app_build_usr/share/man/man1/brew.1" \
-      "$app_build_usr/share/doc/homebrew" \
-      "$app_build_usr/share/zsh/site-functions/_brew_cask" \
-      "$app_build_usr/share/zsh/site-functions/_brew" \
-      "$app_build_usr/bin/brew"
+  # (So Octave.app users don't use it and accidentally modify their app installation,
+  # including if they meant to do stuff in their system Homebrew. It's not about saving
+  # space.)
+  rm -rf "$APP_BUILD_USR/Homebrew" \
+      "$APP_BUILD_USR/etc/bash_completion.d/brew" \
+      "$APP_BUILD_USR/share/man/man1/README.md" \
+      "$APP_BUILD_USR/share/man/man1/brew-cask.1" \
+      "$APP_BUILD_USR/share/man/man1/brew.1" \
+      "$APP_BUILD_USR/share/doc/homebrew" \
+      "$APP_BUILD_USR/share/zsh/site-functions/_brew_cask" \
+      "$APP_BUILD_USR/share/zsh/site-functions/_brew" \
+      "$APP_BUILD_USR/bin/brew"
 
   # Redirect the app prefix's var/ to system local /var
   # Disabled because it seems to break code signing
-  #rm -rf "$app_build_usr/var"
-  #ln -s "/usr/local/var" "$app_build_usr/var"
+  # rm -rf "$APP_BUILD_USR/var"
+  # ln -s "/usr/local/var" "$APP_BUILD_USR/var"
 
   # Clear resource fork and Finder information that codesign doesn't like
   # Suppress errors because xattr seems to raise "no such file" errors for files
   # that sure look like they're there.
   # Disabled for now, since we're not doing code signing anyway.
-  # xattr -rc "$app_build" || true
+  # xattr -rc "$APP_BUILD" || true
 
   # Lock down files to prevent accidental modification by users
-  # Lock down the app M-files and brewed packages
-  chmod -R a-w "${app_build_usr}/Cellar"
-  # But Qt needs to write to the .qhc files and local dirs when using the help
+  chmod -R a-w "${APP_BUILD_USR}/Cellar"
+  # But Qt needs to write to the .qhc files and local dirs when running its help
   # viewer (really, Qt?)
-  find "${app_build_usr}/Cellar/${octave_formula}" -name '*.qhc' | xargs chmod u+w
-  find "${app_build_usr}/Cellar/${octave_formula}" -type d | xargs chmod u+w
+  find "${APP_BUILD_USR}/Cellar/${OCTAVE_FORMULA}" -name '*.qhc' | xargs chmod u+w
+  # TODO: Limit this to specific dirs we know should be writable
+  find "${APP_BUILD_USR}/Cellar/${OCTAVE_FORMULA}" -type d | xargs chmod u+w
 
   # Remove the STAGING flag file so you can tell it's a real built app now
-  rm -rf "${app_build}/STAGING"
+  rm -rf "${APP_BUILD}/STAGING"
 
-  echo "Munging complete. Removed STAGING flag file."
+  info "Munging complete. Removed STAGING flag file."
 }
 
 function sign_app() {
@@ -842,17 +823,20 @@ function sign_app() {
   #
   # This currently does not work. It'll run, but the resulting app is not recognized
   # by macOS as signed for me.
-  echo "Signing app..."
+  local file_list_file link_dir link_target real_target
+
+  info "Signing the app..."
 
   # Signing apparently must happen in the installation location to make codesign happy
   # with its internal symlinks.
-  if [[ -e "$install_dir" ]]; then
-    die "file exists at ${install_dir}. Cannot stage app to sign."
+  if [[ -e "$INSTALL_DIR" ]]; then
+    die "File exists at ${INSTALL_DIR}. Cannot stage the app to sign."
   fi
-  mv "$app_build" "$install_dir"
-  # Let's try making all symlinks absolute to get validation to work
+  mv "$APP_BUILD" "$INSTALL_DIR"
+  # Let's try making all symlinks absolute to get validation to work?
   file_list_file=$(mktemp /tmp/octave-XXXXX)
-  find "$install_dir" -type l | sort > "$file_list_file"
+  find "$INSTALL_DIR" -type l | sort > "$file_list_file"
+  # Commented out due to syntax error:
   while read link; do
     link_dir=$(dirname "$link")
     link_target=$(readlink "$link")
@@ -864,114 +848,295 @@ function sign_app() {
     )
   done <${file_list_file}
   # Do the actual signing
-  codesign -s "$codesign_author_name" -v "$install_dir"
-  mv "$install_dir" "$app_build"
+  codesign -s "$CODESIGN_AUTHOR_NAME" -v "$INSTALL_DIR"
+  mv "$INSTALL_DIR" "$APP_BUILD"
+}
+
+function require_app_build() {
+  if [[ ! -d "$APP_BUILD" ]]; then
+    die "No app build present at $APP_BUILD. Please run the ${THIS_PROGRAM} build and munge steps first."
+  fi
 }
 
 function create_dmg() {
-  # Create a nice DMG disc image with create-dmg (MIT License)
-  echo "Creating DMG..."
-  local dmg_dir=build
+  # Create a nice DMG disc image with create-dmg
+  info "Creating DMG..."
+  local octapp_tap_dir
 
-  if [[ ! -d "$app_build" ]]; then
-    die "No app build present at $app_build. Please run the build and munge steps first."
-  fi
+  require_app_build
+  mkdir -p "$BUILD_DIR"
 
   # Delete any existing DMG
-  if [[ -f "${dmg_dir}/${dmg_name}" ]]; then
-    echo "Deleting existing ${dmg_dir}/${dmg_name}"
-    rm -rf "${dmg_dir}/${dmg_name}"
+  if [[ -f "${BUILD_DIR}/${DMG_FILE}" ]]; then
+    info "Deleting existing dist DMG at ${BUILD_DIR}/${DMG_FILE}"
+    rm -rf "${BUILD_DIR}/${DMG_FILE}"
+  fi
+
+  # Detect tap location, which varies between Intel and AS
+  if [[ $MACHINE_UNAME == 'arm64' ]]; then
+    # TODO: Fix this path?
+    octapp_tap_dir="${INSTALL_USR}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
+  else
+    octapp_tap_dir="${INSTALL_USR}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
   fi
 
   # Run create-dmg. This may issue warnings if run headless. However, the DMG
   # will still be created, only some beautification cannot be applied.
   # We manually set the image size because create-dmg's automatic sizing seems to
   # get it wrong, and we run out of space when adding files.
-  local octave_app_tap="${install_usr}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
-  "${createdmg_home}/create-dmg" \
-      --volname "${volume_name}" \
-      --volicon "${app_build}/Contents/Resources/applet.icns" \
+  "${CREATEDMG_HOME}/create-dmg" \
+      --volname "${DMG_VOLUME_NAME}" \
+      --volicon "${APP_BUILD}/Contents/Resources/applet.icns" \
       --window-size 550 500 \
       --icon-size 48 \
-      --icon "${app_name}.app" 125 180 \
-      --hide-extension "${app_name}.app" \
+      --icon "${APP_NAME}.app" 125 180 \
+      --hide-extension "${APP_NAME}.app" \
       --app-drop-link 415 180 \
-      --eula "${octave_app_tap}/assets/COPYING/COPYING.rtf" \
-      --add-file COPYING "${octave_app_tap}/assets/COPYING" 126 300 \
-      --add-file VERSIONS "${app_build}/Contents/Resources/VERSIONS" 415 300 \
+      --eula "${octapp_tap_dir}/assets/COPYING/COPYING.rtf" \
+      --add-file COPYING "${octapp_tap_dir}/assets/COPYING" 126 300 \
+      --add-file VERSIONS "${APP_BUILD}/Contents/Resources/VERSIONS" 415 300 \
       --disk-image-size 6400 \
-      --background "${bundler_home}/assets/background.tiff" \
-      "${dmg_dir}/${dmg_name}" \
-      "$app_build"
+      --background "${OCTAPPBUNDLER_HOME}/assets/background.tiff" \
+      "${BUILD_DIR}/${DMG_FILE}" \
+      "$APP_BUILD"
 
-  echo "DMG ready at: ${dmg_dir}/${dmg_name}"
+  info "DMG ready at: ${BUILD_DIR}/${DMG_FILE}"
 }
 
 function test_app() {
-  echo "Running test suite on built app..."
-  if [[ ! -d "$app_build" ]]; then
-    die "No app build present at ${app_build}. Please run the build and munge steps first."
-  fi
-  if [[ -d "$install_dir" ]]; then
-    echo >&2 "An Octave.app already exists at ${install_dir}"
-    echo >&2 "Please move it out of the way and then try test again."
-    exit 1
+  info "Running test suite on built app..."
+
+  require_app_build
+  if [[ -d "$INSTALL_DIR" ]]; then
+    die "An Octave.app already exists at '${INSTALL_DIR}'. Please move it out of the way and then try `${THIS_PROGRAM}` test again."
   fi
 
-  mv "$app_build" "$install_dir"
-  osascript "${install_dir}/Contents/Resources/Scripts/main.scpt" --run-test-suite
-  mv "$install_dir" "$app_build"
+  mv "$APP_BUILD" "$INSTALL_DIR"
+  osascript "${INSTALL_DIR}/Contents/Resources/Scripts/main.scpt" --run-test-suite
+  mv "$INSTALL_DIR" "$APP_BUILD"
+}
+
+# A dummy "step" that lets you run the whole script and do nothing,
+# just to test whether it parses correctly and the option-parsing runs.
+function do_debug_parse () {
+  info "Script parsed OK."
 }
 
 # Main program
 
-# Handle special "actions" first
-if [[ -n "$action" ]]; then
-  case "$action" in
-    brew)
-      stage_app_build
-      "$brew" "$@"
-      exit_status=$?
-      unstage_app_build
-      exit $exit_status
-      ;;
-    *)
-      die "Invalid action: '$action'"
-      ;;
-  esac
-fi
-
-if [[ -z "$build_step" ]]; then
-  # Run entire build process
+function do_whole_build_process() {
   stage_app_build
   freshen_staged_homebrew
-  build_octave
+  build_octave_in_staged_app
   munge_build
-  if [[ "$do_sign" == "y" ]]; then
+  if [[ "$DO_SIGN" == "y" ]]; then
     unstage_app_build
     sign_app
     stage_app_build
   fi
-  if [[ "$build_dmg" == "y" ]]; then
+  if [[ "$DO_BUILD_DMG" == "y" ]]; then
     create_dmg
   fi
   unstage_app_build
-  echo "Build finished."
-else
-  # Run a single step
-  case "$build_step" in
-    stage)            stage_app_build ;;
-    unstage)          unstage_app_build ;;
-    freshen-homebrew) freshen_staged_homebrew ;;
-    build)            build_octave ;;
-    munge)            munge_build ;;
-    sign)             sign_app ;;
-    dmg)              create_dmg ;;
-    test)             test_app ;;
-    *)
-      echo >&2 "Error: Invalid step name '${build_step}'"
-      echo >&2 "Error: Valid steps are: stage unstage freshen-homebrew build munge sign dmg test"
-      exit 1
-      ;;
-  esac
+  info "Build finished."
+}
+
+function parse_cli_args() {
+  local arg
+
+  while [[ $# -ge 1 ]]; do
+    arg="$1"; shift
+    case "$arg" in
+      -a | --variant)
+        if [[ $# -lt 1 ]]; then
+          die "option $arg requires an argument"
+        fi
+        VARIANT="$1"; shift ;;
+      -c | --cli-only)
+        DO_BUILD_GUI=n ;;
+      -C | --cli-frontend)
+        DO_BUILD_DESKTOP=n ;;
+      -d | --build-devel)
+        DO_BUILD_DEVEL=y ;;
+      -E | --ignore-errors)
+        exit_on_error=n ;;
+      -f | --octave-formula)
+        if [[ $# -lt 1 ]]; then
+          die "option $arg requires an argument"
+        fi
+        OCTAVE_FORMULA_BASE="$1"; shift ;;
+      -g | --use-gcc)
+        USE_GCC=y ;;
+      -h | --help| -\?)
+        usage; exit 0 ;;
+      -J | --no-java)
+        DO_JAVA=n ;;
+      -s | --step)
+        if [[ $# -lt 1 ]]; then
+          die "option $arg requires an argument"
+        fi
+        BUILD_STEP="$1"; shift ;;
+      --sign)
+        DO_SIGN=y ;;
+      -u | --build-suffix)
+        if [[ $# -lt 1 ]]; then
+          die "option $arg requires an argument"
+        fi
+        BUILD_SUFFIX="$1"; shift ;;
+      -v | --verbose)
+        VERBOSE=y  ;;
+      -V | --octave-version)
+        if [[ $# -lt 1 ]]; then
+          die "option $arg requires an argument"
+        fi
+        OCTAVE_FORMULA_VERSION="$1"; shift ;;
+      -x | --trace)
+        DO_TRACE=y ;;
+      -y | --dry-run)
+        DRY_RUN=y ;;
+      --)
+        break ;;
+      brew)
+        ACTION="brew"
+        break ;;
+      *)
+        die "Error: Invalid option: $1. See ${THIS_PROGRAM} --help for help." ;;
+    esac
+  done
+}
+
+function main () {
+  local exit_status
+
+  # Code setup
+  enable_errexit
+
+  # Handle special actions first (each of these should exit)
+  if [[ -n "$ACTION" ]]; then
+    case "$ACTION" in
+      brew)
+        stage_app_build
+        "$brew" "$@"
+        exit_status=$?
+        unstage_app_build
+        exit $exit_status
+        ;;
+      *)
+        die "Invalid action: '$ACTION'. Valid actions are: brew"
+        ;;
+    esac
+  fi
+
+  # Main build process
+  if [[ -z "$BUILD_STEP" ]]; then
+    do_whole_build_process
+  else
+    # Run a single step
+    case "$BUILD_STEP" in
+      stage)            stage_app_build ;;
+      unstage)          unstage_app_build ;;
+      freshen-homebrew) freshen_staged_homebrew ;;
+      build)            build_octave ;;
+      munge)            munge_build ;;
+      sign)             sign_app ;;
+      dmg)              create_dmg ;;
+      test)             test_app ;;
+      # Undocumented debugging "steps"
+      debug-parse)      do_debug_parse ;;
+      *)
+        die "Error: Invalid build step: ${BUILD_STEP}. Valid steps are: stage unstage freshen-homebrew build munge sign dmg test"
+        ;;
+    esac
+  fi
+}
+
+# Main top-level code
+
+MACHINE_UNAME=$(uname -m)
+
+# "Constants" and configuration stuff
+# These may be used in only one place, so they could be locals inside functions, but I like to have the definitions
+# of these things all grouped together
+BIG_BUILD_ONLY_PKGS=(rust)
+
+# Default stuff to build. This is updated frequently to match the latest version of Octave.app
+# we're currently working on.
+DEFAULT_OCTAVE_FORMULA_VERSION="8.4.0"
+
+# Controls for what gets built
+VARIANT=
+BUILD_SUFFIX=''
+# Whether the build suffix is included in the app name, which is the end-user-visible name used
+# in the "Octave-*.app" file name, and other user-visible places. Generally, turn this on when
+# doing beta and other prerelease or testing builds, and turn it off for real releases, including
+# "u1" updates and the like.
+DO_BUILD_SUFFIX_IN_APP_NAME=y
+DO_BUILD_GUI=y
+DO_JAVA=y
+DO_BUILD_DESKTOP=y
+DO_BUILD_DEVEL=n
+DO_SIGN=n
+CODESIGN_AUTHOR_NAME='Andrew Janke'
+# Define these if we need to use a special branch of Homebrew
+BREW_REMOTE_URL=
+BREW_REMOTE_URL=
+BREW_REMOTE_BRANCH=
+# Set this if you need an alternate branch of the octave-app tap for the octapp formulae
+# OCTAPP_TAP_BRANCH='new-2023-versions'
+OCTAPP_TAP_BRANCH=
+DO_BUILD_DMG=y
+USE_GCC=n
+
+# Controls for how this bundle_octave execution runs
+ACTION=
+BUILD_STEP=
+DO_SIGN=n
+VERBOSE=n
+EXIT_ON_ERROR=y
+DO_TRACE=n
+BUILD_DIR=./build
+BUILD_LOG_DIR="$BUILD_DIR/LOGS"
+DRY_RUN=
+
+OCTAPPBUNDLER_HOME=$(dirname $0)
+MACHINE_MACOS_VER_MAJMIN=$(sw_vers -productVersion | gsed -E 's/^(\w+\.\w+).*/\1/')
+
+parse_cli_args "$@"
+detect_dependencies
+pick_names_for_things
+
+INSTALL_DIR="/Applications/${APP_NAME}.app"
+INSTALL_BUILT="/Applications/${APP_NAME}-BUILT.app"
+INSTALL_DIR_UNSTAGED="${INSTALL_DIR}-UNSTAGED"
+
+INSTALL_USR="$INSTALL_DIR/Contents/Resources/usr"
+brew="$INSTALL_USR/bin/brew"
+APP_BUILD="./build/${APP_NAME}.app"
+APP_BUILD_USR="$APP_BUILD/Contents/Resources/usr"
+
+if [[ "$VERBOSE" == "y" ]]; then
+  echo_options
 fi
+if [[ "$DO_TRACE" == "y" ]]; then
+  set -o xtrace
+fi
+
+info "Building ${APP_NAME}.app at ${INSTALL_DIR} from brew formula ${OCTAVE_FORMULA}"
+
+# Pick up commands from octapp build. This is (I think) just a hack to pick up
+# Subversion's svn command, so this tool can be run on computers without a system-wide
+# Homebrew or MacPorts installation to supply svn.
+# TODO: Maybe drop this and add a dependency on a system svn? It'll pick up a bunch
+# of other commands too, which isn't good for repeatability. Or maybe it's because
+# the brew installs may need commands from the Homebrew installation? In which case we
+# need to keep this. Either way, document it.
+PATH="${INSTALL_USR}/bin/:$PATH"
+
+if [[ -n "$DRY_RUN" ]]; then
+  info
+  info "DRY RUN: Not actually doing anything."
+  info
+  exit 0
+fi
+
+main
