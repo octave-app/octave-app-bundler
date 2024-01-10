@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
 
-# bundle_octave - Create an Octave.app app bundle
+# bundle_octave_app - Create an Octave.app app bundle
+#
+# Warning: This program will delete all your existing Homebrew build logs from
+# ~/Library/Logs/Homebrew. This is so it can differentiate logs for the formulae
+# built for Octave.app from those for any main system-level Homebrew installation.
+#
+# TODO: See if we can isolate the Octave.app Homebrew build logs somehow, and be
+# less destructive here.
 #
 # Hints:
 #
 # If you want to do your compilations single-threaded, which will be slower
 # but produce more readable output, set the environment variable
-# HOMEBREW_MAKE_JOBS=1 before running bundle_octave.
+# HOMEBREW_MAKE_JOBS=1 before running bundle_octave_app.
 #
 # If you're working on getting a release out, consider calling this through one
 # of the wip_bundle_* wrapper scripts, for convenience and consistency.
@@ -66,14 +73,13 @@
 # Uninstalling /Applications/Octave-8.3.0.app/Contents/Resources/usr/Cellar/rust/1.72.1... (38,925 files, 853.2MB)
 # Munging app build at ./build/Octave-8.3.0.app
 # Octave versions: ver='8.3.0' ver_string='GNU Octave, version 8.3.0' copy='1993-2023 The Octave Project Developers.'
-# ./bundle_octave: line 695: /usr/bin/python: No such file or directory
+# ./bundle_octave_app: line 695: /usr/bin/python: No such file or directory
 
 # TODO: version style controls for app name
 #   # valid: 'major', 'minor', 'patch', 'full', or 'none'
 #   appname_ver_style='minor'
 # TODO: Also, spaces in app name instead of dashes
-# TODO: Also, an "x64" in the app name for Intel builds
-# TODO: Which means we need a way to detect whether we're running on Intel or AS
+# TODO: Also, an "x64" or "Intel" in the app or dist name for Intel builds
 
 set -o errexit
 set -o nounset
@@ -146,7 +152,7 @@ function usage() {
   cat <<EOHELP
   ${THIS_PROGRAM}
   ${THIS_PROGRAM} [OPTION [ARG]] ...
-  ${THIS_PROGRAM} brew <brew_args ...>
+  ${THIS_PROGRAM} brew <brew_args...>
 
   Build an Octave.app application bundle for macOS.
 
@@ -337,7 +343,7 @@ function require_staged_app_build() {
 
 
 function require_built_app() {
-  if [[ ! -f "$INSTALL_BUILT" ]]; then
+  if [[ ! -d "$INSTALL_BUILT" ]]; then
     die "No built app found at ${INSTALL_BUILT}. You may need to re-run the build."
   fi
 }
@@ -415,6 +421,11 @@ function build_octave_in_staged_app() {
     die "A built app aleady exists at $INSTALL_BUILT. Needs manual cleanup."
   fi
 
+  info "Deleting existing Homebrew logs..."
+  if ls ~/Library/Logs/Homebrew/ | grep . &>/dev/null; then
+    rm -rf "${HOME}/Library/Logs/Homebrew/*"
+  fi
+
   # Set FC to point to gfortran from the brewed gcc inside the built Octave.app
   export FC="${INSTALL_USR}/bin/gfortran"
   # Use GCC for all scientific libraries
@@ -450,21 +461,24 @@ function build_octave_in_staged_app() {
 
   # Capture the logs
   rm -rf "$BUILD_LOG_DIR"
-  # TODO: Capture logs for all formulae, not just octapp
-  local brew_octapp_logs_dir="$HOME/Library/Logs/Homebrew/${OCTAVE_FORMULA}"
-  mkdir -p "$BUILD_LOG_DIR/brew"
-  if [[ -d "$brew_octapp_logs_dir"  ]]; then
-    cp -pR "$brew_octapp_logs_dir" "$BUILD_LOG_DIR/brew"
+  mkdir -p "$BUILD_LOG_DIR"
+  local brew_logs_dir="$HOME/Library/Logs/Homebrew"
+  if [[ -d "$brew_logs_dir" ]]; then
+    cp -pR "$brew_logs_dir" "$BUILD_LOG_DIR/Homebrew"
   fi
   local octave_test_log="$INSTALL_USR/opt/$OCTAVE_FORMULA/make-check.log"
   if [[ -e "$octave_test_log" ]]; then
     cp "$octave_test_log" "$BUILD_LOG_DIR"
   fi
+}
 
+function capture_built_octave_app() {
   # Capture the version info from built binaries to a simple file for use later
-  # Get versions dynamically from the built program
-  local octave oct_ver oct_ver_string oct_copyright octapp_ver_file formulae_versions_file
-  local gs_formula gs_ver gs_opt gs_share
+  # Get versions dynamically from the built program. Stash them in a file inside
+  # the app build. That modifies the app build, and is the only modification we do
+  # before capturing it for further munging.
+  local octave oct_ver oct_ver_string oct_copyright octapp_ver_file formulae_vers_file
+  local gs_ver gs_opt gs_share
   octapp_ver_file="$INSTALL_DIR/octapp-ver-info.sh"
   formulae_vers_file="$INSTALL_DIR/octapp-formulae-vers.txt"
   octave="$INSTALL_USR/opt/$OCTAVE_FORMULA/bin/octave"
@@ -473,7 +487,7 @@ function build_octave_in_staged_app() {
   oct_ver=$(echo "$oct_ver_string" | /usr/bin/grep -o '\d\..*$' )
   oct_copyright=$("$octave" --version | /usr/bin/sed -n 2p | /usr/bin/cut -c 15- )
   gs_ver=$("${INSTALL_USR}/bin/gs" --version)
-  gs_opt=$("$brew" --prefix "$gs_formula")
+  gs_opt=$("$brew" --prefix "ghostscript")
   gs_share="${gs_opt}/share/ghostscript"
   cat >"$octapp_ver_file" <<EOS
 oct_ver='$oct_ver'
@@ -483,9 +497,8 @@ gs_ver='$gs_ver'
 gs_opt='$gs_opt'
 gs_share='$gs_share'
 EOS
-  "$brew" octave-app-list-formulae >> "${formulae_versions_file}"
-
-  info "Saved version info to $oct_ver_file and $formulae_versions_file"
+  "$brew" octave-app-list-formulae >> "${formulae_vers_file}"
+  info "Saved version info to $octapp_ver_file and $formulae_vers_file"
 
   # And stash it in the "BUILT" location
   move_build_to_stash
@@ -498,16 +511,16 @@ function move_build_to_stash() {
     die "Cannot stash built app. A build aleady exists at $INSTALL_BUILT. Needs manual cleanup."
   fi
   mv "$INSTALL_DIR" "$INSTALL_BUILT"
-  info "Stored pristine build at ${INSTALL_BUILT} (from $INSTALL_DIR)"
+  info "Captured pristine build to ${INSTALL_BUILT} (from $INSTALL_DIR)"
 }
 
 function munge_build() {
   local octave oct_ver oct_ver_string oct_copyright
-  local octapp_ver_file formulae_versions_file
-  local gs_formula gs_ver gs_opt gs_share
+  local octapp_ver_file formulae_vers_file
+  local gs_ver gs_opt gs_share
   local keg vers_code
 
-  info "Munging build at ${APP_BUILD}..."
+  info "Munging build..."
   require_built_app # was require_staged_app_build
   mkdir -p build/logs
 
@@ -517,7 +530,7 @@ function munge_build() {
     chmod -R u+w "$APP_BUILD"
     rm -rf "$APP_BUILD"
   fi
-  info "Grabbing copy of build from $INSTALL_BUILT"
+  info "Grabbing copy of build from $INSTALL_BUILT to $APP_BUILD"
   mkdir -p "$BUILD_DIR"
   cp -pR "$INSTALL_BUILT" "$APP_BUILD"
 
@@ -528,6 +541,7 @@ function munge_build() {
   eval "$vers_code"
   info "Octave versions: ver='${oct_ver}' ver_string='${oct_ver_string}' copyright='${oct_copyright}'"
 
+  info "Munging app in $APP_BUILD..."
   # Have app use its internal font cache instead of global one
   /usr/bin/sed -i '' 's/\/Applications.*fontconfig/~\/.cache\/fontconfig/g' \
     "${APP_BUILD_USR}/etc/fonts/fonts.conf"
@@ -775,7 +789,9 @@ EOSCRIPT
   info "Octave.app version: ${octave_app_str}"
   echo "This is ${octave_app_str}" >> "${versions_file}"
   echo "" >> "$versions_file"
-  "$brew" octave-app-list-formulae >> "${versions_file}"
+  # TODO: Convert to the stashed version of this
+  # "$brew" octave-app-list-formulae >> "${versions_file}"
+  cat "$formulae_vers_file" >> "$versions_file"
 
   app_build_brew="${APP_BUILD_USR}/bin/brew"
 
@@ -928,6 +944,7 @@ function do_whole_build_process() {
   stage_app_build
   freshen_staged_homebrew
   build_octave_in_staged_app
+  capture_built_octave_app
   munge_build
   if [[ "$DO_SIGN" == "y" ]]; then
     unstage_app_build
@@ -1032,11 +1049,13 @@ function main () {
     do_whole_build_process
   else
     # Run a single step
+    info "Running single build step: $BUILD_STEP"
     case "$BUILD_STEP" in
       stage)            stage_app_build ;;
       unstage)          unstage_app_build ;;
       freshen-homebrew) freshen_staged_homebrew ;;
       build)            build_octave ;;
+      capture)          capture_built_octave_app ;;
       munge)            munge_build ;;
       sign)             sign_app ;;
       dmg)              create_dmg ;;
@@ -1087,7 +1106,7 @@ OCTAPP_TAP_BRANCH=
 DO_BUILD_DMG=y
 USE_GCC=n
 
-# Controls for how this bundle_octave execution runs
+# Controls for how this bundle_octave_app execution runs
 ACTION=
 BUILD_STEP=
 DO_SIGN=n

@@ -1,2 +1,7 @@
+# .gitignore for octave-app-bundler
+
+# Generic filesystem and OS stuff
 .DS_Store
+
+# octapp-specific stuff
 build/
