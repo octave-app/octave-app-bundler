@@ -6,18 +6,19 @@ Nothing specific at the moment.
 
 ## Miscellaneous
 
-* Unindent the options subsections in the help screen.
+* Add timing and metrics (CPU, mem?) output to the build script.
 * Clarify what "staged" and "unstaged" mean for builds. I think we're using them inconsistently and vaguely at this point.
   * Problems:
     * I need to run `octave` from the pre-munged built app to grab version info. Maybe I could push that up to the build step instead of the munge step?
 * Check that our custom `ver.m` is in line with the new 6.x and 8.x versions of it.
-* Add architecture suffix/label to DMG (but not app name or bundle) of Intel builds.
+* [X?] Add architecture suffix/label to DMG (but not app name or bundle) of Intel builds.
 * Remove the `/usr/bin/` prefix for commands, and just say the user shouldn't shadow them incompatibly? Would make the code more readaable.
-* Capture _all_ brew build logs to `build/logs`` dir, not just for the octave formula.
+* [X?] Capture _all_ brew build logs to `build/logs`` dir, not just for the octave formula.
 * Move the errexit=n option to a `--debug-no-errexit` option, since it's special use for developers.
 * Remove "..." ellipses from before-action progress messages?
 * Make Qt dependency nonoptional? There's kinda no point in building a non-GUI Octave.app, and it would make the formulae cleaner, esp. in terms of diffs wrt the core formulae.
 * Replace `-y` short opt for `--dry-run` with `-Y` or something, because `-y` is commonly used for "yes", not "dry run".
+* Use octapp tap from a repos dir, since it is no longer locally cloned in Homebrew installations?
 
 ## Refactoring and code style
 

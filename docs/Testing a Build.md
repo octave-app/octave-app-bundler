@@ -1,6 +1,8 @@
 # Octave.app Testing Script
 
-This is a list of actions the maintainer needs to do to test a build of Octave.app.
+This is a list of actions the maintainer needs to do to test a build of Octave.app. It's not exhaustive, but it seems like a good start.
+
+You can test it initially on the same computer you built it on as a quick first check, but a real test needs to be done on a "clean" testbed computer, to make sure the build isn't depending on other things installed on your dev machine. The clean test machine should be one with a fresh macOS install and nothing else. Then optionally one with Homebrew and some of its packages installed, to see if there are conflicts with that.
 
 ## Steps
 

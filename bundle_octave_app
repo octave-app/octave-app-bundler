@@ -108,6 +108,40 @@ function die() {
   exit 1
 }
 
+function verbose() {
+  if [[ $VERBOSE == 'y' ]]; then
+    echo "$*"
+  fi
+}
+
+function is_dry_run() {
+  if [[ $DRY_RUN == 'y' ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+function wet() {
+  if is_dry_run; then
+    echo "dry run: would run: $*"
+  else
+    verbose "running: $*"
+    "$@"
+  fi
+}
+
+function timeit() {
+  local start_time end_time elapsed_s elapsed_m
+  start_time=$(date +%s)
+  "$@"
+  end_time=$(date +%s)
+  elapsed_s=$((end_time - start_time))
+  elapsed_m=$((elapsed_s / 60))
+  elapsed_s=$((elapsed_s - (elapsed_m * 60)))
+  info $(printf "elapsed time: %02d:%02d" $elapsed_m $elapsed_s)
+}
+
 # Special functions to turn errexit on/off, to support the special no-errexit debugging
 # control.
 
@@ -163,44 +197,44 @@ function usage() {
 
   Several options are supported:
 
-    Packaging options:
-      -u, --build-suffix <suffix>
-        Set a build version suffix. Used to distinguish revisions and updates
-        to Octave.app's packaging, like 'u1' or 'u2'. This can be used for beta builds, too,
-        like `-u beta1`. [$BUILD_SUFFIX]
-      -t, --with-test
-        Do not run tests on completed app.
-      --sign
-        Sign the completed app bundle.
+  Packaging options:
+    -u, --build-suffix <suffix>
+      Set a build version suffix. Used to distinguish revisions and updates
+      to Octave.app's packaging, like 'u1' or 'u2'. This can be used for beta builds, too,
+      like `-u beta1`. [$BUILD_SUFFIX]
+    -t, --with-test
+      Do not run tests on completed app.
+    --sign
+      Sign the completed app bundle.
 
-    Octave build options:
-      -a, --variant <variant>
-        Variant of Octave.app to build [$VARIANT].
-      -V, --octave-version <version>
-        Version of Octave formula to build (affects formula choice) [$OCTAVE_VERSION].
-      -c, --cli-only
-        Do not build the GUI.
-      -C, --cli-frontend
-        Use the CLI as the front end, while still building graphics/Qt support.
-      -J, --no-java
-        Compile without Java support.
-      -d, --build-devel
-        Build the latest Octave development snapshot instead of a released version.
+  Octave build options:
+    -a, --variant <variant>
+      Variant of Octave.app to build [$VARIANT].
+    -V, --octave-version <version>
+      Version of Octave formula to build (affects formula choice) [$OCTAVE_VERSION].
+    -c, --cli-only
+      Do not build the GUI.
+    -C, --cli-frontend
+      Use the CLI as the front end, while still building graphics/Qt support.
+    -J, --no-java
+      Compile without Java support.
+    -d, --build-devel
+      Build the latest Octave development snapshot instead of a released version.
 
-    Debugging options:
-      -h, -?, --help
-        Display this help text.
-      -s, --step <step>
-        Run a single step of the build process (for debugging use).
-      -v, --verbose
-        Verbose output, and list state of all options.
-      -x, --trace
-        Trace program execution (even more detail than --verbose). You can also set the
-        TRACE=1 environment variable to get the same effect.
-      -e, --exit-on-errors
-        Exit on errors. This is now on by default, though it was off in older versions.
-      -y, --dry-run
-        Compute values but do not actually build.
+  Debugging options:
+    -h, -?, --help
+      Display this help text.
+    -s, --step <step>
+      Run a single step of the build process (for debugging use).
+    -v, --verbose
+      Verbose output, and list state of all options.
+    -x, --trace
+      Trace program execution (even more detail than --verbose). You can also set the
+      TRACE=1 environment variable to get the same effect.
+    -e, --exit-on-errors
+      Exit on errors. This is now on by default, though it was off in older versions.
+    -Y, --dry-run
+      Compute values but do not actually build. (Experimental. May fail in various ways.)
 
 EOHELP
 }
@@ -209,6 +243,7 @@ function echo_options() {
   cat <<EOS
 Options:
 variant = ${VARIANT}
+octave_formula = ${OCTAVE_FORMULA}
 octave_formula_version = ${OCTAVE_FORMULA_VERSION}
 build_suffix = ${BUILD_SUFFIX}
 build_gui = ${DO_BUILD_GUI}
@@ -218,6 +253,16 @@ use_gcc = ${USE_GCC}
 use_java = ${DO_JAVA}
 octappbundler_home = ${OCTAPPBUNDLER_HOME}
 build_desktop = ${DO_BUILD_DESKTOP}
+
+Values:
+octapp_release=${OCTAPP_RELEASE}
+app_build = ${APP_BUILD}
+createdmg_home = ${CREATEDMG_HOME}
+dmg_volume_name = ${DMG_VOLUME_NAME}
+dmg_file = ${DMG_FILE}
+build_dir = ${BUILD_DIR}
+dist_archive_name = ${DIST_ARCHIVE_NAME}
+app_name_with_release = ${APP_NAME_WITH_RELEASE}
 
 EOS
 }
@@ -284,7 +329,12 @@ function pick_names_for_things() {
       APP_NAME="${APP_NAME}_${BUILD_SUFFIX}"
     fi
   fi
-  DMG_FILE="${APP_NAME_WITH_RELEASE}.dmg"
+  local dist_arch_suffix=''
+  if [[ $MACHINE_UNAME == 'x86_64' ]]; then
+    dist_arch_suffix=" (Intel)"
+  fi
+  DIST_ARCHIVE_NAME="${APP_NAME_WITH_RELEASE}${dist_arch_suffix}"
+  DMG_FILE="${DIST_ARCHIVE_NAME}.dmg"
 }
 
 function stage_app_build() {
@@ -340,7 +390,6 @@ function require_staged_app_build() {
     die "$err_msg"
   fi
 }
-
 
 function require_built_app() {
   if [[ ! -d "$INSTALL_BUILT" ]]; then
@@ -423,7 +472,7 @@ function build_octave_in_staged_app() {
 
   info "Deleting existing Homebrew logs..."
   if ls ~/Library/Logs/Homebrew/ | grep . &>/dev/null; then
-    rm -rf "${HOME}/Library/Logs/Homebrew/*"
+    wet rm -rf "${HOME}/Library/Logs/Homebrew/*"
   fi
 
   # Set FC to point to gfortran from the brewed gcc inside the built Octave.app
@@ -448,27 +497,26 @@ function build_octave_in_staged_app() {
   if [[ "$DO_JAVA" != "y" ]]; then
     build_opts="$build_opts --without-java"
   fi
-  echo "$brew" install "$OCTAVE_FORMULA" $build_opts
-  "$brew" install "$OCTAVE_FORMULA" $build_opts
+  wet "$brew" install "$OCTAVE_FORMULA" $build_opts
 
   # HACK: remove large build-time-only dependencies to reduce app size
   local big_pkg
   for big_pkg in "$BIG_BUILD_ONLY_PKGS[@]"; do
     if "$brew" list --formula | grep -x "$big_pkg"; then
-      "$brew" rm "$big_pkg"
+      wet "$brew" rm "$big_pkg"
     fi
   done
 
   # Capture the logs
-  rm -rf "$BUILD_LOG_DIR"
-  mkdir -p "$BUILD_LOG_DIR"
+  wet rm -rf "$BUILD_LOG_DIR"
+  wet mkdir -p "$BUILD_LOG_DIR"
   local brew_logs_dir="$HOME/Library/Logs/Homebrew"
   if [[ -d "$brew_logs_dir" ]]; then
-    cp -pR "$brew_logs_dir" "$BUILD_LOG_DIR/Homebrew"
+    wet cp -pR "$brew_logs_dir" "$BUILD_LOG_DIR/Homebrew"
   fi
   local octave_test_log="$INSTALL_USR/opt/$OCTAVE_FORMULA/make-check.log"
   if [[ -e "$octave_test_log" ]]; then
-    cp "$octave_test_log" "$BUILD_LOG_DIR"
+    wet cp "$octave_test_log" "$BUILD_LOG_DIR"
   fi
 }
 
@@ -510,7 +558,7 @@ function move_build_to_stash() {
   if [[ -e "$INSTALL_BUILT" ]]; then
     die "Cannot stash built app. A build aleady exists at $INSTALL_BUILT. Needs manual cleanup."
   fi
-  mv "$INSTALL_DIR" "$INSTALL_BUILT"
+  wet mv "$INSTALL_DIR" "$INSTALL_BUILT"
   info "Captured pristine build to ${INSTALL_BUILT} (from $INSTALL_DIR)"
 }
 
@@ -521,6 +569,10 @@ function munge_build() {
   local keg vers_code
 
   info "Munging build..."
+  if [[ $DRY_RUN = 'y' ]]; then
+    info "dry run: would munge build"
+    return
+  fi
   require_built_app # was require_staged_app_build
   mkdir -p build/logs
 
@@ -842,6 +894,10 @@ function sign_app() {
   local file_list_file link_dir link_target real_target
 
   info "Signing the app..."
+  if [[ $DRY_RUN = 'y' ]]; then
+    echo 'dry run: would sign the app'
+    return
+  fi
 
   # Signing apparently must happen in the installation location to make codesign happy
   # with its internal symlinks.
@@ -885,22 +941,29 @@ function create_dmg() {
   # Delete any existing DMG
   if [[ -f "${BUILD_DIR}/${DMG_FILE}" ]]; then
     info "Deleting existing dist DMG at ${BUILD_DIR}/${DMG_FILE}"
-    rm -rf "${BUILD_DIR}/${DMG_FILE}"
+    wet rm -rf "${BUILD_DIR}/${DMG_FILE}"
   fi
+  info "Creating dist DMG at ${BUILD_DIR}/${DMG_FILE}"
 
   # Detect tap location, which varies between Intel and AS
   if [[ $MACHINE_UNAME == 'arm64' ]]; then
     # TODO: Fix this path?
-    octapp_tap_dir="${INSTALL_USR}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
+    octapp_tap_dir="${INSTALL_BUILT_USR}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
   else
-    octapp_tap_dir="${INSTALL_USR}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
+    octapp_tap_dir="${INSTALL_BUILT_USR}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
   fi
 
   # Run create-dmg. This may issue warnings if run headless. However, the DMG
   # will still be created, only some beautification cannot be applied.
   # We manually set the image size because create-dmg's automatic sizing seems to
   # get it wrong, and we run out of space when adding files.
-  "${CREATEDMG_HOME}/create-dmg" \
+  local app_build_octapp_keg="${APP_BUILD}/Contents/Resources/usr/Cellar/${OCTAVE_FORMULA}/${OCTAVE_FORMULA_VERSION}"
+  local createdmg_extra=''
+  if [[ $VERBOSE = 'y' ]]; then
+    createdmg_extra='--verbose'
+  fi
+  wet "${CREATEDMG_HOME}/create-dmg" \
+      ${createdmg_extra} \
       --volname "${DMG_VOLUME_NAME}" \
       --volicon "${APP_BUILD}/Contents/Resources/applet.icns" \
       --window-size 550 500 \
@@ -909,9 +972,9 @@ function create_dmg() {
       --hide-extension "${APP_NAME}.app" \
       --app-drop-link 415 180 \
       --eula "${octapp_tap_dir}/assets/COPYING/COPYING.rtf" \
-      --add-file COPYING "${octapp_tap_dir}/assets/COPYING" 126 300 \
+      --add-file COPYING "${app_build_octapp_keg}/COPYING" 126 300 \
       --add-file VERSIONS "${APP_BUILD}/Contents/Resources/VERSIONS" 415 300 \
-      --disk-image-size 6400 \
+      --disk-image-size 7500 \
       --background "${OCTAPPBUNDLER_HOME}/assets/background.tiff" \
       "${BUILD_DIR}/${DMG_FILE}" \
       "$APP_BUILD"
@@ -921,6 +984,11 @@ function create_dmg() {
 
 function test_app() {
   info "Running test suite on built app..."
+
+  if [[ $DRY_RUN = 'y' ]]; then
+    echo 'dry run: would run test suite'
+    return
+  fi
 
   require_app_build
   if [[ -d "$INSTALL_DIR" ]]; then
@@ -943,8 +1011,8 @@ function do_debug_parse () {
 function do_whole_build_process() {
   stage_app_build
   freshen_staged_homebrew
-  build_octave_in_staged_app
-  capture_built_octave_app
+  timeit build_octave_in_staged_app
+  timeit capture_built_octave_app
   munge_build
   if [[ "$DO_SIGN" == "y" ]]; then
     unstage_app_build
@@ -952,7 +1020,7 @@ function do_whole_build_process() {
     stage_app_build
   fi
   if [[ "$DO_BUILD_DMG" == "y" ]]; then
-    create_dmg
+    timeit create_dmg
   fi
   unstage_app_build
   info "Build finished."
@@ -1110,11 +1178,13 @@ USE_GCC=n
 ACTION=
 BUILD_STEP=
 DO_SIGN=n
-VERBOSE=n
+# Do verbose by default while debugging this script
+# VERBOSE=n
+VERBOSE=y
 EXIT_ON_ERROR=y
 DO_TRACE=n
 BUILD_DIR=./build
-BUILD_LOG_DIR="$BUILD_DIR/LOGS"
+BUILD_LOG_DIR="$BUILD_DIR/logs"
 DRY_RUN=
 
 OCTAPPBUNDLER_HOME=$(dirname $0)
@@ -1129,6 +1199,7 @@ INSTALL_BUILT="/Applications/${APP_NAME}-BUILT.app"
 INSTALL_DIR_UNSTAGED="${INSTALL_DIR}-UNSTAGED"
 
 INSTALL_USR="$INSTALL_DIR/Contents/Resources/usr"
+INSTALL_BUILT_USR="$INSTALL_BUILT/Contents/Resources/usr"
 brew="$INSTALL_USR/bin/brew"
 APP_BUILD="./build/${APP_NAME}.app"
 APP_BUILD_USR="$APP_BUILD/Contents/Resources/usr"
