@@ -243,9 +243,9 @@ function echo_options() {
   cat <<EOS
 Options:
 variant = ${VARIANT}
+build_suffix = ${BUILD_SUFFIX}
 octave_formula = ${OCTAVE_FORMULA}
 octave_formula_version = ${OCTAVE_FORMULA_VERSION}
-build_suffix = ${BUILD_SUFFIX}
 build_gui = ${DO_BUILD_GUI}
 build_devel = ${DO_BUILD_DEVEL}
 build_dmg = ${DO_BUILD_DMG}
@@ -256,13 +256,14 @@ build_desktop = ${DO_BUILD_DESKTOP}
 
 Values:
 octapp_release=${OCTAPP_RELEASE}
+app_name = ${APP_NAME}
+app_name_with_release = ${APP_NAME_WITH_RELEASE}
 app_build = ${APP_BUILD}
 createdmg_home = ${CREATEDMG_HOME}
 dmg_volume_name = ${DMG_VOLUME_NAME}
-dmg_file = ${DMG_FILE}
 build_dir = ${BUILD_DIR}
 dist_archive_name = ${DIST_ARCHIVE_NAME}
-app_name_with_release = ${APP_NAME_WITH_RELEASE}
+dmg_file = ${DMG_FILE}
 
 EOS
 }
@@ -317,23 +318,24 @@ function pick_names_for_things() {
   else
     APP_NAME="${app_base_name}-${OCTAVE_VERSION}"
   fi
+  local dist_arch_extra='' build_extra=''
+  if [[ $MACHINE_UNAME == 'x86_64' ]]; then
+    dist_arch_extra=" (Intel)"
+  fi
   if [[ -z "$BUILD_SUFFIX" ]]; then
     OCTAPP_RELEASE="${VERSION_NAME}"
     APP_NAME_WITH_RELEASE="${APP_NAME}"
     DMG_VOLUME_NAME="${app_base_name} ${OCTAVE_VERSION}"
+    DIST_ARCHIVE_NAME="${APP_NAME}${dist_arch_extra}"
   else
     OCTAPP_RELEASE="${VERSION_NAME}_${BUILD_SUFFIX}"
     APP_NAME_WITH_RELEASE="${APP_NAME}_${BUILD_SUFFIX}"
-    DMG_VOLUME_NAME="${app_base_name} ${OCTAVE_VERSION} ${BUILD_SUFFIX}"
+    DMG_VOLUME_NAME="${app_base_name} ${OCTAVE_VERSION}_${BUILD_SUFFIX}"
+    DIST_ARCHIVE_NAME="${APP_NAME}_${BUILD_SUFFIX}${dist_arch_extra}"
     if [[ "$DO_BUILD_SUFFIX_IN_APP_NAME" = y ]]; then
       APP_NAME="${APP_NAME}_${BUILD_SUFFIX}"
     fi
   fi
-  local dist_arch_suffix=''
-  if [[ $MACHINE_UNAME == 'x86_64' ]]; then
-    dist_arch_suffix=" (Intel)"
-  fi
-  DIST_ARCHIVE_NAME="${APP_NAME_WITH_RELEASE}${dist_arch_suffix}"
   DMG_FILE="${DIST_ARCHIVE_NAME}.dmg"
 }
 
@@ -500,21 +502,37 @@ function build_octave_in_staged_app() {
   wet "$brew" install "$OCTAVE_FORMULA" $build_opts
 
   # HACK: remove large build-time-only dependencies to reduce app size
+  # This is done before moving to -BUILD because brew needs to run from
+  # the original built location.
   local big_pkg
   for big_pkg in "$BIG_BUILD_ONLY_PKGS[@]"; do
     if "$brew" list --formula | grep -x "$big_pkg"; then
       wet "$brew" rm "$big_pkg"
     fi
   done
+}
 
+# Moves the completed build to a -BUILD copy. At that point it's "pristine" and should no
+# longer be modified.
+function move_build_to_stash() {
+  if [[ -e "$INSTALL_BUILT" ]]; then
+    die "Cannot stash built app. A build aleady exists at $INSTALL_BUILT. Needs manual cleanup."
+  fi
+  wet mv "$INSTALL_DIR" "$INSTALL_BUILT"
+  info "Captured pristine build to ${INSTALL_BUILT} (from $INSTALL_DIR)"
+}
+
+function capture_build_logs() {
   # Capture the logs
+  # This is run after capturing the build to stash
+  info "Capturing build logs..."
   wet rm -rf "$BUILD_LOG_DIR"
   wet mkdir -p "$BUILD_LOG_DIR"
   local brew_logs_dir="$HOME/Library/Logs/Homebrew"
   if [[ -d "$brew_logs_dir" ]]; then
     wet cp -pR "$brew_logs_dir" "$BUILD_LOG_DIR/Homebrew"
   fi
-  local octave_test_log="$INSTALL_USR/opt/$OCTAVE_FORMULA/make-check.log"
+  local octave_test_log="$INSTALL_BUILT/opt/$OCTAVE_FORMULA/make-check.log"
   if [[ -e "$octave_test_log" ]]; then
     wet cp "$octave_test_log" "$BUILD_LOG_DIR"
   fi
@@ -550,16 +568,6 @@ EOS
 
   # And stash it in the "BUILT" location
   move_build_to_stash
-}
-
-# Moves the completed build to a -BUILD copy. At that point it's "pristine" and should no
-# longer be modified.
-function move_build_to_stash() {
-  if [[ -e "$INSTALL_BUILT" ]]; then
-    die "Cannot stash built app. A build aleady exists at $INSTALL_BUILT. Needs manual cleanup."
-  fi
-  wet mv "$INSTALL_DIR" "$INSTALL_BUILT"
-  info "Captured pristine build to ${INSTALL_BUILT} (from $INSTALL_DIR)"
 }
 
 function munge_build() {
@@ -1013,6 +1021,7 @@ function do_whole_build_process() {
   freshen_staged_homebrew
   timeit build_octave_in_staged_app
   timeit capture_built_octave_app
+  capture_build_logs
   munge_build
   if [[ "$DO_SIGN" == "y" ]]; then
     unstage_app_build
@@ -1022,7 +1031,6 @@ function do_whole_build_process() {
   if [[ "$DO_BUILD_DMG" == "y" ]]; then
     timeit create_dmg
   fi
-  unstage_app_build
   info "Build finished."
 }
 
@@ -1124,6 +1132,7 @@ function main () {
       freshen-homebrew) freshen_staged_homebrew ;;
       build)            build_octave ;;
       capture)          capture_built_octave_app ;;
+      capture-logs)     capture_build_logs ;;
       munge)            munge_build ;;
       sign)             sign_app ;;
       dmg)              create_dmg ;;
@@ -1157,7 +1166,7 @@ BUILD_SUFFIX=''
 # in the "Octave-*.app" file name, and other user-visible places. Generally, turn this on when
 # doing beta and other prerelease or testing builds, and turn it off for real releases, including
 # "u1" updates and the like.
-DO_BUILD_SUFFIX_IN_APP_NAME=y
+DO_BUILD_SUFFIX_IN_APP_NAME=n
 DO_BUILD_GUI=y
 DO_JAVA=y
 DO_BUILD_DESKTOP=y
