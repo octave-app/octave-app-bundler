@@ -46,6 +46,23 @@ git clone https://github.com/octave-app/octave-app-bundler
 
 Now you can `cd ~/repos/octave-app-bundler` and run `./bundle_octave` to build Octave.app.
 
+## How I make a dev box
+
+For a build box:
+
+* Install macOS
+* Install Xcode and its CLT
+  * do `sudo xcode-select --install` after installing Xcode
+* Install Homebrew
+* Install gsed with under brew
+* Install MacTex
+* Clone the repo
+
+For a test box:
+
+* Install macOS
+* Nothing else. The point is to test Octave.app on the basic-est macOS install.
+
 ## Historical Build Environments
 
 We have a policy of supporting the last three versions of macOS available at the time of an Octave release, because that's as far back as Homebrew itself supports.

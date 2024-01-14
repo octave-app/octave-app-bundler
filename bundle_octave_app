@@ -246,6 +246,7 @@ variant = ${VARIANT}
 build_suffix = ${BUILD_SUFFIX}
 octave_formula = ${OCTAVE_FORMULA}
 octave_formula_version = ${OCTAVE_FORMULA_VERSION}
+octapp_tap_branch = ${OCTAPP_TAP_BRANCH}
 build_gui = ${DO_BUILD_GUI}
 build_devel = ${DO_BUILD_DEVEL}
 build_dmg = ${DO_BUILD_DMG}
@@ -1071,6 +1072,8 @@ function parse_cli_args() {
         BUILD_STEP="$1"; shift ;;
       --sign)
         DO_SIGN=y ;;
+      --tap-branch)
+        OCTAPP_TAP_BRANCH="$1"; shift ;;
       -u | --build-suffix)
         if [[ $# -lt 1 ]]; then
           die "option $arg requires an argument"
