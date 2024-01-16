@@ -321,7 +321,7 @@ function pick_names_for_things() {
   fi
   local dist_arch_extra='' build_extra=''
   if [[ $MACHINE_UNAME == 'x86_64' ]]; then
-    dist_arch_extra=" (Intel)"
+    dist_arch_extra="-Intel"
   fi
   if [[ -z "$BUILD_SUFFIX" ]]; then
     OCTAPP_RELEASE="${VERSION_NAME}"
