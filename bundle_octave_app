@@ -240,7 +240,13 @@ EOHELP
 }
 
 function echo_options() {
+  local git_sha=$(git log --pretty=format:'%h' -n 1)
+  local hostname=$(hostname)
+
   cat <<EOS
+
+${THIS_PROGRAM} (${git_sha}) run at $(date) on ${hostname}
+
 Options:
 variant = ${VARIANT}
 build_suffix = ${BUILD_SUFFIX}
@@ -505,9 +511,13 @@ function build_octave_in_staged_app() {
   # HACK: remove large build-time-only dependencies to reduce app size
   # This is done before moving to -BUILD because brew needs to run from
   # the original built location.
+  # TODO: Doesn't seem to actually be removing rust?
   local big_pkg
-  for big_pkg in "$BIG_BUILD_ONLY_PKGS[@]"; do
-    if "$brew" list --formula | grep -x "$big_pkg"; then
+  info "Removing big build-time-only packages"
+  for big_pkg in "${BIG_BUILD_ONLY_PKGS[@]}"; do
+    info "Checking for big build-time-only package: $big_pkg"
+    if "$brew" list --formula | grep -x "$big_pkg" &>/dev/null; then
+      info "Removing big build-time-only package: $big_pkg"
       wet "$brew" rm "$big_pkg"
     fi
   done
@@ -1168,8 +1178,9 @@ BUILD_SUFFIX=''
 # Whether the build suffix is included in the app name, which is the end-user-visible name used
 # in the "Octave-*.app" file name, and other user-visible places. Generally, turn this on when
 # doing beta and other prerelease or testing builds, and turn it off for real releases, including
-# "u1" updates and the like.
-DO_BUILD_SUFFIX_IN_APP_NAME=n
+# "u1" updates and the like. I don't yet automatically distinguish between prerelease and update
+# suffixes, so I'm manually tweaking this back and forth for now.
+DO_BUILD_SUFFIX_IN_APP_NAME=y
 DO_BUILD_GUI=y
 DO_JAVA=y
 DO_BUILD_DESKTOP=y
