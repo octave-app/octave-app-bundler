@@ -132,15 +132,26 @@ function wet() {
 }
 
 function timeit() {
-  local start_time end_time elapsed_s elapsed_m
-  start_time=$(date +%s)
+  local t0=$(tic)
   "$@"
+  toc "action" "$t0"
+}
+
+function tic() {
+  date +%s
+}
+
+function toc() {
+  local label start_time end_time elapsed_s elapsed_m
+  label="$1"
+  start_time="$2"
   end_time=$(date +%s)
   elapsed_s=$((end_time - start_time))
   elapsed_m=$((elapsed_s / 60))
   elapsed_s=$((elapsed_s - (elapsed_m * 60)))
-  info $(printf "elapsed time: %02d:%02d" $elapsed_m $elapsed_s)
+  info $(printf "elapsed time: %s: %02d:%02d" "$label" "$elapsed_m" "$elapsed_s")
 }
+
 
 # Special functions to turn errexit on/off, to support the special no-errexit debugging
 # control.
@@ -273,6 +284,7 @@ dist_archive_name = ${DIST_ARCHIVE_NAME}
 dmg_file = ${DMG_FILE}
 
 EOS
+
 }
 
 # The OCTAVE_VERSION is a version number of a main Octave release, in "x.y.z" form. The
@@ -433,8 +445,8 @@ function freshen_staged_homebrew() {
   fi
 
   "$brew" update # get new formulae
-  # Looks like brew update resets the branch for taps, so switch it back
-  # *after* the brew update
+  # Looks like brew update resets the branch for taps, so switch it *after* the
+  # brew update
   if [[ -n "$OCTAPP_TAP_BRANCH" ]]; then
     (
       info "Checking out octave-app tap branch ${OCTAPP_TAP_BRANCH}"
@@ -444,8 +456,6 @@ function freshen_staged_homebrew() {
       git fetch --all
       info "Checking out octapp tap branch in pwd: $(pwd)"
       git checkout "$OCTAPP_TAP_BRANCH"
-      info "git status after checkout:"
-      git status
     )
   fi
   "$brew" upgrade # compile new formulae
@@ -1050,6 +1060,8 @@ function do_debug_parse () {
 # Main program
 
 function do_whole_build_process() {
+  local t0
+  t0=$(tic)
   stage_app_build
   freshen_staged_homebrew
   timeit build_octave_in_staged_app
@@ -1063,6 +1075,7 @@ function do_whole_build_process() {
   if [[ "$DO_BUILD_DMG" == "y" ]]; then
     timeit create_dmg
   fi
+  toc "whole build" "$t0"
   info "Build finished."
 }
 
@@ -1193,7 +1206,7 @@ MACHINE_UNAME=$(uname -m)
 # "Constants" and configuration stuff
 # These may be used in only one place, so they could be locals inside functions, but I like to have the definitions
 # of these things all grouped together
-BIG_BUILD_ONLY_PKGS=(rust)
+BIG_BUILD_ONLY_PKGS=(rust llvm)
 
 # Default stuff to build. This is updated frequently to match the latest version of Octave.app
 # we're currently working on.
