@@ -346,19 +346,23 @@ function pick_names_for_things() {
   DMG_FILE="${DIST_ARCHIVE_NAME}.dmg"
 }
 
+# "Staging the app build" means to get the working build in to the final install location
+# at /Applications/Octave-<blah>.app. Might be made fresh, or moved from -BUILT, or
 function stage_app_build() {
   info "Staging app build..."
-  if [[ -e "$INSTALL_DIR" ]]; then
+  if [[ -d "$INSTALL_DIR" ]]; then
+    # Reuse already-staged app build
     if [[ -f "$INSTALL_DIR/STAGING" ]]; then
-      info "Looks like $APP_NAME is already staged; re-using in place"
+      info "Looks like $APP_NAME is already staged at $INSTALL_DIR; re-using in place"
     else
       die "Error: $INSTALL_DIR exists, but is not a staged build. Please move ${INSTALL_DIR} out of the way before running ${THIS_PROGRAM}."
     fi
-  elif [[ -e "$INSTALL_DIR_UNSTAGED" ]]; then
-    info "Re-staging existing build dir from $INSTALL_DIR_UNSTAGED"
-    mv "$INSTALL_DIR_UNSTAGED" "$INSTALL_DIR"
+  elif [[ -d "$INSTALL_BUILT" ]]; then
+    # Move existing staged app build back to staging location
+    info "Re-staging existing build dir from $INSTALL_BUILT"
+    mv "$INSTALL_BUILT" "$INSTALL_DIR"
   else
-    # Create new staged app
+    # Create new staged app build
     info "Creating new staged app build at $INSTALL_DIR"
     osacompile -o "$INSTALL_DIR" -e " "
     cat <<EOS > "$INSTALL_DIR/STAGING"
@@ -375,18 +379,6 @@ For more info about Octave.app and octave-app-bundler, see:
 
 EOS
   fi
-}
-
-function unstage_app_build() {
-  info "Unstaging app build..."
-  if [[ ! -e "${INSTALL_DIR}/STAGING" ]]; then
-    die "${INSTALL_DIR} does not look like a staged build from this tool. Not moving it."
-  fi
-  if [[ -e "${INSTALL_DIR_UNSTAGED}" ]]; then
-    die "There is already an unstaged app build at ${INSTALL_DIR_UNSTAGED}. Cannot un-stage."
-  fi
-  mv "$INSTALL_DIR" "$INSTALL_DIR_UNSTAGED"
-  info "Unstaged the build to ${INSTALL_DIR_UNSTAGED}"
 }
 
 function require_staged_app_build() {
@@ -438,27 +430,24 @@ function freshen_staged_homebrew() {
       )
     fi
     "$brew" tap octave-app/octave-app
-    if [[ -n "$OCTAPP_TAP_BRANCH" ]]; then
-      (
-        info "Checking out octave-app tap branch ${OCTAPP_TAP_BRANCH}"
-        "$brew" update
-        # TODO: support new AS dir layout?
-        cd "${INSTALL_USR}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
-        git fetch --all
-        git checkout "$OCTAPP_TAP_BRANCH"
-      )
-    fi
-    info "Installing special required build-time packages"
-    # svn is needed to fetch the netpbm source
-    # TODO: Could this be fixed by adding a build-time dependency on svn to the netpbm formula?
-    # TODO: Better yet, can we just require a system-level svn? Doesn't seem to work when done
-    # in a separate Homebrew installation (maybe due to brew's environment isolation), so for
-    # now, install it in Octave.app and let it bloat up. If we have to do it this way, then we
-    # should maybe add subversion and its exclusive deps to the list of packages to prune later.
-    "$brew" install subversion
   fi
 
   "$brew" update # get new formulae
+  # Looks like brew update resets the branch for taps, so switch it back
+  # *after* the brew update
+  if [[ -n "$OCTAPP_TAP_BRANCH" ]]; then
+    (
+      info "Checking out octave-app tap branch ${OCTAPP_TAP_BRANCH}"
+      "$brew" update
+      # TODO: support new AS dir layout?
+      cd "${INSTALL_USR}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
+      git fetch --all
+      info "Checking out octapp tap branch in pwd: $(pwd)"
+      git checkout "$OCTAPP_TAP_BRANCH"
+      info "git status after checkout:"
+      git status
+    )
+  fi
   "$brew" upgrade # compile new formulae
   "$brew" cleanup # remove old versions
 
@@ -466,6 +455,22 @@ function freshen_staged_homebrew() {
   sed='/usr/bin/sed'
   "$sed" -E -i '' "s/ARGV.build_bottle./true/g" "${INSTALL_USR}/Homebrew/Library/Homebrew/extend/ENV/super.rb"
   "$sed" -E -i '' "s/ARGV.build_bottle./true/g" "${INSTALL_USR}/Homebrew/Library/Homebrew/extend/ENV/std.rb"
+}
+
+function install_special_build_deps() {
+  info "Installing special required build-time packages"
+  # svn is needed to fetch the netpbm source
+  # TODO: Could this be fixed by adding a build-time dependency on svn to the netpbm formula?
+  # TODO: Better yet, can we just require a system-level svn? Doesn't seem to work when done
+  # in a separate Homebrew installation (maybe due to brew's environment isolation), so for
+  # now, install it in Octave.app and let it bloat up. If we have to do it this way, then we
+  # should maybe add subversion and its exclusive deps to the list of packages to prune later.
+  if brew deps --include-build "$OCTAVE_FORMULA" | grep netpbm | grep -v netpbm-octapp &>/dev/null; then
+    info "Build requires subversion bc it uses regular netpbm. Installing subversion..."
+    wet "$brew" install subversion
+  else
+    info "Build does not require subversion bc no dep on regular netpbm. Not installing subversion."
+  fi
 }
 
 function build_octave_in_staged_app() {
@@ -476,21 +481,24 @@ function build_octave_in_staged_app() {
   require_staged_app_build
 
   if [[ -e "$INSTALL_BUILT" ]]; then
-    die "A built app aleady exists at $INSTALL_BUILT. Needs manual cleanup."
+    die "A built app aleady exists unstaged at $INSTALL_BUILT. Needs manual cleanup."
   fi
 
-  info "Deleting existing Homebrew logs..."
-  if ls ~/Library/Logs/Homebrew/ | grep . &>/dev/null; then
+  info "Deleting existing user Homebrew logs..."
+  if ls "${HOME}/Library/Logs/Homebrew" | grep . &>/dev/null; then
     wet rm -rf "${HOME}/Library/Logs/Homebrew/*"
   fi
 
-  # Set FC to point to gfortran from the brewed gcc inside the built Octave.app
+  # Fortran: set FC to point to gfortran from the brewed gcc inside the built Octave.app
   export FC="${INSTALL_USR}/bin/gfortran"
-  # Use GCC for all scientific libraries
+  # Scientific libraries may need GCC 6, if using GCC
+  # TODO: Is this still needed in 2024? Why exactly did we do it in the first place?
   if [[ "$USE_GCC" == 'y' ]]; then
     export HOMEBREW_CC=gcc-6
     export HOMEBREW_CXX=g++-6
   fi
+
+  install_special_build_deps
 
   # Build octave (and its deps)
   build_opts=""
@@ -524,7 +532,7 @@ function build_octave_in_staged_app() {
 }
 
 # Moves the completed build to a -BUILD copy. At that point it's "pristine" and should no
-# longer be modified.
+# longer be modified. As of 2024-01-18, I think this is redundant with unstage_*.
 function move_build_to_stash() {
   if [[ -e "$INSTALL_BUILT" ]]; then
     die "Cannot stash built app. A build aleady exists at $INSTALL_BUILT. Needs manual cleanup."
@@ -533,9 +541,24 @@ function move_build_to_stash() {
   info "Captured pristine build to ${INSTALL_BUILT} (from $INSTALL_DIR)"
 }
 
+# Unstages the completed/staged build to a -BUILD location. As of 2024-01-18, this is
+# working exactly like move_build_to_stash, and they can probably be unified.
+function unstage_app_build() {
+  info "Unstaging app build..."
+  if [[ ! -f "${INSTALL_DIR}/STAGING" ]]; then
+    die "${INSTALL_DIR} does not look like a staged build from this tool. (Maybe it's a final app from the installer?) Not moving it."
+  fi
+  if [[ -e "$INSTALL_BUILT" ]]; then
+    die "There is already an unstaged app build at ${INSTALL_BUILT}. Cannot un-stage."
+  fi
+  wet mv "$INSTALL_DIR" "$INSTALL_BUILT"
+  info "Unstaged app build to ${INSTALL_BUILT}"
+}
+
+# Capture build logs from unstaged app, user Homebrew logs
 function capture_build_logs() {
   # Capture the logs
-  # This is run after capturing the build to stash
+  # This is run after capturing the build to the unstaged location
   info "Capturing build logs..."
   wet rm -rf "$BUILD_LOG_DIR"
   wet mkdir -p "$BUILD_LOG_DIR"
@@ -549,6 +572,7 @@ function capture_build_logs() {
   fi
 }
 
+# Capture the whole built app from INSTALL_DIR to ./build
 function capture_built_octave_app() {
   # Capture the version info from built binaries to a simple file for use later
   # Get versions dynamically from the built program. Stash them in a file inside
@@ -574,11 +598,8 @@ gs_ver='$gs_ver'
 gs_opt='$gs_opt'
 gs_share='$gs_share'
 EOS
-  "$brew" octave-app-list-formulae >> "${formulae_vers_file}"
+  "$brew" octave-app-list-formulae >> "$formulae_vers_file"
   info "Saved version info to $octapp_ver_file and $formulae_vers_file"
-
-  # And stash it in the "BUILT" location
-  move_build_to_stash
 }
 
 function munge_build() {
@@ -921,7 +942,7 @@ function sign_app() {
   # Signing apparently must happen in the installation location to make codesign happy
   # with its internal symlinks.
   if [[ -e "$INSTALL_DIR" ]]; then
-    die "File exists at ${INSTALL_DIR}. Cannot stage the app to sign."
+    die "File exists at ${INSTALL_DIR}. Cannot stage the munged app to sign."
   fi
   mv "$APP_BUILD" "$INSTALL_DIR"
   # Let's try making all symlinks absolute to get validation to work?
@@ -940,6 +961,7 @@ function sign_app() {
   done <${file_list_file}
   # Do the actual signing
   codesign -s "$CODESIGN_AUTHOR_NAME" -v "$INSTALL_DIR"
+  # And back to the munged build location...
   mv "$INSTALL_DIR" "$APP_BUILD"
 }
 
@@ -1032,12 +1054,11 @@ function do_whole_build_process() {
   freshen_staged_homebrew
   timeit build_octave_in_staged_app
   timeit capture_built_octave_app
+  unstage_app_build
   capture_build_logs
   munge_build
   if [[ "$DO_SIGN" == "y" ]]; then
-    unstage_app_build
     sign_app
-    stage_app_build
   fi
   if [[ "$DO_BUILD_DMG" == "y" ]]; then
     timeit create_dmg
@@ -1048,6 +1069,7 @@ function do_whole_build_process() {
 function parse_cli_args() {
   local arg
 
+  REMAINDER_ARGS=()
   while [[ $# -ge 1 ]]; do
     arg="$1"; shift
     case "$arg" in
@@ -1101,12 +1123,14 @@ function parse_cli_args() {
       -y | --dry-run)
         DRY_RUN=y ;;
       --)
+        REMAINDER_ARGS=("$@")
         break ;;
       brew)
-        ACTION="brew"
+        ACTION="$arg"
+        REMAINDER_ARGS=("$@")
         break ;;
       *)
-        die "Error: Invalid option: $1. See ${THIS_PROGRAM} --help for help." ;;
+        die "Error: Invalid option: $arg. See ${THIS_PROGRAM} --help for help." ;;
     esac
   done
 }
@@ -1121,14 +1145,17 @@ function main () {
   if [[ -n "$ACTION" ]]; then
     case "$ACTION" in
       brew)
+        disable_errexit
         stage_app_build
-        "$brew" "$@"
+        info "Running brew command: ${brew} ${REMAINDER_ARGS[@]}"
+        "$brew" "${REMAINDER_ARGS[@]}"
         exit_status=$?
+        info "brew exit status: ${exit_status}"
         unstage_app_build
         exit $exit_status
         ;;
       *)
-        die "Invalid action: '$ACTION'. Valid actions are: brew"
+        die "Invalid special action: '$ACTION'. Valid actions are: brew"
         ;;
     esac
   fi
@@ -1143,7 +1170,7 @@ function main () {
       stage)            stage_app_build ;;
       unstage)          unstage_app_build ;;
       freshen-homebrew) freshen_staged_homebrew ;;
-      build)            build_octave ;;
+      build)            build_octave_in_staged_app ;;
       capture)          capture_built_octave_app ;;
       capture-logs)     capture_build_logs ;;
       munge)            munge_build ;;
@@ -1245,7 +1272,9 @@ info "Building ${APP_NAME}.app at ${INSTALL_DIR} from brew formula ${OCTAVE_FORM
 # need to keep this. Either way, document it.
 PATH="${INSTALL_USR}/bin/:$PATH"
 
-if [[ -n "$DRY_RUN" ]]; then
+# TODO: This early exit needs to go away once dry-run support in the various steps
+# is working.
+if is_dry_run; then
   info
   info "DRY RUN: Not actually doing anything."
   info
