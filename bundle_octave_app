@@ -242,10 +242,11 @@ function usage() {
     -x, --trace
       Trace program execution (even more detail than --verbose). You can also set the
       TRACE=1 environment variable to get the same effect.
-    -e, --exit-on-errors
-      Exit on errors. This is now on by default, though it was off in older versions.
     -Y, --dry-run
       Compute values but do not actually build. (Experimental. May fail in various ways.)
+
+    --debug-no-errexit
+      Do not exit on errors. This is a low-level debugging option only for developers.
 
 EOHELP
 }
@@ -1133,8 +1134,10 @@ function parse_cli_args() {
         OCTAVE_FORMULA_VERSION="$1"; shift ;;
       -x | --trace)
         DO_TRACE=y ;;
-      -y | --dry-run)
+      -Y | --dry-run)
         DRY_RUN=y ;;
+      --debug-no-errexit)
+        EXIT_ON_ERROR=n ;;
       --)
         REMAINDER_ARGS=("$@")
         break ;;
