@@ -13,4 +13,4 @@
 # release in those series. The builds are barely working, so I'm calling them alpha
 # releases for now.
 
-./bundle_octave_app --build-suffix alpha3 --tap-branch "new-2023-versions" "$@"
+./bundle_octave_app --build-suffix alpha4 --tap-branch "lets-go-pikachu-24" "$@"
