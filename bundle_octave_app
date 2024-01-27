@@ -1244,9 +1244,7 @@ USE_GCC=n
 ACTION=
 BUILD_STEP=
 DO_SIGN=n
-# Do verbose by default while debugging this script
-# VERBOSE=n
-VERBOSE=y
+VERBOSE=n
 EXIT_ON_ERROR=y
 DO_TRACE=n
 BUILD_DIR=./build
