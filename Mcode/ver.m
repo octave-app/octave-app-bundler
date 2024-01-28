@@ -62,12 +62,6 @@ function retval = ver (package = "")
     print_usage ();
   endif
 
-  # HACK: We know this lives in share/octave/site/m, so just look up a dir
-  my_dir = fileparts (mfilename ("fullpath"));
-  my_site_dir = fileparts (my_dir);
-  octave_app_release_file = fullfile (my_site_dir, "Octave.app-RELEASE.txt");
-  octave_app_release = readOctaveAppReleaseFile (octave_app_release_file);
-
   if (nargout == 0)
     hg_id = __octave_config_info__ ("hg_id");
 
@@ -126,26 +120,101 @@ function retval = ver (package = "")
 
 endfunction
 
+function v = ver (package = "")
+
+  if (nargout == 0)
+    # Octave.app customization
+    # HACK: We know this lives in share/octave/site/m, so just look up a dir
+    my_dir = fileparts (mfilename ("fullpath"));
+    my_site_dir = fileparts (my_dir);
+    octave_app_release_file = fullfile (my_site_dir, "Octave.app-RELEASE.txt");
+    octave_app_release = readOctaveAppReleaseFile (octave_app_release_file);
+    # end Octave.app customization
+
+    hg_id = __octave_config_info__ ("hg_id");
+
+    [unm, err] = uname ();
+
+    if (err)
+      os_string = "unknown";
+    else
+      os_string = sprintf ("%s %s %s %s",
+                           unm.sysname, unm.release, unm.version, unm.machine);
+    endif
+
+    hbar(1:70) = "-";
+    # Octave.app customization
+    desc = {hbar
+            ["GNU Octave Version: " OCTAVE_VERSION " (hg id: " hg_id ")"]
+            ["Octave.app Version: " octave_app_release]
+            ["GNU Octave License: " license]
+            ["Operating System: " os_string]
+            hbar};
+    # end Octave.app customization
+
+    printf ("%s\n", desc{:});
+
+    if (isempty (package))
+      pkg ("list");
+    elseif (strcmpi (package, "Octave"))
+      ## Nothing to do, Octave version was already reported
+    else
+      pkg ("list", package);
+    endif
+  else
+    ## Return outputs rather than displaying summary to screen.
+    if (isempty (package))
+      ## Start with the version info for Octave
+      [octver, octdate] = version ();
+      v = struct ("Name", "Octave", "Version", octver,
+                  "Release", [], "Date", octdate);
+      lst = pkg ("list");
+      for i = 1:numel (lst)
+        v(end+1) = struct ("Name", lst{i}.name, "Version", lst{i}.version,
+                           "Release", [], "Date", lst{i}.date);
+      endfor
+    elseif (strcmpi (package, "Octave"))
+      [octver, octdate] = version ();
+      v = struct ("Name", "Octave", "Version", octver,
+                  "Release", [], "Date", octdate);
+    else
+      lst = pkg ("list", package);
+      if (isempty (lst))
+        v = struct ("Name", {}, "Version", {}, "Release", {}, "Date", {});
+      else
+        v = struct ("Name", lst{1}.name, "Version", lst{1}.version,
+                    "Release", [], "Date", lst{1}.date);
+      endif
+    endif
+  endif
+
+endfunction
+
 function out = readOctaveAppReleaseFile (file)
   [fid, msg] = fopen (file);
   if fid < 0
     out = '<unknown (missing Octave.app-RELEASE.txt file)>';
     return;
   endif
-  cleanup.fid = onCleanup (@() fclose (fid));
+  RAII.fid = onCleanup (@() fclose (fid));
   txt = fread (fid, Inf, 'char=>char');
   txt = txt';
   txt = regexprep (txt, '\s*$', '');
   out = txt;
 end
 
+
 %!test
 %! result = ver;
 %! assert (result(1).Name, "Octave");
-%! assert (result(1).Version, version);
+%! assert (result(1).Version, OCTAVE_VERSION ());
+%! assert (result(1).Release, []);
+%! assert (result(1).Date, __octave_config_info__ ("release_date"));
 %! result = ver ("octave");
-%! assert (result(1).Name, "Octave");
-%! assert (result(1).Version, version);
+%! assert (result.Name, "Octave");
+%! assert (result.Version, OCTAVE_VERSION ());
+%! assert (result.Release, []);
+%! assert (result.Date, __octave_config_info__ ("release_date"));
 
 %!test
 %! lst = pkg ("list");
