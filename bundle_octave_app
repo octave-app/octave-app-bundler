@@ -173,8 +173,11 @@ function enable_errexit() {
 }
 
 function detect_dependencies() {
-  # Build-time dependencies on system-installed programs. We use system-installed ones instead
-  # of installing them in to Octave.app to avoid bloating the app.
+  # Check that dependencies of this tool (not of Octave.app) are available. We use
+  # system-installed ones instead of installing them in to Octave.app to avoid bloating
+  # the app build, and because some are needed before the app is built at all.
+  #
+  # Sets: CREATEDMG_HOME
   if ! which gsed >/dev/null; then
     die "Could not find gsed. This tool requires gsed, not just regular macOS (BSD) sed."
   fi
@@ -213,16 +216,20 @@ function usage() {
       Set a build version suffix. Used to distinguish revisions and updates
       to Octave.app's packaging, like 'u1' or 'u2'. This can be used for beta builds, too,
       like `-u beta1`. [$BUILD_SUFFIX]
-    -t, --with-test
-      Do not run tests on completed app.
+    --pre-release <name>
+      Declare this to be a prerelease of a given name, using that as the build suffix.
+      E.g., 'alpha1' or 'beta1'.
+    --update-release <name>
+      Declare this to be an update of a given name, using that as the build suffix.
+      E.g., 'u1' or 'u2'.
     --sign
       Sign the completed app bundle.
 
   Octave build options:
     -a, --variant <variant>
-      Variant of Octave.app to build [$VARIANT].
+      Variant of Octave.app to build. [$VARIANT]
     -V, --octave-version <version>
-      Version of Octave formula to build (affects formula choice) [$OCTAVE_VERSION].
+      Version of Octave formula to build, affecting formula choice. [$OCTAVE_VERSION]
     -c, --cli-only
       Do not build the GUI.
     -C, --cli-frontend
@@ -231,6 +238,8 @@ function usage() {
       Compile without Java support.
     -d, --build-devel
       Build the latest Octave development snapshot instead of a released version.
+    --tap-branch <branch>
+      Use an alternate branch instead of main in the homebrew-octave-app tap.
 
   Debugging options:
     -h, -?, --help
@@ -244,6 +253,8 @@ function usage() {
       TRACE=1 environment variable to get the same effect.
     -Y, --dry-run
       Compute values but do not actually build. (Experimental. May fail in various ways.)
+    --show-options
+      Just show the effective options and resulting choices and exit.
 
     --debug-no-errexit
       Do not exit on errors. This is a low-level debugging option only for developers.
@@ -252,16 +263,28 @@ EOHELP
 }
 
 function echo_options() {
-  local git_sha=$(git log --pretty=format:'%h' -n 1)
-  local hostname=$(hostname)
+  local hostname oab_git_sha xcode_version oab_git_status oab_gitstate_extra oab_ver
+  hostname=$(hostname)
+  oab_git_sha=$(git -C "$OCTAPPBUNDLER_HOME" log --pretty=format:'%h' -n 1)
+  oab_git_status=$(git -C "$OCTAPPBUNDLER_HOME" status --porcelain)
+  if [[ -n "$oab_git_status" ]]; then
+    oab_ver="${oab_git_sha}+"
+    oab_gitstate_extra=' (with local changes)'
+  else
+    oab_ver="${oab_git_sha}"
+    oab_gitstate_extra=''
+  fi
+  xcode_version=$(xcodebuild -version | sed -En 's/Xcode[[:space:]]+([0-9.]+)/\1/p')
 
   cat <<EOS
 
-${THIS_PROGRAM} (${git_sha}) run at $(date) on ${hostname}
+${THIS_PROGRAM} run at $(date) on ${hostname}
+  Xcode ${xcode_version}, macOS ${MACHINE_MACOS_VER}, arch ${MACHINE_ARCH} (${MACHINE_ARCH_DESCR})
+  ${THIS_PROGRAM} from git commit ${oab_ver}${oab_gitstate_extra}
 
 Options:
 variant = ${VARIANT}
-build_suffix = ${BUILD_SUFFIX}
+build_suffix = ${BUILD_SUFFIX} (prerelease = ${PRE_RELEASE}, update_release = ${UPDATE_RELEASE})
 octave_formula = ${OCTAVE_FORMULA}
 octave_formula_version = ${OCTAVE_FORMULA_VERSION}
 octapp_tap_branch = ${OCTAPP_TAP_BRANCH}
@@ -339,7 +362,7 @@ function pick_names_for_things() {
     APP_NAME="${app_base_name}-${OCTAVE_VERSION}"
   fi
   local dist_arch_extra='' build_extra=''
-  if [[ $MACHINE_UNAME == 'x86_64' ]]; then
+  if [[ $MACHINE_ARCH == 'x86_64' ]]; then
     dist_arch_extra="-Intel"
   fi
   if [[ -z "$BUILD_SUFFIX" ]]; then
@@ -998,7 +1021,7 @@ function create_dmg() {
   info "Creating dist DMG at ${BUILD_DIR}/${DMG_FILE}"
 
   # Detect tap location, which varies between Intel and AS
-  if [[ $MACHINE_UNAME == 'arm64' ]]; then
+  if [[ $MACHINE_ARCH == 'arm64' ]]; then
     # TODO: Fix this path?
     octapp_tap_dir="${INSTALL_BUILT_USR}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
   else
@@ -1098,13 +1121,16 @@ function parse_cli_args() {
         DO_BUILD_DESKTOP=n ;;
       -d | --build-devel)
         DO_BUILD_DEVEL=y ;;
-      -E | --ignore-errors)
-        exit_on_error=n ;;
       -f | --octave-formula)
         if [[ $# -lt 1 ]]; then
           die "option $arg requires an argument"
         fi
         OCTAVE_FORMULA_BASE="$1"; shift ;;
+      -V | --octave-version)
+        if [[ $# -lt 1 ]]; then
+          die "option $arg requires an argument"
+        fi
+        OCTAVE_FORMULA_VERSION="$1"; shift ;;
       -g | --use-gcc)
         USE_GCC=y ;;
       -h | --help| -\?)
@@ -1125,15 +1151,22 @@ function parse_cli_args() {
           die "option $arg requires an argument"
         fi
         BUILD_SUFFIX="$1"; shift ;;
-      -v | --verbose)
-        VERBOSE=y  ;;
-      -V | --octave-version)
+      --pre-release)
         if [[ $# -lt 1 ]]; then
           die "option $arg requires an argument"
         fi
-        OCTAVE_FORMULA_VERSION="$1"; shift ;;
+        PRE_RELEASE="$1"; shift ;;
+      --update-release)
+        if [[ $# -lt 1 ]]; then
+          die "option $arg requires an argument"
+        fi
+        UPDATE_RELEASE="$1"; shift ;;
+      -v | --verbose)
+        VERBOSE=y  ;;
       -x | --trace)
         DO_TRACE=y ;;
+      --show-options)
+        DO_JUST_SHOW_OPTIONS=y ;;
       -Y | --dry-run)
         DRY_RUN=y ;;
       --debug-no-errexit)
@@ -1149,6 +1182,28 @@ function parse_cli_args() {
         die "Error: Invalid option: $arg. See ${THIS_PROGRAM} --help for help." ;;
     esac
   done
+
+  # Handle inter-option stuff
+  local n_suffixes=0 x
+  local -a suffix_vals
+  suffix_vals=("$BUILD_SUFFIX" "$PRE_RELEASE" "$UPDATE_RELEASE")
+  for x in "${suffix_vals[@]}"; do
+    if [[ -n "$x" ]]; then
+      n_suffixes=$(( n_suffixes + 1 ))
+    fi
+  done
+  if [[ $n_suffixes > 1 ]]; then
+    die "Only one of --build-suffix, --prerelease, or --update-release may be given; got $n_suffixes of them"
+  fi
+
+  if [[ -n "$PRE_RELEASE" ]]; then
+    BUILD_SUFFIX="$PRE_RELEASE"
+    DO_BUILD_SUFFIX_IN_APP_NAME=y
+  fi
+  if [[ -n "$UPDATE_RELEASE" ]]; then
+    BUILD_SUFFIX="$UPDATE_RELEASE"
+    DO_BUILD_SUFFIX_IN_APP_NAME=n
+  fi
 }
 
 function main () {
@@ -1157,7 +1212,7 @@ function main () {
   # Code setup
   enable_errexit
 
-  # Handle special actions first (each of these should exit)
+  # Handle special actions first (each of these should exit when done)
   if [[ -n "$ACTION" ]]; then
     case "$ACTION" in
       brew)
@@ -1174,6 +1229,7 @@ function main () {
         die "Invalid special action: '$ACTION'. Valid actions are: brew"
         ;;
     esac
+    die "internal error: special action '$ACTION' did not exit the program"
   fi
 
   # Main build process
@@ -1204,31 +1260,43 @@ function main () {
 
 # Main top-level code
 
-MACHINE_UNAME=$(uname -m)
+# Vars which do not depend on picked names or detected dependencies
 
 # "Constants" and configuration stuff
+#
 # These may be used in only one place, so they could be locals inside functions, but I like to have the definitions
 # of these things all grouped together
+MACHINE_ARCH=$(uname -m)
+if [[ $MACHINE_ARCH = 'x86_64' ]]; then
+  MACHINE_ARCH_DESCR='Intel'
+elif [[ $MACHINE_ARCH = 'arm64' ]]; then
+  MACHINE_ARCH_DESCR='Apple Silicon'
+else
+  MACHINE_ARCH_DESCR="$MACHINE_ARCH"
+fi
 BIG_BUILD_ONLY_PKGS=(rust llvm)
 
-# Default stuff to build. This is updated frequently to match the latest version of Octave.app
+# Controls for what gets built
+
+# Default version to build. This is updated frequently to match the latest version of Octave.app
 # we're currently working on.
 DEFAULT_OCTAVE_FORMULA_VERSION="8.4.0"
-
-# Controls for what gets built
 VARIANT=
-BUILD_SUFFIX=''
+BUILD_SUFFIX=
+PRE_RELEASE=
+UPDATE_RELEASE=
 # Whether the build suffix is included in the app name, which is the end-user-visible name used
 # in the "Octave-*.app" file name, and other user-visible places. Generally, turn this on when
 # doing beta and other prerelease or testing builds, and turn it off for real releases, including
-# "u1" updates and the like. I don't yet automatically distinguish between prerelease and update
-# suffixes, so I'm manually tweaking this back and forth for now.
-DO_BUILD_SUFFIX_IN_APP_NAME=y
+# "u1" updates and the like. The --pre-release and --update-release options (instead of the generic
+# --build-suffix option) will handle this for you.
+DO_BUILD_SUFFIX_IN_APP_NAME=n
 DO_BUILD_GUI=y
 DO_JAVA=y
 DO_BUILD_DESKTOP=y
 DO_BUILD_DEVEL=n
 DO_SIGN=n
+DO_JUST_SHOW_OPTIONS=n
 CODESIGN_AUTHOR_NAME='Andrew Janke'
 # Define these if we need to use a special branch of Homebrew
 BREW_REMOTE_URL=
@@ -1252,24 +1320,31 @@ BUILD_LOG_DIR="$BUILD_DIR/logs"
 DRY_RUN=
 
 OCTAPPBUNDLER_HOME=$(dirname $0)
-MACHINE_MACOS_VER_MAJMIN=$(sw_vers -productVersion | gsed -E 's/^(\w+\.\w+).*/\1/')
+MACHINE_MACOS_VER=$(sw_vers -productVersion)
+MACHINE_MACOS_VER_MAJMIN=$(sw_vers -productVersion | sed -E 's/^(\w+\.\w+).*/\1/')
 
 parse_cli_args "$@"
-detect_dependencies
 pick_names_for_things
 
+# dep detection must come before echo_options, which shows its results and thus needs it
+detect_dependencies
+
+# Vars that do depend on chosen names and/or detected dependencies
 INSTALL_DIR="/Applications/${APP_NAME}.app"
 INSTALL_BUILT="/Applications/${APP_NAME}-BUILT.app"
 INSTALL_DIR_UNSTAGED="${INSTALL_DIR}-UNSTAGED"
-
 INSTALL_USR="$INSTALL_DIR/Contents/Resources/usr"
 INSTALL_BUILT_USR="$INSTALL_BUILT/Contents/Resources/usr"
 brew="$INSTALL_USR/bin/brew"
 APP_BUILD="./build/${APP_NAME}.app"
 APP_BUILD_USR="$APP_BUILD/Contents/Resources/usr"
 
-if [[ "$VERBOSE" == "y" ]]; then
+
+if [[ "$VERBOSE" == "y" || "$DO_JUST_SHOW_OPTIONS" == "y" ]]; then
   echo_options
+fi
+if [[ "$DO_JUST_SHOW_OPTIONS" == "y" ]]; then
+  exit 0
 fi
 if [[ "$DO_TRACE" == "y" ]]; then
   set -o xtrace
