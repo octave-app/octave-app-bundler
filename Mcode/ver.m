@@ -37,6 +37,9 @@
 ## describing Octave and each installed package.  The structure includes the
 ## following fields.
 ##
+## NOTE: This version of @{code} has been customized by Octave.app, and is not
+## identical to the version in core Octave.
+##
 ## @table @code
 ## @item Name
 ## Package name.
@@ -55,70 +58,7 @@
 ## @end deftypefn
 
 ## Author: William Poetra Yoga Hadisoeseno <williampoetra@gmail.com>
-
-function retval = ver (package = "")
-
-  if (nargin > 1)
-    print_usage ();
-  endif
-
-  if (nargout == 0)
-    hg_id = __octave_config_info__ ("hg_id");
-
-    [unm, err] = uname ();
-
-    if (err)
-      os_string = "unknown";
-    else
-      os_string = sprintf ("%s %s %s %s",
-                           unm.sysname, unm.release, unm.version, unm.machine);
-    endif
-
-    hbar(1:70) = "-";
-    desc = {hbar
-            ["GNU Octave Version: " OCTAVE_VERSION " (hg id: " hg_id ")"]
-            ["Octave.app Version: " octave_app_release]
-            ["GNU Octave License: " license]
-            ["Operating System: " os_string]
-            hbar};
-
-    printf ("%s\n", desc{:});
-
-    if (isempty (package))
-      pkg ("list");
-    elseif (strcmpi (package, "Octave"))
-      ## Nothing to do, Octave version was already reported
-    else
-      pkg ("list", package);
-    endif
-  else
-    ## Get the installed packages
-    if (isempty (package))
-      lst = pkg ("list");
-      ## Start with the version info for Octave
-      retval = struct ("Name", "Octave", "Version", version,
-                       "Release", [],
-                       "Date", __octave_config_info__ ("release_date"));
-      for i = 1:numel (lst)
-        retval(end+1) = struct ("Name", lst{i}.name, "Version", lst{i}.version,
-                                "Release", [], "Date", lst{i}.date);
-      endfor
-    elseif (strcmpi (package, "Octave"))
-      retval = struct ("Name", "Octave", "Version", version,
-                       "Release", [], "Date", []);
-    else
-      lst = pkg ("list", package);
-      if (isempty (lst))
-        retval = struct ("Name", {}, "Version", {},
-                         "Release", {}, "Date", {});
-      else
-        retval = struct ("Name", lst{1}.name, "Version", lst{1}.version,
-                         "Release", [], "Date", lst{1}.date);
-      endif
-    endif
-  endif
-
-endfunction
+## Author: Andrew Janke <floss@apjanke.net>
 
 function v = ver (package = "")
 
