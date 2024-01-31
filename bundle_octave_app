@@ -128,6 +128,7 @@ function wet() {
   else
     verbose "running: $*"
     "$@"
+    return $?
   fi
 }
 
@@ -500,16 +501,15 @@ function install_special_build_deps() {
   # now, install it in Octave.app and let it bloat up. If we have to do it this way, then we
   # should maybe add subversion and its exclusive deps to the list of packages to prune later.
   if brew deps --include-build "$OCTAVE_FORMULA" | grep netpbm | grep -v netpbm-octapp &>/dev/null; then
-    info "Build requires subversion bc it uses regular netpbm. Installing subversion..."
+    info "This build requires subversion bc it uses regular netpbm. Installing subversion..."
     wet "$brew" install subversion
   else
-    info "Build does not require subversion bc no dep on regular netpbm. Not installing subversion."
+    info "This build does not require subversion bc no dep on regular netpbm. Not installing subversion."
   fi
 }
 
 function build_octave_in_staged_app() {
-  local build_opts
-  local -a
+  local build_opts brew_inst_octapp_exit
 
   info "Building Octave.app..."
   require_staged_app_build
@@ -548,12 +548,18 @@ function build_octave_in_staged_app() {
   if [[ "$DO_JAVA" != "y" ]]; then
     build_opts="$build_opts --without-java"
   fi
+  disable_errexit
   wet "$brew" install "$OCTAVE_FORMULA" $build_opts
+  brew_inst_octapp_exit=$?
+  info "brew install <octapp> exit status: $brew_inst_octapp_exit"
+  if [[ $brew_inst_octapp_exit != 0 ]]; then
+    die "brew install returned failure ($brew_inst_octapp_exit); aborted."
+  fi
+  enable_errexit
 
   # HACK: remove large build-time-only dependencies to reduce app size
-  # This is done before moving to -BUILD because brew needs to run from
+  # This is done before moving to -BUILT because brew needs to run from
   # the original built location.
-  # TODO: Doesn't seem to actually be removing rust?
   local big_pkg
   info "Removing big build-time-only packages"
   for big_pkg in "${BIG_BUILD_ONLY_PKGS[@]}"; do
@@ -565,8 +571,8 @@ function build_octave_in_staged_app() {
   done
 }
 
-# Moves the completed build to a -BUILD copy. At that point it's "pristine" and should no
-# longer be modified. As of 2024-01-18, I think this is redundant with unstage_*.
+# Moves the completed build to a -BUILT copy. At that point it's "pristine" and should
+# (mostly) no longer be modified. As of 2024-01-18, I think this is redundant with unstage_*.
 function move_build_to_stash() {
   if [[ -e "$INSTALL_BUILT" ]]; then
     die "Cannot stash built app. A build aleady exists at $INSTALL_BUILT. Needs manual cleanup."
