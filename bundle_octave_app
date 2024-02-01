@@ -6,8 +6,8 @@
 # ~/Library/Logs/Homebrew. This is so it can differentiate logs for the formulae
 # built for Octave.app from those for any main system-level Homebrew installation.
 #
-# TODO: See if we can isolate the Octave.app Homebrew build logs somehow, and be
-# less destructive here.
+# This script uses sudo when creating the disk image (DMG), and you will need to
+# enter your password interactively at that point.
 #
 # Hints:
 #
@@ -55,7 +55,7 @@
 # Note: Older versions of this had support for explicit build architectures (using
 # $build_arch), but that disappeared as of 2021. May need to re-add it to support
 # older Macs.
-
+#
 # TODO: This is breaking again due to netpbm needing svn to download its source code
 # when installing to an alternate prefix.
 #
@@ -63,7 +63,7 @@
 # ==> Checking out 4686
 # You must: brew install svn
 # Error: octave-octapp@8.3.0: Failed to download resource "netpbm"
-
+#
 # TODO: Fix this "python not found" error at the end of the build. Might be as simple as
 # using 'python3' instead, since that exists on macOS 12 and 14.
 #
@@ -74,7 +74,10 @@
 # Munging app build at ./build/Octave-8.3.0.app
 # Octave versions: ver='8.3.0' ver_string='GNU Octave, version 8.3.0' copy='1993-2023 The Octave Project Developers.'
 # ./bundle_octave_app: line 695: /usr/bin/python: No such file or directory
-
+#
+# TODO: See if we can isolate the Octave.app Homebrew build logs somehow, and be
+# less destructive here.
+#
 # TODO: version style controls for app name
 #   # valid: 'major', 'minor', 'patch', 'full', or 'none'
 #   appname_ver_style='minor'
@@ -1041,9 +1044,12 @@ function create_dmg() {
   local app_build_octapp_keg="${APP_BUILD}/Contents/Resources/usr/Cellar/${OCTAVE_FORMULA}/${OCTAVE_FORMULA_VERSION}"
   local createdmg_extra=''
   if [[ $VERBOSE = 'y' ]]; then
-    createdmg_extra='--verbose'
+    createdmg_extra="${createdmg_extra} --verbose"
   fi
-  wet "${CREATEDMG_HOME}/create-dmg" \
+  if [[ $DEBUG_VERBOSE = 'y' ]]; then
+    createdmg_extra="${createdmg_extra} --hdiutil-verbose"
+  fi
+  wet sudo "${CREATEDMG_HOME}/create-dmg" \
       ${createdmg_extra} \
       --volname "${DMG_VOLUME_NAME}" \
       --volicon "${APP_BUILD}/Contents/Resources/applet.icns" \
@@ -1059,6 +1065,7 @@ function create_dmg() {
       --background "${OCTAPPBUNDLER_HOME}/assets/background.tiff" \
       "${BUILD_DIR}/${DMG_FILE}" \
       "$APP_BUILD"
+  sudo chown "$USER" "${BUILD_DIR}/${DMG_FILE}"
 
   info "DMG ready at: ${BUILD_DIR}/${DMG_FILE}"
 }
@@ -1177,6 +1184,8 @@ function parse_cli_args() {
         DRY_RUN=y ;;
       --debug-no-errexit)
         EXIT_ON_ERROR=n ;;
+      --debug-verbose)
+        DEBUG_VERBOSE=y ;;
       --)
         REMAINDER_ARGS=("$@")
         break ;;
@@ -1253,7 +1262,7 @@ function main () {
       capture-logs)     capture_build_logs ;;
       munge)            munge_build ;;
       sign)             sign_app ;;
-      dmg)              create_dmg ;;
+      createdmg)        create_dmg ;;
       test)             test_app ;;
       # Undocumented debugging "steps"
       debug-parse)      do_debug_parse ;;
@@ -1319,6 +1328,7 @@ ACTION=
 BUILD_STEP=
 DO_SIGN=n
 VERBOSE=n
+DEBUG_VERBOSE=n
 EXIT_ON_ERROR=y
 DO_TRACE=n
 BUILD_DIR=./build

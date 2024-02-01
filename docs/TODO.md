@@ -20,6 +20,13 @@ Nothing specific at the moment.
 * Remove "..." ellipses from before-action progress messages?
 * Make Qt dependency nonoptional? There's kinda no point in building a non-GUI Octave.app, and it would make the formulae cleaner, esp. in terms of diffs wrt the core formulae.
 
+## Disk image stuff
+
+* Use APFS instead of HFS+?
+* Don't internet-enable?
+  * See: DropDMG: <https://c-command.com/dropdmg/help/internet-enabled>
+* Read: <http://preserve.mactech.com/articles/mactech/Vol.20/20.01/DistributingYourSoftware/index.html>
+
 ## Refactoring and code style
 
 * Better names for path variables
