@@ -1053,6 +1053,7 @@ function create_dmg() {
       ${createdmg_extra} \
       --volname "${DMG_VOLUME_NAME}" \
       --volicon "${APP_BUILD}/Contents/Resources/applet.icns" \
+      --filesystem APFS \
       --window-size 550 500 \
       --icon-size 48 \
       --icon "${APP_NAME}.app" 125 180 \
