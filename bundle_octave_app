@@ -692,7 +692,9 @@ function munge_build() {
 default_pkg_prefix = pkg ("prefix");
 octave_app_pkg_prefix = [getenv("HOME") "/Library/Application Support/Octave.app/${VERSION_NAME}/pkg"];
 % Create the directory ourselves to avoid a warning in the console
-mkdir (octave_app_pkg_prefix);
+if !isfolder (octave_app_pkg_prefix)
+  mkdir (octave_app_pkg_prefix);
+endif
 pkg ("prefix", octave_app_pkg_prefix, octave_app_pkg_prefix);
 pkg ("local_list", [octave_app_pkg_prefix "/octave_packages"]);
 clear default_pkg_prefix octave_app_pkg_prefix
