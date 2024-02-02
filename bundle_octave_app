@@ -1051,7 +1051,7 @@ function create_dmg() {
   if [[ $DEBUG_VERBOSE = 'y' ]]; then
     createdmg_extra="${createdmg_extra} --hdiutil-verbose"
   fi
-  wet sudo "${CREATEDMG_HOME}/create-dmg" \
+  wet ${SUDO} "${CREATEDMG_HOME}/create-dmg" \
       ${createdmg_extra} \
       --volname "${DMG_VOLUME_NAME}" \
       --volicon "${APP_BUILD}/Contents/Resources/applet.icns" \
@@ -1068,7 +1068,9 @@ function create_dmg() {
       --background "${OCTAPPBUNDLER_HOME}/assets/background.tiff" \
       "${BUILD_DIR}/${DMG_FILE}" \
       "$APP_BUILD"
-  sudo chown "$USER" "${BUILD_DIR}/${DMG_FILE}"
+  if [[ $USE_SUDO == 'y' ]]; then
+    sudo chown "$USER" "${BUILD_DIR}/${DMG_FILE}"
+  fi
 
   info "DMG ready at: ${BUILD_DIR}/${DMG_FILE}"
 }
@@ -1177,6 +1179,8 @@ function parse_cli_args() {
           die "option $arg requires an argument"
         fi
         UPDATE_RELEASE="$1"; shift ;;
+      --no-sudo)
+        USE_SUDO=n ;;
       -v | --verbose)
         VERBOSE=y  ;;
       -x | --trace)
@@ -1337,6 +1341,7 @@ DO_TRACE=n
 BUILD_DIR=./build
 BUILD_LOG_DIR="$BUILD_DIR/logs"
 DRY_RUN=
+USE_SUDO=y
 
 OCTAPPBUNDLER_HOME=$(dirname $0)
 MACHINE_MACOS_VER=$(sw_vers -productVersion)
@@ -1344,6 +1349,13 @@ MACHINE_MACOS_VER_MAJMIN=$(sw_vers -productVersion | sed -E 's/^(\w+\.\w+).*/\1/
 
 parse_cli_args "$@"
 pick_names_for_things
+
+# Here, SUDO is a "command list" variable that should not be quoted
+if [[ $USE_SUDO == 'y' ]]; then
+  SUDO='sudo'
+else
+  SUDO=''
+fi
 
 # dep detection must come before echo_options, which shows its results and thus needs it
 detect_dependencies
