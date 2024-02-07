@@ -57,4 +57,4 @@ The word "bundler" as used in this project has nothing to do with Ruby's [Bundle
 
 ## License
 
-GNU GPL Version 2.
+octave-app-bundler is licensed under the GNU GPL Version 2 or later.
