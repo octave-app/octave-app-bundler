@@ -13,4 +13,8 @@
 # release in those series. The builds are barely working, so I'm calling them alpha
 # releases for now.
 
-./bundle_octave_app --verbose --pre-release beta1 --tap-branch lets-go-8-4-oh "$@"
+# Was doing this last week:
+# ./bundle_octave_app --verbose --pre-release beta1 --tap-branch lets-go-8-4-oh "$@"
+
+# But now we're ready to go:
+./bundle_octave_app --verbose "$@"
