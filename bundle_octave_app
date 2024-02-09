@@ -487,7 +487,7 @@ function freshen_staged_homebrew() {
     )
   fi
   "$brew" upgrade # compile new formulae
-  "$brew" cleanup # remove old versions
+  "$brew" cleanup # remove old versions and cached files
 
   # Force conservative architecture builds in brew's ENV
   sed='/usr/bin/sed'
@@ -572,6 +572,9 @@ function build_octave_in_staged_app() {
       wet "$brew" rm "$big_pkg"
     fi
   done
+
+  info "Doing brew cleanup after successful app build"
+  wet "$brew" cleanup
 }
 
 # Moves the completed build to a -BUILT copy. At that point it's "pristine" and should
