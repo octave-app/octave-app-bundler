@@ -1,7 +1,11 @@
-## Copyright (C) 2005-2018 William Poetra Yoga Hadisoeseno
-## Copyright (C) 2019 Andrew Janke
+########################################################################
 ##
-## This file is part of Octave.app, a distribution of GNU Octave.
+## Copyright (C) 2005-2024 The Octave Project Developers
+##
+## See the file COPYRIGHT.md in the top-level directory of this
+## distribution or <https://octave.org/copyright/>.
+##
+## This file is part of Octave.
 ##
 ## Octave is free software: you can redistribute it and/or modify it
 ## under the terms of the GNU General Public License as published by
@@ -16,6 +20,10 @@
 ## You should have received a copy of the GNU General Public License
 ## along with Octave; see the file COPYING.  If not, see
 ## <https://www.gnu.org/licenses/>.
+##
+########################################################################
+
+## Author: Andrew Janke <floss@apjanke.net> (for Octave.app customizations)
 
 ## This is Octave.app's custom modification of Octave's ver() function.
 ## It is extended to pick up the Octave.app release information.
@@ -30,15 +38,11 @@
 ## string, and operating system.  The header is followed by a list of installed
 ## packages, versions, and installation directories.
 ##
-## Use the package name @var{package} or Octave to limit the listing to a
-## desired component.
+## Use the package name @var{package} or Octave to query a specific component.
 ##
 ## When called with an output argument, return a vector of structures
-## describing Octave and each installed package.  The structure includes the
+## describing Octave and each installed package.  Each structure includes the
 ## following fields.
-##
-## NOTE: This version of @{code} has been customized by Octave.app, and is not
-## identical to the version in core Octave.
 ##
 ## @table @code
 ## @item Name
@@ -48,17 +52,14 @@
 ## Version of the package.
 ##
 ## @item Release
-## Release of the package.
+## Release of the package (currently unused, defaults to @code{[]}).
 ##
 ## @item Date
-## Date of the version/release.
+## Date that the version was released.
 ## @end table
 ##
 ## @seealso{version, usejava, pkg}
 ## @end deftypefn
-
-## Author: William Poetra Yoga Hadisoeseno <williampoetra@gmail.com>
-## Author: Andrew Janke <floss@apjanke.net>
 
 function v = ver (package = "")
 
@@ -83,14 +84,14 @@ function v = ver (package = "")
     endif
 
     hbar(1:70) = "-";
-    # Octave.app customization
     desc = {hbar
             ["GNU Octave Version: " OCTAVE_VERSION " (hg id: " hg_id ")"]
+            # Octave.app customization
             ["Octave.app Version: " octave_app_release]
+            # end Octave.app customization
             ["GNU Octave License: " license]
             ["Operating System: " os_string]
             hbar};
-    # end Octave.app customization
 
     printf ("%s\n", desc{:});
 
@@ -130,6 +131,7 @@ function v = ver (package = "")
 
 endfunction
 
+# Octave.app customization
 function out = readOctaveAppReleaseFile (file)
   [fid, msg] = fopen (file);
   if fid < 0
@@ -142,6 +144,7 @@ function out = readOctaveAppReleaseFile (file)
   txt = regexprep (txt, '\s*$', '');
   out = txt;
 end
+# end Octave.app customization
 
 
 %!test
