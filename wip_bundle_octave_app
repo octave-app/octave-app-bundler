@@ -17,17 +17,7 @@
 # telling users how to deal with the quarantining.
 # But... back to beta1 for a bit while I work out the DMG prettification issue, so I can
 # reuse the existing beta1 build for that.
-./bundle_octave_app --verbose --debug-verbose --pre-release beta1 "$@"
-
-# HACK: This is a re-do of beta1 to add the installation instructions file. It changed the
-# app build a bit, so rename it to avoid clobbering the original release.
-
-dmg_base='Octave-8.4.0_beta1'
-arch=$(uname -m)
-if [[ $arch == 'x86_64' ]]; then
-  dmg_base="${dmg_base}-Intel"
-fi
-dmg="./build/${dmg_base}.dmg"
-if [[ -f "$dmg" ]]; then
-  mv "$dmg" "./build/${dmg_base}_with-instr.dmg"
-fi
+# ./bundle_octave_app --verbose --debug-verbose --pre-release beta1 "$@"
+# ...and as of 2024-02-26 06:00, I think I've got that worked out, so let's try the beta2
+# build now:
+./bundle_octave_app --verbose --debug-verbose --pre-release beta2 "$@"
