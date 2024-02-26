@@ -10,7 +10,14 @@
 # and the main bundle_octave command in shell tab completion or history searches.
 
 # As of late 2023, I'm trying to get a 7.x or 8.x built, and 8.4.0 is the latest
-# release in those series. The builds are barely working, so I'm calling them alpha
-# releases for now.
+# release in those series.
 
-./bundle_octave_app --verbose --pre-release beta1 --tap-branch lets-go-8-4-oh "$@"
+# Working on beta2 as of 2024-02-25, dealing with the quarantined DMG problem. App itself
+# seems ready for release. This new beta has a big "READ ME!" instructions file in the DMG
+# telling users how to deal with the quarantining.
+# But... back to beta1 for a bit while I work out the DMG prettification issue, so I can
+# reuse the existing beta1 build for that.
+# ./bundle_octave_app --verbose --debug-verbose --pre-release beta1 "$@"
+# ...and as of 2024-02-26 06:00, I think I've got that worked out, so let's try the beta2
+# build now:
+./bundle_octave_app --verbose --debug-verbose --pre-release beta2 "$@"

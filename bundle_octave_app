@@ -81,8 +81,7 @@
 # TODO: version style controls for app name
 #   # valid: 'major', 'minor', 'patch', 'full', or 'none'
 #   appname_ver_style='minor'
-# TODO: Also, spaces in app name instead of dashes
-# TODO: Also, an "x64" or "Intel" in the app or dist name for Intel builds
+# TODO: Also, spaces in app name instead of dashes?
 
 set -o errexit
 set -o nounset
@@ -404,6 +403,7 @@ function stage_app_build() {
   else
     # Create new staged app build
     info "Creating new staged app build at $INSTALL_DIR"
+    # mkdir -p "$INSTALL_DIR"
     osacompile -o "$INSTALL_DIR" -e " "
     cat <<EOS > "$INSTALL_DIR/STAGING"
 This directory is not a real app!
@@ -452,7 +452,7 @@ function freshen_staged_homebrew() {
 
   if [[ "$install_type" == "update" ]]; then
     # Update homebrew
-    info "Updating existing Homebrew installation in ${INSTALL_USR}"
+    info "Incrementally building in existing Homebrew installation in ${INSTALL_USR}"
   else
     # Install homebrew
     info "Creating new Homebrew installation in ${INSTALL_USR}"
@@ -473,12 +473,13 @@ function freshen_staged_homebrew() {
   fi
 
   "$brew" update # get new formulae
+
+  # Switch to non-default tap branch if requested
   # Looks like brew update resets the branch for taps, so switch it *after* the
   # brew update
   if [[ -n "$OCTAPP_TAP_BRANCH" ]]; then
     (
       info "Checking out octave-app tap branch ${OCTAPP_TAP_BRANCH}"
-      "$brew" update
       # TODO: support new AS dir layout?
       cd "${INSTALL_USR}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
       git fetch --all
@@ -1023,6 +1024,7 @@ function create_dmg() {
   # Create a nice DMG disc image with create-dmg
   info "Creating DMG..."
   local octapp_tap_dir
+  local install_instr_file='READ ME! - Important Installation Instructions.txt'
 
   require_app_build
   mkdir -p "$BUILD_DIR"
@@ -1042,6 +1044,12 @@ function create_dmg() {
     octapp_tap_dir="${INSTALL_BUILT_USR}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
   fi
 
+  # Munge the installation instructions file, to get build-specific names right
+  cat "assets/${install_instr_file}.in" \
+    | sed -e "s/@@DIST_ARCHIVE_NAME@@/${DIST_ARCHIVE_NAME}/g" \
+    > "${BUILD_DIR}"/"${install_instr_file}"
+
+
   # Run create-dmg. This may issue warnings if run headless. However, the DMG
   # will still be created, only some beautification cannot be applied.
   # We manually set the image size because create-dmg's automatic sizing seems to
@@ -1052,7 +1060,7 @@ function create_dmg() {
     createdmg_extra="${createdmg_extra} --verbose"
   fi
   if [[ $DEBUG_VERBOSE = 'y' ]]; then
-    createdmg_extra="${createdmg_extra} --hdiutil-verbose"
+    createdmg_extra="${createdmg_extra} --hdiutil-verbose --debug"
   fi
   wet ${SUDO} "${CREATEDMG_HOME}/create-dmg" \
       ${createdmg_extra} \
@@ -1065,6 +1073,7 @@ function create_dmg() {
       --hide-extension "${APP_NAME}.app" \
       --app-drop-link 415 180 \
       --eula "${octapp_tap_dir}/assets/COPYING/COPYING.rtf" \
+      --add-file "${install_instr_file}" "${BUILD_DIR}/${install_instr_file}" 270 350 \
       --add-file COPYING "${app_build_octapp_keg}/COPYING" 126 300 \
       --add-file VERSIONS "${APP_BUILD}/Contents/Resources/VERSIONS" 415 300 \
       --disk-image-size 7500 \
@@ -1108,6 +1117,14 @@ function do_whole_build_process() {
   local t0
   t0=$(tic)
   stage_app_build
+  # Used to do freshen_staged_homebrew automatically here, but I turned that off because
+  # I want stability between repeated incremental builds on an existing staged app. Now,
+  # if you want to freshen it, manually invoke the freshen_staged_homebrew step.
+  # Actually, oops, need to still do this for now: freshen_staged_homebrew() doesn't just
+  # update an existing Homebrew install; it's the thing that creates the new Homebrew
+  # install in the first place.
+  # TODO: Split this out to separate "ensure" (create if not exist) and "update/freshen" (do
+  # updates and upgrades on existing Homebrew install) operations.
   freshen_staged_homebrew
   timeit build_octave_in_staged_app
   timeit capture_built_octave_app
@@ -1236,6 +1253,8 @@ function main () {
 
   # Code setup
   enable_errexit
+
+  info "Building ${APP_NAME}.app at ${INSTALL_DIR} from brew formula ${OCTAVE_FORMULA}"
 
   # Handle special actions first (each of these should exit when done)
   if [[ -n "$ACTION" ]]; then
@@ -1383,8 +1402,6 @@ fi
 if [[ "$DO_TRACE" == "y" ]]; then
   set -o xtrace
 fi
-
-info "Building ${APP_NAME}.app at ${INSTALL_DIR} from brew formula ${OCTAVE_FORMULA}"
 
 # Pick up commands from octapp build. This is (I think) just a hack to pick up
 # Subversion's svn command, so this tool can be run on computers without a system-wide

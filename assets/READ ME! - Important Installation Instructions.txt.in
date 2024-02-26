@@ -1,0 +1,34 @@
+Important Installation Instructions for Octave.app
+==================================================
+
+Installing Octave.app requires special steps!
+
+Octave.app is not a signed app, and macOS will refuse to run it if you haven't done some special setup. If you don't, then when you try to run Octave.app, you will just get an "app is damaged" error message.
+
+Sorry for the inconvenience.
+
+
+Quick Overview
+--------------
+
+*Before* opening the installer DMG file, run Terminal, and inside it, run these commands. That will "un-quarantine" the DMG file.
+
+    cd Downloads
+    xattr -c @@DIST_ARCHIVE_NAME@@.dmg
+
+Then you can proceed to re-open this DMG file and install Octave.app by dragging it to the Applications folder like normal.
+
+
+Detailed Instructions
+---------------------
+
+You must "un-quarantine" this DMG file using Terminal before opening it. If you haven't done so, then please close and eject this DMG, take the following steps, and then re-open it, before dragging Octave.app to the Applications folder. To eject this DMG, you need to click the little "eject" icon to the right of it in the left-hand sidebar in a Finder window. You can copy this Installation Instructions text file out of this DMG folder and into your Downloads to use as a reference while you're doing so.
+
+Un-quarantining this DMG requires using the `xattr` command, run inside a Terminal session. You can find Terminal in the Utilities folder inside your Mac's main Applications folder, or search for "Terminal" using Spotlight. (Press Command-Space (⌘-Space) to bring up Spotlight search.)
+
+Inside Terminal, `cd` (change directory) to your Downloads folder, or whatever other location you placed the downloaded @@DIST_ARCHIVE_NAME@@.dmg in. Then run `xattr -c` on it, which will clear its "extended attributes", including the quarantine flag.
+
+    cd Downloads
+    xattr -c @@DIST_ARCHIVE_NAME@@.dmg
+
+That will un-quarantine the DMG file, and allow apps installed from it to run. You only need to do this once for each downloaded installer file; it will stick, and you can do repeated installations from that one file.
