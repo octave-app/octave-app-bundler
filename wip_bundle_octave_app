@@ -15,9 +15,22 @@
 # Working on beta2 as of 2024-02-25, dealing with the quarantined DMG problem. App itself
 # seems ready for release. This new beta has a big "READ ME!" instructions file in the DMG
 # telling users how to deal with the quarantining.
-# But... back to beta1 for a bit while I work out the DMG prettification issue, so I can
-# reuse the existing beta1 build for that.
-# ./bundle_octave_app --verbose --debug-verbose --pre-release beta1 "$@"
-# ...and as of 2024-02-26 06:00, I think I've got that worked out, so let's try the beta2
-# build now:
-./bundle_octave_app --verbose --debug-verbose --pre-release beta2 "$@"
+# ./bundle_octave_app --verbose --debug-verbose --pre-release beta2 "$@"
+
+# And as of 2024-04-01, I gave up on fixing the quarantine problem. And no other
+# blockers (IMHO) for 8.x. So let's make a real build.
+# ./bundle_octave_app --verbose --debug-verbose "$@"
+
+# But also as of 2024-04-01, all my Qt 5 builds are broken, which breaks the octapp 8.x
+# builds. So we'll skip ahead to doing a 9.1 build, starting with an alpha.
+
+# ./bundle_octave_app --verbose --debug-verbose --tap-branch lets-go-8-4-oh \
+#     --octave-version 9.1 --pre-release alpha1 "$@"
+
+# 2024-04-08: I think I got the Qt and gcc build failures figured out. Xcode 15.3
+# broke both of them. Let's try 8.4 after all. That was a big enough change, plus
+# some core Homebrew packages have changed in the mean time, and I'm revising the
+# octapp code customizations a bit, that I think we need another beta.
+
+./bundle_octave_app --verbose --debug-verbose --tap-branch lets-go-8-4-oh \
+    --octave-version 8.4.0 --pre-release beta3 "$@"

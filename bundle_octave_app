@@ -226,7 +226,7 @@ function usage() {
       Declare this to be an update of a given name, using that as the build suffix.
       E.g., 'u1' or 'u2'.
     --sign
-      Sign the completed app bundle.
+      Code-sign the completed app bundle. (Probably not working.)
 
   Octave build options:
     -a, --variant <variant>
