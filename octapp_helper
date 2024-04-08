@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+
+# octapp_helper - Does miscellaneous things around Octave.app bundling
+#
+# Synopsis:
+#
+#   octapp_helper <action> [...options...]
+#
+#   octapp_helper clear-brew-logs
+#   octapp_helper grab-brew-logs [(-c|--comment) <comment>]
+#
+#   octapp_helper <action> [-Y | --dry-run] [-v | --verbose] [...]
+#
+# Actions:
+#
+# clear-brew-logs - Clears your Homebrew logs by deleting everything under
+# ~/Library/Logs/Homebrew. This blows away all your regular Homebrew logs, in addition
+# to whatever was produced by octapp-specific activity!
+#
+# grab-brew-logs - Grab a copy of your Homebrew logs to a directory under
+# build/logs/brew-capture. The `-c` comment option is a short string that is included
+# in the subdirectory name in addition to a time stamp and host info. It is optional
+# and can be omitted entirely.
+
+set -o errexit
+set -o nounset
+set -o pipefail
+if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
+
+# Function definitions
+#
+# (Scroll down to the very bottom to see the main script logic.)
+
+# Utility functions
+
+THIS_PROGRAM=$(basename $0)
+
+function info() {
+  echo "$*"
+}
+
+function error() {
+  echo >&2 "${THIS_PROGRAM}: ERROR: $*"
+}
+
+function die() {
+  local msg="$1"
+  error "$msg"
+  exit 1
+}
+
+function verbose() {
+  if [[ $VERBOSE == 'y' ]]; then
+    echo "$*"
+  fi
+}
+
+function is_dry_run() {
+  if [[ $DRY_RUN == 'y' ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+function wet() {
+  if is_dry_run; then
+    echo "dry run: would run: $*"
+  else
+    verbose "running: $*"
+    "$@"
+    return $?
+  fi
+}
+
+# Octapp-specific functions
+
+function usage() {
+  cat <<EOHELP
+
+  ${THIS_PROGRAM} - Miscellaneous octapp helper actions
+
+  ${THIS_PROGRAM} <action> [...options...]
+  ${THIS_PROGRAM} clear-brew-logs
+  ${THIS_PROGRAM} grab-brew-logs [(-c|--comment) <comment>]
+
+  Debugging options:
+    -h, -?, --help
+      Display this help text and exit.
+
+EOHELP
+}
+
+function parse_cli_args() {
+  local arg
+
+  ACTION=''
+  REMAINDER_ARGS=()
+  COMMENT=''
+  DRY_RUN='n'
+  VERBOSE='n'
+
+  while [[ $# -ge 1 ]]; do
+    arg="$1"; shift
+    case "$arg" in
+      -h | --help| -\?)
+        ACTION='usage' ;;
+      -c | --comment)
+        if [[ $# -lt 1 ]]; then
+          die "option ${arg} requires an argument"
+        fi
+        COMMENT="$1"; shift ;;
+      -v | --verbose)
+        VERBOSE=y ;;
+      -Y | --dry-run)
+        DRY_RUN=y ;;
+      --)
+        REMAINDER_ARGS=("$@")
+        break ;;
+      *)
+        if [[ -z "$ACTION" ]]; then
+          ACTION="$arg"
+        else
+          die "Error: Invalid option: $arg. See ${THIS_PROGRAM} --help for help."
+        fi
+        ;;
+    esac
+  done
+}
+
+function main () {
+  local exit_status
+
+  if [[ -z "$ACTION" ]]; then
+    die "the action argument is required. See ${THIS_PROGRAM} --help for help."
+  fi
+
+  case "$ACTION" in
+    usage)
+      usage; exit 0 ;;
+    clear-brew-logs)
+      clear_brew_logs ;;
+    grab-brew-logs)
+      grab_brew_logs ;;
+    *)
+      die "Invalid action: ${ACTION}. See ${THIS_PROGRAM} --help for help." ;;
+  esac
+}
+
+function clear_brew_logs() {
+  wet rm -rf "${HOME}"/Library/Logs/Homebrew/*
+  info "Cleared Homebrew logs"
+}
+
+function grab_brew_logs() {
+  local logs_dir subdir timestamp host arch
+  logs_dir="build/logs/brew-capture"
+  # Better to use the time of starting the last build instead of the current time,
+  # but that's not readily available.
+  timestamp=$(date +%Y-%m-%d_%H-%M-%S)
+  host=$(hostname | tr '[:upper:]' '[:lower:]' | sed 's/\..*$//')
+  arch=$(uname -m)
+  if [[ -n "$COMMENT" ]]; then
+    subdir="${timestamp} - ${COMMENT} - ${host} ${arch}"
+  else
+    subdir="${timestamp} - ${host} ${arch}"
+  fi
+  grab_dir="${logs_dir}/${subdir}"
+  wet mkdir -p "$grab_dir"
+  wet cp -R "${HOME}"/Library/Logs/Homebrew/* "$grab_dir"
+  info "Captured brew logs to ${grab_dir}"
+}
+
+# Main top-level code
+
+parse_cli_args "$@"
+main

@@ -394,7 +394,7 @@ function stage_app_build() {
     if [[ -f "$INSTALL_DIR/STAGING" ]]; then
       info "Looks like $APP_NAME is already staged at $INSTALL_DIR; re-using in place"
     else
-      die "Error: $INSTALL_DIR exists, but is not a staged build. Please move ${INSTALL_DIR} out of the way before running ${THIS_PROGRAM}."
+      die "$INSTALL_DIR exists, but is not a staged build. Please move ${INSTALL_DIR} out of the way before running ${THIS_PROGRAM}."
     fi
   elif [[ -d "$INSTALL_BUILT" ]]; then
     # Move existing staged app build back to staging location
@@ -1150,7 +1150,7 @@ function parse_cli_args() {
     case "$arg" in
       -a | --variant)
         if [[ $# -lt 1 ]]; then
-          die "option $arg requires an argument"
+          die "option ${arg} requires an argument"
         fi
         VARIANT="$1"; shift ;;
       -c | --cli-only)
@@ -1161,12 +1161,12 @@ function parse_cli_args() {
         DO_BUILD_DEVEL=y ;;
       -f | --octave-formula)
         if [[ $# -lt 1 ]]; then
-          die "option $arg requires an argument"
+          die "option ${arg} requires an argument"
         fi
         OCTAVE_FORMULA_BASE="$1"; shift ;;
       -V | --octave-version)
         if [[ $# -lt 1 ]]; then
-          die "option $arg requires an argument"
+          die "option ${arg} requires an argument"
         fi
         OCTAVE_FORMULA_VERSION="$1"; shift ;;
       -g | --use-gcc)
@@ -1177,7 +1177,7 @@ function parse_cli_args() {
         DO_JAVA=n ;;
       -s | --step)
         if [[ $# -lt 1 ]]; then
-          die "option $arg requires an argument"
+          die "option ${arg} requires an argument"
         fi
         BUILD_STEP="$1"; shift ;;
       --sign)
@@ -1186,23 +1186,23 @@ function parse_cli_args() {
         OCTAPP_TAP_BRANCH="$1"; shift ;;
       -u | --build-suffix)
         if [[ $# -lt 1 ]]; then
-          die "option $arg requires an argument"
+          die "option ${arg} requires an argument"
         fi
         BUILD_SUFFIX="$1"; shift ;;
       --pre-release)
         if [[ $# -lt 1 ]]; then
-          die "option $arg requires an argument"
+          die "option ${arg} requires an argument"
         fi
         PRE_RELEASE="$1"; shift ;;
       --update-release)
         if [[ $# -lt 1 ]]; then
-          die "option $arg requires an argument"
+          die "option ${arg} requires an argument"
         fi
         UPDATE_RELEASE="$1"; shift ;;
       --no-sudo)
         USE_SUDO=n ;;
       -v | --verbose)
-        VERBOSE=y  ;;
+        VERBOSE=y ;;
       -x | --trace)
         DO_TRACE=y ;;
       --show-options)
@@ -1221,7 +1221,7 @@ function parse_cli_args() {
         REMAINDER_ARGS=("$@")
         break ;;
       *)
-        die "Error: Invalid option: $arg. See ${THIS_PROGRAM} --help for help." ;;
+        die "invalid option: ${arg}. See ${THIS_PROGRAM} --help for help." ;;
     esac
   done
 
@@ -1273,7 +1273,7 @@ function main () {
         die "Invalid special action: '$ACTION'. Valid actions are: brew"
         ;;
     esac
-    die "internal error: special action '$ACTION' did not exit the program"
+    die "Internal error: special action '$ACTION' did not exit the program"
   fi
 
   # Main build process
@@ -1296,7 +1296,7 @@ function main () {
       # Undocumented debugging "steps"
       debug-parse)      do_debug_parse ;;
       *)
-        die "Error: Invalid build step: ${BUILD_STEP}. Valid steps are: stage unstage freshen-homebrew build munge sign dmg test"
+        die "Invalid build step: ${BUILD_STEP}. Valid steps are: stage unstage freshen-homebrew build munge sign dmg test"
         ;;
     esac
   fi
