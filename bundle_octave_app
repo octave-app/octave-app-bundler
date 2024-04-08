@@ -42,7 +42,6 @@
 # TODO: Fill this out. Maybe move it to a separate .md doc file.
 #
 # * $APP_NAME -
-# * $
 # * $OCTAVE_FORMULA_VERSION - The version of the octave brew formula used, which may have
 #     a "_<revision>" suffix.
 # * $OCTAVE_VERSION - The version of Octave, which without any revision suffix like in
@@ -201,14 +200,15 @@ environment variable to point to your create-dmg repo or installation."
 
 function usage() {
   cat <<EOHELP
+
   ${THIS_PROGRAM}
   ${THIS_PROGRAM} [OPTION [ARG]] ...
   ${THIS_PROGRAM} brew <brew_args...>
 
-  Build an Octave.app application bundle for macOS.
+  Build and package an Octave.app application bundle for macOS.
 
-  The '${THIS_PROGRAM} brew ...' calling form runs an arbitrary 'brew' command in the Homebrew
-  installation inside the staged app bundle.
+  The '${THIS_PROGRAM} brew ...' calling form runs an arbitrary 'brew' command in the
+  Homebrew installation inside the staged app bundle.
 
   All other calling forms do regular build operations.
 
@@ -218,7 +218,7 @@ function usage() {
     -u, --build-suffix <suffix>
       Set a build version suffix. Used to distinguish revisions and updates
       to Octave.app's packaging, like 'u1' or 'u2'. This can be used for beta builds, too,
-      like `-u beta1`. [$BUILD_SUFFIX]
+      like '-u beta1'. [$BUILD_SUFFIX]
     --pre-release <name>
       Declare this to be a prerelease of a given name, using that as the build suffix.
       E.g., 'alpha1' or 'beta1'.
@@ -232,7 +232,7 @@ function usage() {
     -a, --variant <variant>
       Variant of Octave.app to build. [$VARIANT]
     -V, --octave-version <version>
-      Version of Octave formula to build, affecting formula choice. [$OCTAVE_VERSION]
+      Version of Octave formula to build, affecting formula choice.
     -c, --cli-only
       Do not build the GUI.
     -C, --cli-frontend
@@ -300,7 +300,7 @@ octappbundler_home = ${OCTAPPBUNDLER_HOME}
 build_desktop = ${DO_BUILD_DESKTOP}
 
 Values:
-octapp_release=${OCTAPP_RELEASE}
+octapp_release = ${OCTAPP_RELEASE}
 app_name = ${APP_NAME}
 app_name_with_release = ${APP_NAME_WITH_RELEASE}
 app_build = ${APP_BUILD}
