@@ -266,7 +266,8 @@ EOHELP
 }
 
 function echo_options() {
-  local hostname oab_git_sha xcode_version oab_git_status oab_gitstate_extra oab_ver
+  local hostname oab_git_sha oab_git_status oab_gitstate_extra oab_ver
+  local xcode_version xcode_clt_version clang_version_str latex_version_str
   hostname=$(hostname)
   oab_git_sha=$(git -C "$OCTAPPBUNDLER_HOME" log --pretty=format:'%h' -n 1)
   oab_git_status=$(git -C "$OCTAPPBUNDLER_HOME" status --porcelain)
@@ -278,11 +279,16 @@ function echo_options() {
     oab_gitstate_extra=''
   fi
   xcode_version=$(xcodebuild -version | sed -En 's/Xcode[[:space:]]+([0-9.]+)/\1/p')
+  clang_version_str=$(clang --version | head -1)
+  xcode_clt_version=$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | head -2 | tail -1 | sed 's/.* //')
+  latex_version_str=$(latex -v | head -1)
 
   cat <<EOS
 
 ${THIS_PROGRAM} run at $(date) on ${hostname}
-  Xcode ${xcode_version}, macOS ${MACHINE_MACOS_VER}, arch ${MACHINE_ARCH} (${MACHINE_ARCH_DESCR})
+  macOS ${MACHINE_MACOS_VER}, arch ${MACHINE_ARCH} (${MACHINE_ARCH_DESCR})
+  Xcode ${xcode_version}, Xcode CLT ${xcode_clt_version}, clang ${clang_version_str}
+  LaTeX: ${latex_version_str}
   ${THIS_PROGRAM} from git commit ${oab_ver}${oab_gitstate_extra}
 
 Options:
