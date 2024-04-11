@@ -82,3 +82,7 @@ TODO: I think the "re-stage from existing `-BUILT`" and "create a new `.app` fro
 We have a dependency on svn for one reason only, to download netpbm, which does not do normal releases with tarballs or other distribution archives. This is a bummer because subversion is big: it depends on ruby, which depends on rust. That's like a GB of installs and a long time building. Dep chain: octave -> fig2dev -> netpbm. My `fig2dev-octapp` and `netpbm-octapp` formulae are an attempt to avoid the subversion dependency, but I haven't been able to get them working reliably yet as of 2023.
 
 As of 2024-01, the `brew install subversion` is unconditional. Would be nice to have it be conditional on whether the formuale we're using for the build actually require svn. Nontrivial: would require chasing a couple levels of dependencies. Maybe there's a `brew depends` or `brew depends-tree` command that can walk the dependency tree for us and we can just grep for netpbm vs. netpbm-octapp? As of 2024-01-18, working on an experimental version of this, using `brew deps --include-build octave-octapp@8.4.0 | grep netpbm | grep -v netpbm-octapp`. So far, I think it can detect this case, but I don't have a current working netpbm-octave formula that can be used to give me the no-svn-needed case.
+
+### Tool version dependencies
+
+As of 2024-03, some of the package builds are broken under Xcode 15.3, so you need to use older versions like Xcode 15.2 and Xcode CLT 15.1. See this [#266 "Qt 5.15 builds fail... with Xcode 15.3" bug](https://github.com/octave-app/octave-app/issues/266).
