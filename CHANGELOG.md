@@ -20,6 +20,10 @@ This changelog file was added late in the project's history, in 2023-10, and the
 - Include subversion in Octave.app build, because it is now needed for downloading netpbm.
 - Remove create-dmg Git submodule and reference it as an external program
   - To support GitHub access via SSH, and because I dislike Git submodules.
+- Create an `+octapp` namespace, and move `octave_app_diagnostic_dump` to `octapp.diagnostic_dump`.
+- Update `octapp.diagnostic_dump`.
+  - Convert to GNU Octave code style.
+  - Support alternate default system Homebrew on AS.
 
 ### Internal
 
@@ -31,7 +35,7 @@ This was the last commit before I started keeping a [changelog](https://keepacha
 
 ### Fixed
 
-- Add help text about using `-u`` for beta builds.
+- Add help text about using `-u` for beta builds.
 
 ## [eb6ba6782407c1d9007d0b686f671ab76e624ff0] - 2021-08-18
 
