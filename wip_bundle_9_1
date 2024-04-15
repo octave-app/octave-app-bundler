@@ -1,0 +1,13 @@
+#!/bin/bash
+#
+# wip_bundle_octave_app - Build the Octave.app we're working on now.
+#
+# This is a thin wrapper around bundle_octave which just calls it with the options
+# for the build we're currently working on, so you don't have to remember to type
+# them on the command line consistently each time.
+#
+# The "wip" comes first in the name so you don't accidentally mix up this wrapper
+# and the main bundle_octave command in shell tab completion or history searches.
+
+./bundle_octave_app --verbose --debug-verbose --tap-branch lets-go-8-4-oh \
+    --octave-version 9.1 --pre-release alpha1 "$@"
