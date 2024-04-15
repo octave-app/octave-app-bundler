@@ -94,6 +94,7 @@ if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
 # Utility functions
 
 THIS_PROGRAM=$(basename $0)
+THIS_DIR=$(realpath $(dirname $0))
 
 function info() {
   echo "$*"
@@ -313,6 +314,7 @@ app_build = ${APP_BUILD}
 createdmg_home = ${CREATEDMG_HOME}
 dmg_volume_name = ${DMG_VOLUME_NAME}
 build_dir = ${BUILD_DIR}
+build_log_dir = ${BUILD_LOG_DIR}
 dist_archive_name = ${DIST_ARCHIVE_NAME}
 dmg_file = ${DMG_FILE}
 
@@ -537,6 +539,7 @@ function build_octave_in_staged_app() {
   export FC="${INSTALL_USR}/bin/gfortran"
   # Scientific libraries may need GCC 6, if using GCC
   # TODO: Is this still needed in 2024? Why exactly did we do it in the first place?
+  # TODO: Document exactly which libraries need this.
   if [[ "$USE_GCC" == 'y' ]]; then
     export HOMEBREW_CC=gcc-6
     export HOMEBREW_CXX=g++-6
@@ -558,23 +561,32 @@ function build_octave_in_staged_app() {
   if [[ "$DO_JAVA" != "y" ]]; then
     build_opts="$build_opts --without-java"
   fi
-  disable_errexit
-  wet "$brew" install "$OCTAVE_FORMULA" $build_opts
-  brew_inst_octapp_exit=$?
-  info "brew install <octapp> exit status: $brew_inst_octapp_exit"
-  if [[ $brew_inst_octapp_exit != 0 ]]; then
-    die "brew install returned failure ($brew_inst_octapp_exit); aborted."
+  # disable_errexit
+  if wet "$brew" install "$OCTAVE_FORMULA" $build_opts; then
+    info "brew install <octapp> returned success exit status"
+  else
+    brew_inst_octapp_exit=$?
+    info "brew install <octapp> exit status: $brew_inst_octapp_exit"
+    if [[ $brew_inst_octapp_exit == 1 ]]; then
+      if brew_is_installed "$OCTAVE_FORMULA"; then
+        info "brew install <octapp> had non-zero exit status ${brew_inst_octapp_exit} but looks successful, because ${OCTAVE_FORMULA} is in 'brew list'. Maybe a keg-only side effect? Treating as successful and proceeding."
+      else
+        die "brew install <octapp> failed: returned exit status 1, and formula ${OCTAVE_FORMULA} was not installed (not present in 'brew list')"
+      fi
+    else
+      die "brew install <octapp> returned failure, non-1 exit status ($brew_inst_octapp_exit); aborted."
+    fi
   fi
-  enable_errexit
+  # enable_errexit
 
-  # HACK: remove large build-time-only dependencies to reduce app size
+  # HACK: remove large build-time-only dependencies to reduce app size.
   # This is done before moving to -BUILT because brew needs to run from
   # the original built location.
   local big_pkg
   info "Removing big build-time-only packages"
   for big_pkg in "${BIG_BUILD_ONLY_PKGS[@]}"; do
     info "Checking for big build-time-only package: $big_pkg"
-    if "$brew" list --formula | grep -x "$big_pkg" &>/dev/null; then
+    if brew_is_installed "$big_pkg"; then
       info "Removing big build-time-only package: $big_pkg"
       wet "$brew" rm "$big_pkg"
     fi
@@ -582,6 +594,11 @@ function build_octave_in_staged_app() {
 
   info "Doing brew cleanup after successful app build"
   wet "$brew" cleanup
+}
+
+function brew_is_installed() {
+  local formula="$1"
+  "$brew" list --formula | grep -x "$formula" &>/dev/null
 }
 
 # Moves the completed build to a -BUILT copy. At that point it's "pristine" and should
@@ -612,17 +629,18 @@ function unstage_app_build() {
 function capture_build_logs() {
   # Capture the logs
   # This is run after capturing the build to the unstaged location
+  local brew_logs_dir octave_test_log
   info "Capturing build logs..."
-  wet rm -rf "$BUILD_LOG_DIR"
   wet mkdir -p "$BUILD_LOG_DIR"
-  local brew_logs_dir="$HOME/Library/Logs/Homebrew"
+  brew_logs_dir="$HOME/Library/Logs/Homebrew"
   if [[ -d "$brew_logs_dir" ]]; then
     wet cp -pR "$brew_logs_dir" "$BUILD_LOG_DIR/Homebrew"
   fi
-  local octave_test_log="$INSTALL_BUILT/opt/$OCTAVE_FORMULA/make-check.log"
+  octave_test_log="$INSTALL_BUILT/opt/$OCTAVE_FORMULA/make-check.log"
   if [[ -e "$octave_test_log" ]]; then
     wet cp "$octave_test_log" "$BUILD_LOG_DIR"
   fi
+  info "Captured build logs to ${BUILD_LOG_DIR}"
 }
 
 # Capture the whole built app from INSTALL_DIR to ./build
@@ -632,10 +650,15 @@ function capture_built_octave_app() {
   # the app build. That modifies the app build, and is the only modification we do
   # before capturing it for further munging.
   local octave oct_ver oct_ver_string oct_copyright octapp_ver_file formulae_vers_file
-  local gs_ver gs_opt gs_share
-  octapp_ver_file="$INSTALL_DIR/octapp-ver-info.sh"
-  formulae_vers_file="$INSTALL_DIR/octapp-formulae-vers.txt"
-  octave="$INSTALL_USR/opt/$OCTAVE_FORMULA/bin/octave"
+  local gs_ver gs_opt gs_share octapp_meta_dir
+
+  # Keep this in sync with the corresponding code below!
+  # Just on a hunch that dirs right under the app bundle root interfere with codesigning,
+  # moved this under Contents/Resources as of 8.4.0.
+  octapp_meta_dir="${INSTALL_DIR}/Contents/Resources/octapp-meta"
+  octapp_ver_file="${octapp_meta_dir}/octapp-ver-info.sh"
+  formulae_vers_file="${octapp_meta_dir}/octapp-formulae-vers.txt"
+  octave="${INSTALL_USR}/opt/${OCTAVE_FORMULA}/bin/octave"
   # x.y.z semver-ish version string
   oct_ver_string=$("$octave" --version | /usr/bin/sed -n 1p)
   oct_ver=$(echo "$oct_ver_string" | /usr/bin/grep -o '\d\..*$' )
@@ -643,6 +666,8 @@ function capture_built_octave_app() {
   gs_ver=$("${INSTALL_USR}/bin/gs" --version)
   gs_opt=$("$brew" --prefix "ghostscript")
   gs_share="${gs_opt}/share/ghostscript"
+
+  mkdir -p "$octapp_meta_dir"
   cat >"$octapp_ver_file" <<EOS
 oct_ver='$oct_ver'
 oct_ver_string='$oct_ver_string'
@@ -651,15 +676,19 @@ gs_ver='$gs_ver'
 gs_opt='$gs_opt'
 gs_share='$gs_share'
 EOS
-  "$brew" octave-app-list-formulae >> "$formulae_vers_file"
-  info "Saved version info to $octapp_ver_file and $formulae_vers_file"
+  "$brew" octave-app-list-formulae > "$formulae_vers_file"
+  "$brew" list --full-name > "${octapp_meta_dir}/brew-list-fullname.txt"
+  "$brew" list --versions > "${octapp_meta_dir}/brew-list-versions.txt"
+  "$brew" config > "${octapp_meta_dir}/brew-config.json"
+  "$brew" info --installed --json > "${octapp_meta_dir}/brew-info-installed.json"
+  info "Saved version info under ${octapp_meta_dir}"
 }
 
 function munge_build() {
   local octave oct_ver oct_ver_string oct_copyright
-  local octapp_ver_file formulae_vers_file
+  local octapp_ver_file formulae_vers_file octapp_meta_dir
   local gs_ver gs_opt gs_share
-  local keg vers_code
+  local keg vers_code oct_mcode oct_site
 
   info "Munging build..."
   if [[ $DRY_RUN = 'y' ]]; then
@@ -680,25 +709,36 @@ function munge_build() {
   cp -pR "$INSTALL_BUILT" "$APP_BUILD"
 
   # Get ver info from our custom data file
-  octapp_ver_file="$APP_BUILD/octapp-ver-info.sh"
-  formulae_vers_file="$APP_BUILD/octapp-formulae-vers.txt"
+  # Keep this in sync with the corresponding code above!
+  octapp_meta_dir="${APP_BUILD}/Contents/Resources/octapp-meta"
+  octapp_ver_file="${octapp_meta_dir}/octapp-ver-info.sh"
+  formulae_vers_file="${octapp_meta_dir}/octapp-formulae-vers.txt"
   vers_code=$(cat "${octapp_ver_file}")
   eval "$vers_code"
   info "Octave versions: ver='${oct_ver}' ver_string='${oct_ver_string}' copyright='${oct_copyright}'"
 
+  # Munge it
   info "Munging app in $APP_BUILD..."
+
   # Have app use its internal font cache instead of global one
   /usr/bin/sed -i '' 's/\/Applications.*fontconfig/~\/.cache\/fontconfig/g' \
     "${APP_BUILD_USR}/etc/fonts/fonts.conf"
 
   # App-specific startup configuration
   keg="${APP_BUILD_USR}/Cellar/${OCTAVE_FORMULA}/${OCTAVE_VERSION}"
+  oct_mcode="${keg}/share/octave/${OCTAVE_VERSION}/m"
+  oct_site="${keg}/share/octave/site"
   cat >>"${keg}/share/octave/site/m/startup/octaverc" <<EOS
 
 % Octave.app special configuration
 
-% Use a distinct version-specific package dir to avoid crashes with compiled packages
-% (Because compiled oct-files have linkage dependency on the exact path to the Octave installation.)
+% Use a distinct version-specific package dir outside of the app bundle.
+%
+% This avoids changing the app bundle in a way that could break code signing.
+% This can also avoid crashes with compiled packages. (Because some compiled
+% oct-files have linkage dependency on the exact path to the Octave
+% installation, and can't be shared between multiple Octave installations on
+% the same machine.)
 default_pkg_prefix = pkg ("prefix");
 octave_app_pkg_prefix = [getenv("HOME") "/Library/Application Support/Octave.app/${VERSION_NAME}/pkg"];
 % Create the directory ourselves to avoid a warning in the console
@@ -716,8 +756,12 @@ EOS
   # Drop a build version indicator
   echo "$OCTAPP_RELEASE" > "${keg}/share/octave/site/Octave.app-RELEASE.txt"
 
-  # Custom functions
-  cp -R Mcode/* "${keg}/share/octave/site/m"
+  # Custom octapp functions
+  cp -R Mcode/* "${oct_site}/m"
+  mkdir -p "${oct_site}/m/+octapp"
+  # Expose the original ver.m, which our Mcode masks, as octapp.ver_pristine
+  cat "${oct_mcode}/miscellaneous/ver.m" | sed -e 's/function v = ver /function v = ver_pristine/' \
+    > "${oct_site}/m/+octapp/ver_pristine.m"
 
   # Create applescript to execute octave
   local tmp_script=$(mktemp /tmp/octave-XXXX)
@@ -1133,9 +1177,9 @@ function do_whole_build_process() {
   # updates and upgrades on existing Homebrew install) operations.
   freshen_staged_homebrew
   timeit build_octave_in_staged_app
+  capture_build_logs
   timeit capture_built_octave_app
   unstage_app_build
-  capture_build_logs
   munge_build
   if [[ "$DO_SIGN" == "y" ]]; then
     sign_app
@@ -1261,6 +1305,7 @@ function main () {
   enable_errexit
 
   info "Building ${APP_NAME}.app at ${INSTALL_DIR} from brew formula ${OCTAVE_FORMULA}"
+  wet mkdir "$BUILD_LOG_DIR"
 
   # Handle special actions first (each of these should exit when done)
   if [[ -n "$ACTION" ]]; then
@@ -1366,8 +1411,9 @@ VERBOSE=n
 DEBUG_VERBOSE=n
 EXIT_ON_ERROR=y
 DO_TRACE=n
-BUILD_DIR=./build
-BUILD_LOG_DIR="$BUILD_DIR/logs"
+BUILD_TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
+BUILD_DIR="./build"
+BUILD_LOG_DIR="${BUILD_DIR}/logs/${BUILD_TIMESTAMP}"
 DRY_RUN=
 USE_SUDO=y
 
@@ -1392,11 +1438,11 @@ detect_dependencies
 INSTALL_DIR="/Applications/${APP_NAME}.app"
 INSTALL_BUILT="/Applications/${APP_NAME}-BUILT.app"
 INSTALL_DIR_UNSTAGED="${INSTALL_DIR}-UNSTAGED"
-INSTALL_USR="$INSTALL_DIR/Contents/Resources/usr"
-INSTALL_BUILT_USR="$INSTALL_BUILT/Contents/Resources/usr"
+INSTALL_USR="${INSTALL_DIR}/Contents/Resources/usr"
+INSTALL_BUILT_USR="${INSTALL_BUILT}/Contents/Resources/usr"
 brew="$INSTALL_USR/bin/brew"
-APP_BUILD="./build/${APP_NAME}.app"
-APP_BUILD_USR="$APP_BUILD/Contents/Resources/usr"
+APP_BUILD="${BUILD_DIR}/${APP_NAME}.app"
+APP_BUILD_USR="${APP_BUILD}/Contents/Resources/usr"
 
 
 if [[ "$VERBOSE" == "y" || "$DO_JUST_SHOW_OPTIONS" == "y" ]]; then

@@ -38,6 +38,9 @@
 ## string, and operating system.  The header is followed by a list of installed
 ## packages, versions, and installation directories.
 ##
+## This is a specially customized variant of @code{ver} provided by Octave.app.
+## To call the original built-in version of ver, call @code{octapp.ver_pristine}.
+##
 ## Use the package name @var{package} or Octave to query a specific component.
 ##
 ## When called with an output argument, return a vector of structures
