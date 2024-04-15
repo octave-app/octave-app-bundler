@@ -1030,11 +1030,12 @@ function sign_app() {
   #
   # This currently does not work. It'll run, but the resulting app is not recognized
   # by macOS as signed for me.
-  local file_list_file link_dir link_target real_target
+  local file_list_file link_dir link link_target real_target codesign_status
 
   info "Signing the app..."
+  info "Signing with identity ${CODESIGN_IDENTITY}"
   if [[ $DRY_RUN = 'y' ]]; then
-    echo 'dry run: would sign the app'
+    info 'dry run: would sign the app'
     return
   fi
 
@@ -1043,25 +1044,56 @@ function sign_app() {
   if [[ -e "$INSTALL_DIR" ]]; then
     die "File exists at ${INSTALL_DIR}. Cannot stage the munged app to sign."
   fi
-  mv "$APP_BUILD" "$INSTALL_DIR"
-  # Let's try making all symlinks absolute to get validation to work?
-  file_list_file=$(mktemp /tmp/octave-XXXXX)
-  find "$INSTALL_DIR" -type l | sort > "$file_list_file"
-  # Commented out due to syntax error:
-  while read link; do
-    link_dir=$(dirname "$link")
-    link_target=$(readlink "$link")
-    (
-      cd "$link_dir"
-      real_target=$(realpath "$link_target")
-      rm "$link"
-      ln -s "$real_target" "$link"
-    )
-  done <${file_list_file}
+  wet mv "$APP_BUILD" "$INSTALL_DIR"
+  if [[ $ABSOLUTIFY_SYMLINKS == 'y' ]]; then
+    # Let's try making all symlinks absolute to get validation to work?
+    if [[ $DRY_RUN = 'y' ]]; then
+      info 'dry run: would absolutify symlinks'
+    else
+      file_list_file=$(mktemp /tmp/octave-XXXXX)
+      find "$INSTALL_DIR" -type l | sort > "$file_list_file"
+      # Commented out due to syntax error:
+      while read link; do
+        link_dir=$(dirname "$link")
+        link_target=$(readlink "$link")
+        (
+          cd "$link_dir"
+          real_target=$(realpath "$link_target")
+          rm "$link"
+          ln -s "$real_target" "$link"
+        )
+      done <${file_list_file}
+      rm "$file_list_file"
+    fi
+  fi
   # Do the actual signing
-  codesign -s "$CODESIGN_AUTHOR_NAME" -v "$INSTALL_DIR"
-  # And back to the munged build location...
-  mv "$INSTALL_DIR" "$APP_BUILD"
+  if wet codesign --sign "$CODESIGN_IDENTITY" --force -vvvv "$INSTALL_DIR" \
+    --timestamp --strip-disallowed-xattrs \
+    --file-list "${BUILD_LOG_DIR}/codesign-changed-files.txt"; then
+    codesign_status="$?"
+    info "codesign returned success"
+  else
+    codesign_status="$?"
+    info "codesign returned failiure: exit status ${codesign_status}"
+  fi
+  # Verify it, for diagnostics
+  echo ""
+  info "Verifying app codesigning..."
+  info "Verification with 'codesign --display':"
+  wet codesign --display -vv "$INSTALL_DIR"
+  info "Verification with 'codesign --verify':"
+  wet codesign --verify -vv "$INSTALL_DIR"
+  info "Verification with 'spctl --assess':"
+  wet spctl --assess -vvvv "$INSTALL_DIR"
+  if wet spctl --assess -t open --context context:primary-signature -vv "$INSTALL_DIR"; then
+    codesign_status="$?"
+    error "codesigning assessment failed (exit status $?)"
+  fi
+  # And move back to the munged build location...
+  wet mv "$INSTALL_DIR" "$APP_BUILD"
+  if [[ $codesign_status != 0 ]]; then
+    die "codesigning failed: codesign returned ${codesign_status}"
+  fi
 }
 
 function require_app_build() {
@@ -1232,6 +1264,8 @@ function parse_cli_args() {
         BUILD_STEP="$1"; shift ;;
       --sign)
         DO_SIGN=y ;;
+      --sign-identity)
+        CODESIGN_IDENTITY="$1"; shift ;;
       --tap-branch)
         OCTAPP_TAP_BRANCH="$1"; shift ;;
       -u | --build-suffix)
@@ -1392,7 +1426,8 @@ DO_BUILD_DESKTOP=y
 DO_BUILD_DEVEL=n
 DO_SIGN=n
 DO_JUST_SHOW_OPTIONS=n
-CODESIGN_AUTHOR_NAME='Andrew Janke'
+CODESIGN_IDENTITY='Andrew Janke (R7H2BFWJAB)'
+ABSOLUTIFY_SYMLINKS=n
 # Define these if we need to use a special branch of Homebrew
 BREW_REMOTE_URL=
 BREW_REMOTE_URL=
