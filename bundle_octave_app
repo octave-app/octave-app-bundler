@@ -32,8 +32,13 @@
 #
 # * $INSTALL_DIR - The .app dir/bundle under /Applications, which is both its initial
 #     build and final installation location.
-# * $INSTALL_USR - The Contents/Resources/usr dir under the app at $INSTALL_DIR. This
-#     is where most of the brew-managed packages live.
+# * $INSTALL_USR - The Contents/.../usr dir under the app at $INSTALL_DIR. This
+#     is where the whole brew-built parts of Octave.app live. This currently goes
+#     under Contents/Resources/usr, even though Contents/MacOS seems to make more sense
+#     for code, because I get crashes in the Octave test suite when it goes under
+#     Contents/MacOS.
+# * $INSTALL_RSRC - The Contents/Resources dir under the app at $INSTALL_DIR. This
+#     is where additional data and resource files go.
 # * $APP_BUILD - The copy of the .app under ./build, where we munge it in to its final
 #     form, and create the distribution DMG from.
 # * $APP_BUILD_USR - The usr dir under the app at $APP_BUILD, analagous to $INSTALL_USR.
@@ -419,7 +424,8 @@ function stage_app_build() {
   else
     # Create new staged app build
     info "Creating new staged app build at $INSTALL_DIR"
-    # mkdir -p "$INSTALL_DIR"
+    # Compiling an empty script creates the directory skeleton of the app bundle. The
+    # script itself will be replaced later.
     osacompile -o "$INSTALL_DIR" -e " "
     cat <<EOS > "$INSTALL_DIR/STAGING"
 This directory is not a real app!
@@ -663,7 +669,7 @@ function capture_built_octave_app() {
   # Keep this in sync with the corresponding code below!
   # Just on a hunch that dirs right under the app bundle root interfere with codesigning,
   # moved this under Contents/Resources as of 8.4.0.
-  octapp_meta_dir="${INSTALL_DIR}/Contents/Resources/octapp-meta"
+  octapp_meta_dir="${INSTALL_RSRC}/octapp-meta"
   octapp_ver_file="${octapp_meta_dir}/octapp-ver-info.sh"
   formulae_vers_file="${octapp_meta_dir}/octapp-formulae-vers.txt"
   octave="${INSTALL_USR}/opt/${OCTAVE_FORMULA}/bin/octave"
@@ -718,7 +724,7 @@ function munge_build() {
 
   # Get ver info from our custom data file
   # Keep this in sync with the corresponding code above!
-  octapp_meta_dir="${APP_BUILD}/Contents/Resources/octapp-meta"
+  octapp_meta_dir="${APP_BUILD_RSRC}/octapp-meta"
   octapp_ver_file="${octapp_meta_dir}/octapp-ver-info.sh"
   formulae_vers_file="${octapp_meta_dir}/octapp-formulae-vers.txt"
   vers_code=$(cat "${octapp_ver_file}")
@@ -900,8 +906,8 @@ EOSCRIPT
 EOSCRIPT
   fi
 
-  osacompile -o "${APP_BUILD}/Contents/Resources/Scripts/main.scpt" "$tmp_script"
-  cp "$tmp_script" build/logs
+  osacompile -o "${APP_BUILD_RSRC}/Scripts/main.scpt" "$tmp_script"
+  cp "$tmp_script" "$BUILD_LOG_DIR"
   rm "$tmp_script"
 
   # Create a nice iconset (using the icons shipped with Octave)
@@ -923,13 +929,13 @@ EOSCRIPT
   if [[ -e "${hicolor_dir}/1024x1024/apps/octave.png" ]]; then
     cp "${hicolor_dir}/1024x1024/apps/octave.png" "${tmp_iconset}/icon_512x512@2x.png"
   fi
-  iconutil -c icns -o "${APP_BUILD}/Contents/Resources/applet.icns" "${tmp_iconset}"
+  iconutil -c icns -o "${APP_BUILD_RSRC}/applet.icns" "${tmp_iconset}"
 
-  # Create or update entries in the application's plist
+  # Update entries in the app's plist
   local plistbuddy info_plist
   plistbuddy=/usr/libexec/PlistBuddy
   info_plist="${APP_BUILD}/Contents/Info.plist"
-  chmod a+w "${APP_BUILD}/Contents/Info.plist"
+  chmod u+w "$info_plist"
   $plistbuddy -c "Add :NSUIElement integer 1" "$info_plist"
   $plistbuddy -c "Add :CFBundleIdentifier string org.octave-app.Octave" "$info_plist"
   $plistbuddy -c "Add :CFBundleShortVersionString string $oct_ver" "$info_plist"
@@ -942,9 +948,10 @@ EOSCRIPT
   $plistbuddy -c "Add :CFBundleDocumentTypes:0:CFBundleTypeOSTypes array" "$info_plist"
   $plistbuddy -c "Add :CFBundleDocumentTypes:0:CFBundleTypeOSTypes: string \"Mfile\"" "$info_plist"
   $plistbuddy -c "Add :CFBundleDocumentTypes:0:CFBundleTypeRole string \"Editor\"" "$info_plist"
-  $plistbuddy -c "Set :LSMinimumSystemVersionByArchitecture:x86_64 \"$MACHINE_MACOS_VER_MAJMIN\"" "$info_plist"
-  plutil -convert xml1 "${APP_BUILD}/Contents/Info.plist"
-  chmod a=r "${APP_BUILD}/Contents/Info.plist"
+  $plistbuddy -c "Set :LSMinimumSystemVersionByArchitecture:x86_64 \"$MACHINE_MACOS_VER_MAJZERO\"" "$info_plist"
+  # TODO: Add an AS variant of the above?
+  plutil -convert xml1 "$info_plist"
+  chmod a=r "$info_plist"
 
   # Add icon to octave-gui (DISABLED)
   # This is broken as of macOS 12, and maybe earlier. It fails with a "ModuleNotFoundError: No module named 'Cocoa'" error.
@@ -974,7 +981,7 @@ EOSCRIPT
 
   # List all included formulae in the VERSIONS file
   local versions_file octave_app_str app_build_brew
-  versions_file="${APP_BUILD}/Contents/Resources/VERSIONS"
+  versions_file="${APP_BUILD_RSRC}/VERSIONS"
   rm -f "${versions_file}"
   touch "${versions_file}"
   octave_app_str="Octave.app"
@@ -1008,15 +1015,35 @@ EOSCRIPT
       "$APP_BUILD_USR/share/zsh/site-functions/_brew" \
       "$APP_BUILD_USR/bin/brew"
 
-  # Redirect the app prefix's var/ to system local /var
-  # Disabled because it seems to break code signing
-  # rm -rf "$APP_BUILD_USR/var"
-  # ln -s "/usr/local/var" "$APP_BUILD_USR/var"
+  # Convert absolute symlinks to relative ones, because codesigning
+  # rejects absolute ones.
+  # HACK: I don't have code to really convert all of them, so hardcode the
+  # ones to handle here. The NPM man pages, let's just delete.
+  local node_ver='21.7.3'
+  pushd "$APP_BUILD_USR"
+  find share/man -type l -exec rm {} \;
+  pushd bin
+  rm npm npx octave-octapp-8.4.0
+  ln -s ../Cellar/octave-octapp@8.4.0/8.4.0/bin/octave octave-octapp-8.4.0
+  ln -s ../Cellar/node/${node_ver}/bin/npx npm
+  ln -s ../Cellar/node/${node_ver}/bin/npx npx
+  popd
+  pushd Cellar/node/${node_ver}/bin
+  rm npm npx
+  ln -s ../../../../usr/lib/node_modules/npm/bin/npx-cli.js npx
+  ln -s ../../../../usr/lib/node_modules/npm/bin/npm-cli.js npm
+  popd
+  pushd Cellar/shared-mime-info/*/share
+  rm mime
+  ln -s ../../../../share/mime mime
+  popd
+  popd
 
   # Clear resource fork and Finder information that codesign doesn't like
   # Suppress errors because xattr seems to raise "no such file" errors for files
   # that sure look like they're there.
-  # Disabled for now, since we're not doing code signing anyway.
+  # Disabled for now, because codesign's --strip-disallowed-xattrs should
+  # handl that.
   # xattr -rc "$APP_BUILD" || true
 
   # Lock down files to prevent accidental modification by users
@@ -1075,32 +1102,38 @@ function sign_app() {
     fi
   fi
   # Do the actual signing
-  if wet codesign --sign "$CODESIGN_IDENTITY" --force -vvvv "$INSTALL_DIR" \
-    --timestamp --strip-disallowed-xattrs \
+  if wet codesign --sign "$CODESIGN_IDENTITY" -vvvv "$INSTALL_DIR" \
+    --timestamp --strip-disallowed-xattrs --force \
     --file-list "${BUILD_LOG_DIR}/codesign-changed-files.txt"; then
     codesign_status="$?"
     info "codesign returned success"
   else
     codesign_status="$?"
-    info "codesign returned failiure: exit status ${codesign_status}"
+    info "codesign returned failure: exit status ${codesign_status}"
   fi
   # Verify it, for diagnostics
   echo ""
   info "Verifying app codesigning..."
-  info "Verification with 'codesign --display':"
-  wet codesign --display -vv "$INSTALL_DIR"
+  info "Info from 'codesign --display':"
+  wet codesign --display -vvvv "$INSTALL_DIR"
   info "Verification with 'codesign --verify':"
-  wet codesign --verify -vv "$INSTALL_DIR"
-  info "Verification with 'spctl --assess':"
-  wet spctl --assess -vvvv "$INSTALL_DIR"
-  if wet spctl --assess -t open --context context:primary-signature -vv "$INSTALL_DIR"; then
+  if ! wet codesign --verify -vvvv "$INSTALL_DIR"; then
     codesign_status="$?"
-    error "codesigning assessment failed (exit status $?)"
+    error "codesigning verification failed (exit status ${codesign_status})"
+  fi
+  info "Verification with 'spctl --assess':"
+  if ! wet spctl --assess -vvvv "$INSTALL_DIR"; then
+    codesign_status="$?"
+    error "codesigning assessment failed (exit status ${codesign_status})"
+  fi
+  if ! wet spctl --assess -t open --context context:primary-signature -vvvv "$INSTALL_DIR"; then
+    codesign_status="$?"
+    error "codesigning assessment (-t open) failed (exit status ${codesign_status})"
   fi
   # And move back to the munged build location...
   wet mv "$INSTALL_DIR" "$APP_BUILD"
   if [[ $codesign_status != 0 ]]; then
-    die "codesigning failed: codesign returned ${codesign_status}"
+    die "codesigning failed"
   fi
 }
 
@@ -1144,7 +1177,7 @@ function create_dmg() {
   # will still be created, only some beautification cannot be applied.
   # We manually set the image size because create-dmg's automatic sizing seems to
   # get it wrong, and we run out of space when adding files.
-  local app_build_octapp_keg="${APP_BUILD}/Contents/Resources/usr/Cellar/${OCTAVE_FORMULA}/${OCTAVE_FORMULA_VERSION}"
+  local app_build_octapp_keg="${APP_BUILD_USR}/Cellar/${OCTAVE_FORMULA}/${OCTAVE_FORMULA_VERSION}"
   local createdmg_extra=''
   if [[ $VERBOSE = 'y' ]]; then
     createdmg_extra="${createdmg_extra} --verbose"
@@ -1155,7 +1188,7 @@ function create_dmg() {
   wet ${SUDO} "${CREATEDMG_HOME}/create-dmg" \
       ${createdmg_extra} \
       --volname "${DMG_VOLUME_NAME}" \
-      --volicon "${APP_BUILD}/Contents/Resources/applet.icns" \
+      --volicon "${APP_BUILD_RSRC}/applet.icns" \
       --filesystem APFS \
       --window-size 550 500 \
       --icon-size 48 \
@@ -1165,7 +1198,7 @@ function create_dmg() {
       --eula "${octapp_tap_dir}/assets/COPYING/COPYING.rtf" \
       --add-file "${install_instr_file}" "${BUILD_DIR}/${install_instr_file}" 270 350 \
       --add-file COPYING "${app_build_octapp_keg}/COPYING" 126 300 \
-      --add-file VERSIONS "${APP_BUILD}/Contents/Resources/VERSIONS" 415 300 \
+      --add-file VERSIONS "${APP_BUILD_RSRC}/VERSIONS" 415 300 \
       --disk-image-size 7500 \
       --background "${OCTAPPBUNDLER_HOME}/assets/background.tiff" \
       "${BUILD_DIR}/${DMG_FILE}" \
@@ -1191,7 +1224,7 @@ function test_app() {
   fi
 
   mv "$APP_BUILD" "$INSTALL_DIR"
-  osascript "${INSTALL_DIR}/Contents/Resources/Scripts/main.scpt" --run-test-suite
+  osascript "${INSTALL_DIR}/Contents/MacOS/Scripts/main.scpt" --run-test-suite
   mv "$INSTALL_DIR" "$APP_BUILD"
 }
 
@@ -1445,6 +1478,7 @@ DO_SIGN=n
 DO_JUST_SHOW_OPTIONS=n
 CODESIGN_IDENTITY='Andrew Janke (R7H2BFWJAB)'
 ABSOLUTIFY_SYMLINKS=n
+RELATIVIFY_SYMLINKS=y
 # Define these if we need to use a special branch of Homebrew
 BREW_REMOTE_URL=
 BREW_REMOTE_URL=
@@ -1471,7 +1505,8 @@ USE_SUDO=y
 
 OCTAPPBUNDLER_HOME=$(dirname $0)
 MACHINE_MACOS_VER=$(sw_vers -productVersion)
-MACHINE_MACOS_VER_MAJMIN=$(sw_vers -productVersion | sed -E 's/^(\w+\.\w+).*/\1/')
+MACHINE_MACOS_VER_MAJMIN=$(echo "$MACHINE_MACOS_VER" | sed -E 's/^(\w+\.\w+).*/\1/')
+MACHINE_MACOS_VER_MAJZERO="$(echo "$MACHINE_MACOS_VER" | sed 's/\..*//').0"
 
 parse_cli_args "$@"
 pick_names_for_things
@@ -1487,14 +1522,18 @@ fi
 detect_dependencies
 
 # Vars that do depend on chosen names and/or detected dependencies
+# Location of usr/ within the app bundle
+USR_REL_PATH="Contents/MacOS/usr"
 INSTALL_DIR="/Applications/${APP_NAME}.app"
+INSTALL_USR="${INSTALL_DIR}/${USR_REL_PATH}"
+INSTALL_RSRC="${INSTALL_DIR}/Contents/Resources"
 INSTALL_BUILT="/Applications/${APP_NAME}-BUILT.app"
-INSTALL_DIR_UNSTAGED="${INSTALL_DIR}-UNSTAGED"
-INSTALL_USR="${INSTALL_DIR}/Contents/Resources/usr"
-INSTALL_BUILT_USR="${INSTALL_BUILT}/Contents/Resources/usr"
+INSTALL_BUILT_USR="${INSTALL_BUILT}/${USR_REL_PATH}"
 brew="$INSTALL_USR/bin/brew"
 APP_BUILD="${BUILD_DIR}/${APP_NAME}.app"
-APP_BUILD_USR="${APP_BUILD}/Contents/Resources/usr"
+APP_BUILD_USR="${APP_BUILD}/${USR_REL_PATH}"
+APP_BUILD_RSRC="${APP_BUILD}/Contents/Resources"
+INSTALL_DIR_UNSTAGED="${INSTALL_DIR}-UNSTAGED"
 
 
 if [[ "$VERBOSE" == "y" || "$DO_JUST_SHOW_OPTIONS" == "y" ]]; then
