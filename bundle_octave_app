@@ -1339,7 +1339,7 @@ function main () {
   enable_errexit
 
   info "Building ${APP_NAME}.app at ${INSTALL_DIR} from brew formula ${OCTAVE_FORMULA}"
-  wet mkdir "$BUILD_LOG_DIR"
+  wet mkdir -p "$BUILD_LOG_DIR"
 
   # Handle special actions first (each of these should exit when done)
   if [[ -n "$ACTION" ]]; then
