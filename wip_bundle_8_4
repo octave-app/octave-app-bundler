@@ -28,9 +28,7 @@
 #     --octave-version 9.1 --pre-release alpha1 "$@"
 
 # 2024-04-08: I think I got the Qt and gcc build failures figured out. Xcode 15.3
-# broke both of them. Let's try 8.4 after all. That was a big enough change, plus
-# some core Homebrew packages have changed in the mean time, and I'm revising the
-# octapp code customizations a bit, that I think we need another beta.
+# broke both of them. Let's try 8.4 after all.
 
 ./bundle_octave_app --verbose --debug-verbose --tap-branch lets-go-8-4-oh \
-    --octave-version 8.4.0 --pre-release beta3 "$@"
+    --octave-version 8.4.0 "$@"
