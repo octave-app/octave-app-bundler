@@ -231,7 +231,11 @@ function usage() {
 
   Octave build options:
     -a, --variant <variant>
-      Variant of Octave.app to build. [$VARIANT]
+      Variant of Octave.app to build. Affects both formula variant and release variant.
+    --formula-variant <variant>
+      Formula variant to use for the octave formula. [$FORMULA_VARIANT]
+    --release-variant <variant>
+      Release variant to put in the release and file names. [$RELEASE_VARIANT]
     -V, --octave-version <version>
       Version of Octave formula to build, affecting formula choice.
     -c, --cli-only
@@ -293,7 +297,8 @@ ${THIS_PROGRAM} run at $(date) on ${hostname}
   ${THIS_PROGRAM} from git commit ${oab_ver}${oab_gitstate_extra}
 
 Options:
-variant = ${VARIANT}
+formula_variant = ${FORMULA_VARIANT}
+release_variant = ${RELEASE_VARIANT}
 build_suffix = ${BUILD_SUFFIX} (prerelease = ${PRE_RELEASE}, update_release = ${UPDATE_RELEASE})
 octave_formula = ${OCTAVE_FORMULA}
 octave_formula_version = ${OCTAVE_FORMULA_VERSION}
@@ -336,7 +341,7 @@ function pick_default_octave_version() {
   elif [[ "$OCTAVE_FORMULA_BASE" == "octave-unversioned" ]]; then
     OCTAVE_FORMULA_VERSION=""
   else
-    die "Variant '${VARIANT}' (formula base ${OCTAVE_FORMULA_BASE}) has no default version defined. You must supply one."
+    die "Formula variant '${FORMULA_VARIANT}' (formula base ${OCTAVE_FORMULA_BASE}) has no default version defined. You must supply one."
   fi
 }
 
@@ -344,11 +349,14 @@ function pick_default_octave_version() {
 function pick_names_for_things() {
   local app_base_name app_base_name_base
 
-  if [[ -z "$VARIANT" ]]; then
+  if [[ -z "$FORMULA_VARIANT" ]]; then
     OCTAVE_FORMULA_BASE="octave-octapp"
+  else
+    OCTAVE_FORMULA_BASE="octave-${FORMULA_VARIANT}"
+  fi
+  if [[ -z "$RELEASE_VARIANT" ]]; then
     app_base_name_base="octave"
   else
-    OCTAVE_FORMULA_BASE="octave-${variant}"
     app_base_name_base="${OCTAVE_FORMULA_BASE}"
   fi
   app_base_name="$(tr '[:lower:]' '[:upper:]' <<< ${app_base_name_base:0:1})${app_base_name_base:1}"
@@ -357,10 +365,10 @@ function pick_names_for_things() {
     pick_default_octave_version
   fi
   OCTAVE_VERSION="${OCTAVE_FORMULA_VERSION//_[[:digit:]]/}"
-  if [[ -z "$VARIANT" ]]; then
+  if [[ -z "$RELEASE_VARIANT" ]]; then
     VERSION_NAME="${OCTAVE_VERSION}"
   else
-    VERSION_NAME="${OCTAVE_VERSION}-${variant}"
+    VERSION_NAME="${OCTAVE_VERSION}-${RELEASE_VARIANT}"
   fi
   if [[ -z "$OCTAVE_FORMULA_VERSION" ]]; then
     OCTAVE_FORMULA="${OCTAVE_FORMULA_BASE}"
@@ -970,8 +978,8 @@ EOSCRIPT
   rm -f "${versions_file}"
   touch "${versions_file}"
   octave_app_str="Octave.app"
-  if [[ -n "$VARIANT" ]]; then
-    octave_app_str="${octave_app_str} (variant ${variant})"
+  if [[ -n "$FORMULA_VARIANT" ]]; then
+    octave_app_str="${octave_app_str} (variant ${FORMULA_VARIANT})"
   fi
   octave_app_str="${octave_app_str}, version $oct_ver"
   if [[ -n "${BUILD_SUFFIX}" ]]; then
@@ -1234,7 +1242,13 @@ function parse_cli_args() {
         if [[ $# -lt 1 ]]; then
           die "option ${arg} requires an argument"
         fi
-        VARIANT="$1"; shift ;;
+        FORMULA_VARIANT="$1";
+        RELEASE_VARIANT="$1";
+        shift ;;
+      --formula-variant)
+        FORMULA_VARIANT="$1"; shift ;;
+      --release-variant)
+        RELEASE_VARIANT="$1"; shift ;;
       -c | --cli-only)
         DO_BUILD_GUI=n ;;
       -C | --cli-frontend)
@@ -1410,7 +1424,8 @@ BIG_BUILD_ONLY_PKGS=(rust llvm)
 # Default version to build. This is updated frequently to match the latest version of Octave.app
 # we're currently working on.
 DEFAULT_OCTAVE_FORMULA_VERSION="8.4.0"
-VARIANT=
+FORMULA_VARIANT=
+RELEASE_VARIANT=
 BUILD_SUFFIX=
 PRE_RELEASE=
 UPDATE_RELEASE=

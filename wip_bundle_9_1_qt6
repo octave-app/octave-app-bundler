@@ -9,5 +9,7 @@
 # The "wip" comes first in the name so you don't accidentally mix up this wrapper
 # and the main bundle_octave command in shell tab completion or history searches.
 
+# Not using a release variant for now, because the pre-release suffix is sufficient
+# to identify it. (Would be like '--release-variant qt6').
 ./bundle_octave_app --verbose --debug-verbose --tap-branch lets-go-8-4-oh \
     --octave-version 9.1.0 --pre-release snap-qt6 "$@"
