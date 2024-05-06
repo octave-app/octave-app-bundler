@@ -30,5 +30,5 @@
 # 2024-04-08: I think I got the Qt and gcc build failures figured out. Xcode 15.3
 # broke both of them. Let's try 8.4 after all.
 
-./bundle_octave_app --verbose --debug-verbose --tap-branch lets-go-8-4-oh \
+./bundle_octave_app --verbose --debug-verbose \
     --octave-version 8.4.0 "$@"

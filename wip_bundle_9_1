@@ -9,5 +9,5 @@
 # The "wip" comes first in the name so you don't accidentally mix up this wrapper
 # and the main bundle_octave command in shell tab completion or history searches.
 
-./bundle_octave_app --verbose --debug-verbose --tap-branch lets-go-8-4-oh \
-    --octave-version 9.1.0 --formula-variant octapp-qt5 --pre-release beta1 "$@"
+./bundle_octave_app --verbose --debug-verbose \
+    --octave-version 9.1.0 --formula-variant octapp-qt5 --pre-release beta2 "$@"
