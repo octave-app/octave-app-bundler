@@ -9,26 +9,8 @@
 # The "wip" comes first in the name so you don't accidentally mix up this wrapper
 # and the main bundle_octave command in shell tab completion or history searches.
 
-# As of late 2023, I'm trying to get a 7.x or 8.x built, and 8.4.0 is the latest
-# release in those series.
-
-# Working on beta2 as of 2024-02-25, dealing with the quarantined DMG problem. App itself
-# seems ready for release. This new beta has a big "READ ME!" instructions file in the DMG
-# telling users how to deal with the quarantining.
-# ./bundle_octave_app --verbose --debug-verbose --pre-release beta2 "$@"
-
-# And as of 2024-04-01, I gave up on fixing the quarantine problem. And no other
-# blockers (IMHO) for 8.x. So let's make a real build.
-# ./bundle_octave_app --verbose --debug-verbose "$@"
-
-# But also as of 2024-04-01, all my Qt 5 builds are broken, which breaks the octapp 8.x
-# builds. So we'll skip ahead to doing a 9.1 build, starting with an alpha.
-
-# ./bundle_octave_app --verbose --debug-verbose --tap-branch lets-go-8-4-oh \
-#     --octave-version 9.1 --pre-release alpha1 "$@"
-
-# 2024-04-08: I think I got the Qt and gcc build failures figured out. Xcode 15.3
-# broke both of them. Let's try 8.4 after all.
+# As of late 2023 - early 2024, I'm trying to get a 7.x or 8.x built, and 8.4.0 was the
+# latest release in those series as of 2024-03 ish.
 
 ./bundle_octave_app --verbose --debug-verbose \
     --octave-version 8.4.0 "$@"
