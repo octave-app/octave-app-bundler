@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# wip_bundle_octave_app - Build the Octave.app we're working on now.
+# wip_bundle_8_4 - Build the 8.x Octave.app we're working on now.
 #
 # This is a thin wrapper around bundle_octave which just calls it with the options
 # for the build we're currently working on, so you don't have to remember to type
