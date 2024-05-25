@@ -11,6 +11,9 @@
 
 # As of late 2023 - early 2024, I'm trying to get a 7.x or 8.x built, and 8.4.0 was the
 # latest release in those series as of 2024-03 ish.
+# As of 2024-05, I'm working on fixes found during the 9.1 build, including that it's
+# using the vanilla fig2dev, and thus vanilla netpbm, which pulls in svn and thus llvm,
+# which is 1.5 GB, ugh.
 
 ./bundle_octave_app --verbose --debug-verbose \
-    --octave-version 8.4.0 "$@"
+    --octave-version 8.4.0 --build-suffix u1 --tap-branch nine-oh-fixes "$@"
