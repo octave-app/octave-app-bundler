@@ -9,5 +9,9 @@
 # The "wip" comes first in the name so you don't accidentally mix up this wrapper
 # and the main bundle_octave command in shell tab completion or history searches.
 
+# This is "beta2pre" instead of "beta2" because we're still working out significant bugs
+# and not ready to build a real beta2 yet. Don't want things to get confused with
+# different builds all named "beta2".
+
 ./bundle_octave_app --verbose --debug-verbose \
-    --octave-version 9.1.0 --pre-release beta2 --tap-branch nine-oh-fixes "$@"
+    --octave-version 9.1.0 --pre-release beta2pre --tap-branch nine-oh-fixes "$@"
