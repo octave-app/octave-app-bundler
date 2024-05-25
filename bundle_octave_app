@@ -1417,7 +1417,9 @@ elif [[ $MACHINE_ARCH = 'arm64' ]]; then
 else
   MACHINE_ARCH_DESCR="$MACHINE_ARCH"
 fi
-BIG_BUILD_ONLY_PKGS=(rust llvm)
+# Large deps only needed at Octave.app build time only (not oct-file/mex-file build time
+# at Octave.app run time) to remove to save space
+BIG_BUILD_ONLY_PKGS=(rust llvm llvm@17)
 
 # Controls for what gets built
 
