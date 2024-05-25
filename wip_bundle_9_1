@@ -13,5 +13,5 @@
 # and not ready to build a real beta2 yet. Don't want things to get confused with
 # different builds all named "beta2".
 
-./bundle_octave_app --verbose --debug-verbose \
+time ./bundle_octave_app --verbose --debug-verbose \
     --octave-version 9.1.0 --pre-release beta2pre --tap-branch nine-oh-fixes "$@"
