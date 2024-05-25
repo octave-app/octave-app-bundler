@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# wip_bundle_9_1_qt56 - Build 9.1 with Qt 5 instead of 6
+# wip_bundle_9_1_qt5 - Build 9.1 with Qt 5 instead of 6
 #
 # This is a thin wrapper around bundle_octave which just calls it with the options
 # for the build we're currently working on, so you don't have to remember to type
@@ -10,6 +10,6 @@
 # and the main bundle_octave command in shell tab completion or history searches.
 
 # Not using a release variant for now, because the pre-release suffix is sufficient
-# to identify it. (Would be like '--release-variant qt6').
+# to identify it. (Would be like '--release-variant qt5').
 ./bundle_octave_app --verbose --debug-verbose \
     --octave-version 9.1.0 --formula-variant octapp-qt5 --pre-release snap-qt5 --tap-branch nine-oh-fixes "$@"
