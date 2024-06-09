@@ -16,4 +16,4 @@
 # which is 1.5 GB, ugh.
 
 time ./bundle_octave_app --verbose --debug-verbose \
-    --octave-version 8.4.0 --build-suffix u1-pre --tap-branch nine-oh-fixes "$@"
+    --octave-version 8.4.0 --pre-release u1-pre --tap-branch nine-oh-fixes "$@"
