@@ -13,4 +13,4 @@
 # and the main bundle_octave command in shell tab completion or history searches.
 
 time ./bundle_octave_app --verbose --debug-verbose \
-    --octave-version 9.1.0 --formula-variant octapp-qt5 --pre-release beta2 --tap-branch nine-oh-fixes "$@"
+    --octave-version 9.1.0 --formula-variant octapp-qt5 --pre-release beta3 --tap-branch nine-oh-fixes "$@"
