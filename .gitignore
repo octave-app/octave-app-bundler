@@ -5,3 +5,4 @@
 
 # octapp-specific stuff
 build/
+*.log
