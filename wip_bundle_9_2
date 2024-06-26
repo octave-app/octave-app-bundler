@@ -1,0 +1,16 @@
+#!/bin/bash
+#
+# wip_bundle_9_2 - Build 9.2 release (using Qt 5)
+#
+# As of 2024-06-24, I'm targeting Qt 5 for the main 9.2 release, since I'm having problems
+# with Qt 6 and don't know how to fix them.
+#
+# This is a thin wrapper around bundle_octave which just calls it with the options
+# for the build we're currently working on, so you don't have to remember to type
+# them on the command line consistently each time.
+#
+# The "wip" comes first in the name so you don't accidentally mix up this wrapper
+# and the main bundle_octave command in shell tab completion or history searches.
+
+time ./bundle_octave_app --verbose --debug-verbose \
+    --octave-version 9.2.0 --formula-variant octapp-qt5 --pre-release beta1 --tap-branch nine-oh-fixes "$@"
