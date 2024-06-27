@@ -91,10 +91,21 @@ if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
 #
 # (Scroll down to the very bottom to see the main script logic.)
 
-# Utility functions
+# Utility functions and boilerplate
+
+# A hacky version of realpath, because macOS didn't ship realpath until macOS 13, and we
+# still want to run on older versions.
+#
+# This is the best/most suitable solution of all the stuff I found on SO here:
+#   https://stackoverflow.com/questions/3572030/bash-script-absolute-path-with-os-x
+
+function oa_realpath() {
+  local file="$1"
+  python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$file"
+}
 
 THIS_PROGRAM=$(basename $0)
-THIS_DIR=$(realpath $(dirname $0))
+THIS_DIR=$(oa_realpath $(dirname $0))
 
 function info() {
   echo "$*"
@@ -154,7 +165,6 @@ function toc() {
   elapsed_s=$((elapsed_s - (elapsed_m * 60)))
   info $(printf "elapsed time: %s: %02d:%02d" "$label" "$elapsed_m" "$elapsed_s")
 }
-
 
 # Special functions to turn errexit on/off, to support the special no-errexit debugging
 # control.
@@ -1060,13 +1070,12 @@ function sign_app() {
     else
       file_list_file=$(mktemp /tmp/octave-XXXXX)
       find "$INSTALL_DIR" -type l | sort > "$file_list_file"
-      # Commented out due to syntax error:
       while read link; do
         link_dir=$(dirname "$link")
         link_target=$(readlink "$link")
         (
           cd "$link_dir"
-          real_target=$(realpath "$link_target")
+          real_target=$(oa_realpath "$link_target")
           rm "$link"
           ln -s "$real_target" "$link"
         )
