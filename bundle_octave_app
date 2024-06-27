@@ -619,6 +619,12 @@ function brew_is_installed() {
   "$brew" list --formula | grep -x "$formula" &>/dev/null
 }
 
+function setup_brew_env() {
+  export HOMEBREW_NO_AUTO_UPDATE=1
+  #TODO: Customize HOMEBREW_LOGS?
+  #TODO: Use HOMEBREW_SVN to support svn downloads without in-octapp svn install?
+}
+
 # Moves the completed build to a -BUILT copy. At that point it's "pristine" and should
 # (mostly) no longer be modified. As of 2024-01-18, I think this is redundant with unstage_*.
 function move_build_to_stash() {
@@ -1505,6 +1511,7 @@ brew="$INSTALL_USR/bin/brew"
 APP_BUILD="${BUILD_DIR}/${APP_NAME}.app"
 APP_BUILD_USR="${APP_BUILD}/Contents/Resources/usr"
 
+setup_brew_env
 
 if [[ "$VERBOSE" == "y" || "$DO_JUST_SHOW_OPTIONS" == "y" ]]; then
   echo_options
