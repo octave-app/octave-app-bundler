@@ -17,7 +17,9 @@ NOTE: The versions of maOS, Xcode, etc. are rolling, because Homebrew only suppo
 
 This describes in detail how I set up my build boxes. I do this using VMware Fusion. You can probably get it to work with Parallels or VirtualBox, too.
 
-First, create a box, either as a VM, or a bare-metal Mac. For VMs:
+First, create a box, either as a VM, or a bare-metal Mac. For VMs, I use VMware Fusion on Intel, and am searching for a hypervisor on AS, because VMware Fusion doesn't support macOS guests on AS. As of 2024-06, I'm trying UTM, and it seems promising.
+
+On VMware:
 
 * Install VMware Fusion.
 * Acquire a macOS installer ISO image for our current build OS.
@@ -33,12 +35,17 @@ First, create a box, either as a VM, or a bare-metal Mac. For VMs:
   * Before running the installer itself, run Disk Utility and use it to re-partition the disk so all available space is used by the main “Mac HD” partition.
 * Do an OS update.
 * Install VMware Tools in the guest OS.
-* Change power and scren saver settings to not sleep or lock screen for a couple hours.
-  * Because when it screen-locks while a build is running, it's really slow and hard to log back in. Rely on the host's locking.
+* Configure settings
+  * Set host name
+    * `name=<name>; for x in HostName LocalHostName ComputerName; do sudo scutil --set $x $name; done`
+  * Change power and screen saver settings to not sleep or lock screen for a couple hours.
+    * Because when it screen-locks while a build is running, it's really slow and hard to log back in. Rely on the host's locking.
+  * UI prefs: Finder, Sound, scroll direction
 
-Once you have a fresh box, turn it into a build box by installing things.
+Once you have a fresh box, turn it into a build box by installing things. (I like to snapshot the fresh VM first.)
 
 * Xcode
+  * Versions: 14.2 for macOS 12, latest avail for later macOS
 * Xcode CLT
   * With `xcode-select --install`, or a downloaded installer
 * MacTeX (TexLive)
@@ -49,6 +56,8 @@ Once you have a fresh box, turn it into a build box by installing things.
 * Your favorite editors etc.
   * For me, that's: VS Code, iTerm2, and Chrome.
 * Configure your user git settings (name and email) on the guest OS.
+
+When doing this, I like to snapshot the VM once after the initial OS installation, again after installing all the tools except Homebrew, and one last time after installing Homebrew and its packages.
 
 In mid 2024, we had a problem with the latest Xcode and CLT breaking the build for some Homebrew formulae, so you had to specially install older versions. But that got fixed as of 2024-05 or so, and now you can use the default versions again.
 
