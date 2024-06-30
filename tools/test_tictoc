@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
+
+
+function info()    { echo >&2 "$*"; }
+function tic()     { date +%s; }
+function toc()     { local t0="$1" t1; t1=$(tic); echo $((t1 - t0)); }
+function s2mmss()  { printf "%02d:%02d" "$(($1/60))" "$(($1%60))"; }
+function say_toc() {
+  local label="$1" t0="$2"
+  te=$(toc "$t0")
+  info $(printf "elapsed time: %s: %s" "$label" $(s2mmss "$te"))
+}
+function timeit() {
+  local label="${1:-action}"; shift
+  t0=$(tic)
+  "$@"
+  say_toc "$label" "$t0"
+}
+
+
+t0=$(tic)
+sleep 7
+say_toc 'sleeping' "$t0"

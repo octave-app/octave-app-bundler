@@ -107,63 +107,36 @@ function oa_realpath() {
 THIS_PROGRAM=$(basename $0)
 THIS_DIR=$(oa_realpath $(dirname $0))
 
-function info() {
-  echo "$*"
-}
-
-function error() {
-  echo >&2 "${THIS_PROGRAM}: ERROR: $*"
-}
-
-function die() {
-  local msg="$1"
-  error "$msg"
-  exit 1
-}
-
-function verbose() {
-  if [[ $VERBOSE == 'y' ]]; then
-    echo "$*"
-  fi
-}
-
-function is_dry_run() {
-  if [[ $DRY_RUN == 'y' ]]; then
-    return 0
-  else
-    return 1
-  fi
-}
-
+function info()  { echo "$*"; }
+function error() { echo >&2 "${THIS_PROGRAM}: ERROR: $*"; }
+function die()   { local msg="$1"; error "$msg"; exit 1; }
+function verbose() { if [[ $VERBOSE == 'y' ]]; then echo "$*"; fi; }
+function is_dry_run() { if [[ $DRY_RUN == 'y' ]]; then return 0; else return 1; fi; }
 function wet() {
   if is_dry_run; then
-    echo "dry run: would run: $*"
+    info "dry run: would run: $*"
   else
     verbose "running: $*"
     "$@"
     return $?
   fi
 }
-
+function tic()     { date +%s; }
+function toc()     { local t0="$1" t1; t1=$(tic); echo $((t1 - t0)); }
+function s2mmss()  { printf "%02d:%02d" "$(($1/60))" "$(($1%60))"; }
+function say_toc() {
+  local label="$1" t0="$2"
+  te=$(toc "$t0")
+  info $(printf "Elapsed time: %s: %s" "$label" $(s2mmss "$te"))
+}
 function timeit() {
-  local t0=$(tic)
+  local label="${1:-action}"; shift
+  if [[ $# == 0 ]]; then
+    die "BUG: timeit() called with too few arguments"
+  fi
+  t0=$(tic)
   "$@"
-  toc "action" "$t0"
-}
-
-function tic() {
-  date +%s
-}
-
-function toc() {
-  local label start_time end_time elapsed_s elapsed_m
-  label="$1"
-  start_time="$2"
-  end_time=$(date +%s)
-  elapsed_s=$((end_time - start_time))
-  elapsed_m=$((elapsed_s / 60))
-  elapsed_s=$((elapsed_s - (elapsed_m * 60)))
-  info $(printf "elapsed time: %s: %02d:%02d" "$label" "$elapsed_m" "$elapsed_s")
+  say_toc "$label" "$t0"
 }
 
 # Special functions to turn errexit on/off, to support the special no-errexit debugging
@@ -548,6 +521,8 @@ function build_octave_in_staged_app() {
     die "A built app aleady exists unstaged at $INSTALL_BUILT. Needs manual cleanup."
   fi
 
+  # TODO: Replace this with customizing the brew logs location using the HOMEBREW_*
+  # env vars.
   info "Deleting existing user Homebrew logs..."
   if ls "${HOME}/Library/Logs/Homebrew" | grep . &>/dev/null; then
     wet rm -rf "${HOME}/Library/Logs/Homebrew/*"
@@ -735,6 +710,7 @@ function munge_build() {
   # Get ver info from our custom data file
   # Keep this in sync with the corresponding code above!
   octapp_meta_dir="${APP_BUILD}/Contents/Resources/octapp-meta"
+  octapp_usr="${APP_BUILD}/Contents/Resources/usr"
   octapp_ver_file="${octapp_meta_dir}/octapp-ver-info.sh"
   formulae_vers_file="${octapp_meta_dir}/octapp-formulae-vers.txt"
   vers_code=$(cat "${octapp_ver_file}")
@@ -743,6 +719,10 @@ function munge_build() {
 
   # Munge it
   info "Munging app in $APP_BUILD..."
+
+  # Add a bare "octave" link in the main bin, so when the octapp "env" is loaded,
+  # an unqualified "octave" command runs that.
+  ( cd "${octapp_usr}/bin"; ln -s "$OCTAVE_FORMULA" octave )
 
   # Have app use its internal font cache instead of global one
   /usr/bin/sed -i '' 's/\/Applications.*fontconfig/~\/.cache\/fontconfig/g' \
@@ -1231,19 +1211,19 @@ function do_whole_build_process() {
   # TODO: Split this out to separate "ensure" (create if not exist) and "update/freshen" (do
   # updates and upgrades on existing Homebrew install) operations.
   freshen_staged_homebrew
-  timeit build_octave_in_staged_app
+  timeit build_octave_in_staged_app build_octave_in_staged_app
   capture_build_logs
-  timeit capture_built_octave_app
+  timeit capture_built_octave_app capture_built_octave_app
   unstage_app_build
   munge_build
   if [[ "$DO_SIGN" == "y" ]]; then
     sign_app
   fi
   if [[ "$DO_BUILD_DMG" == "y" ]]; then
-    timeit create_dmg
+    timeit create_dmg create_dmg
   fi
-  toc "whole build" "$t0"
   info "Build finished."
+  say_toc "build" "$t0"
 }
 
 function parse_cli_args() {

@@ -2,6 +2,8 @@
 #
 # create-macos-install-iso.sh - Create a macOS installer ISO from the installer app.
 #
+#   create-macos-install-iso.sh [-m | --major <ver>] [-v|--verbose] [-Y|--dry-run]
+#
 # I use this to create an ISO that VMware Fusion can use to create a macOS 12, 13, or 14
 # VM. It doesn't seem to be able to directly use the Install macOS Monterey.app installer.
 #
@@ -32,34 +34,11 @@ if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
 THIS_PROGRAM=$(basename $0)
 THIS_DIR=$(realpath $(dirname $0))
 
-function info() {
-  echo >&2 "$*"
-}
-
-function error() {
-  echo >&2 "${THIS_PROGRAM}: ERROR: $*"
-}
-
-function die() {
-  local msg="$1"
-  error "$msg"
-  exit 1
-}
-
-function verbose() {
-  if [[ $VERBOSE == 'y' ]]; then
-    echo >&2 "$*"
-  fi
-}
-
-function is_dry_run() {
-  if [[ $DRY_RUN == 'y' ]]; then
-    return 0
-  else
-    return 1
-  fi
-}
-
+function info()  { echo >&2 "$*"; }
+function error() { echo >&2 "${THIS_PROGRAM}: ERROR: $*"; }
+function die()   { local msg="$1"; error "$msg"; exit 1; }
+function verbose() { if [[ $VERBOSE == 'y' ]]; then echo >&2 "$*"; fi; }
+function is_dry_run() { if [[ $DRY_RUN == 'y' ]]; then return 0; else return 1; fi; }
 function wet() {
   if is_dry_run; then
     info "dry run: would run: $*"
@@ -69,26 +48,19 @@ function wet() {
     return $?
   fi
 }
-
+function tic() { date +%s; }
+function toc() { local t0="$1" t1; t1=$(tic); echo $((t1 - t0)); }
+function s2mmss() { printf "%02d:%02d" "$(($1/60))" "$(($1%60))"; }
+function say_toc() {
+  local label="$1" t0="$2"
+  te=$(toc "$t0")
+  info $(printf "elapsed time: %s: %s" "$label" $(s2mmss "$te"))
+}
 function timeit() {
-  local t0=$(tic)
+  local label="${1:-action}"; shift
+  t0=$(tic)
   "$@"
-  toc "action" "$t0"
-}
-
-function tic() {
-  date +%s
-}
-
-function toc() {
-  local label start_time end_time elapsed_s elapsed_m
-  label="$1"
-  start_time="$2"
-  end_time=$(date +%s)
-  elapsed_s=$((end_time - start_time))
-  elapsed_m=$((elapsed_s / 60))
-  elapsed_s=$((elapsed_s - (elapsed_m * 60)))
-  info $(printf "elapsed time: %s: %02d:%02d" "$label" "$elapsed_m" "$elapsed_s")
+  say_toc "$label" "$t0"
 }
 
 
@@ -158,5 +130,5 @@ wet hdiutil convert "/tmp/${NAME}.dmg" -format UDTO -o "$HOME/Downloads/$NAME"
 wet sudo rm -fv "/tmp/${NAME}.dmg"
 wet mv -v "$HOME/Downloads/${NAME}.cdr" "$ISO_FILE"
 
-toc 'ISO creation' "$t0_all"
+say_toc 'ISO creation' "$t0_all"
 info "Created ISO at: ${ISO_FILE}"
