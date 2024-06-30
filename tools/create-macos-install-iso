@@ -2,10 +2,18 @@
 #
 # create-macos-install-iso.sh - Create a macOS installer ISO from the installer app.
 #
-#   create-macos-install-iso.sh [-m | --major <ver>] [-v|--verbose] [-Y|--dry-run]
+#   create-macos-install-iso.sh [-m | --major <ver>] [-v | --verbose] [-Y | --dry-run]
 #
 # I use this to create an ISO that VMware Fusion can use to create a macOS 12, 13, or 14
 # VM. It doesn't seem to be able to directly use the Install macOS Monterey.app installer.
+#
+# OPTIONS
+#
+# -m | --major <ver> - is the major version of macOS to create the installer ISO for.
+#     May be '12', '13', '14', or some other number like that. E.g. '12' is Monterey
+#     and '13' is Ventura.
+#
+# INFORMATION
 #
 # For this to work, you must download the macOS installer of the right version from the
 # Mac App Store so it's in your /Applications folder. Download links:
@@ -54,7 +62,7 @@ function s2mmss() { printf "%02d:%02d" "$(($1/60))" "$(($1%60))"; }
 function say_toc() {
   local label="$1" t0="$2"
   te=$(toc "$t0")
-  info $(printf "elapsed time: %s: %s" "$label" $(s2mmss "$te"))
+  info $(printf "Elapsed time: %s: %s" "$label" $(s2mmss "$te"))
 }
 function timeit() {
   local label="${1:-action}"; shift
@@ -66,8 +74,8 @@ function timeit() {
 
 # Script-specific stuff
 
-# 'monterey', 'ventura', or 'sonoma'
-WHICH_OS_VER='monterey'
+# Major version, like '12' (Monterey), '13' (Ventura), 14, etc.
+WHICH_OS_VER='12'
 VERBOSE=n
 DRY_RUN=
 
@@ -93,18 +101,18 @@ function parse_cli_args() {
 parse_cli_args "$@"
 
 # These sizes are based on trial and error on Apple Silicon.
-if [[ "$WHICH_OS_VER" = "monterey" ]]; then
-  OS_NAME="Monterey"
-  OS_MAJ_VER="12"
-  VOL_SIZE="14g"
-elif [[ "$WHICH_OS_VER" = "ventura" ]]; then
-  OS_NAME="Ventura"
-  OS_MAJ_VER="13"
-  VOL_SIZE="14g"
-elif [[ "$WHICH_OS_VER" = "sonoma" ]]; then
-  OS_NAME="Sonoma"
-  OS_MAJ_VER="14"
-  VOL_SIZE="15g"
+if [[ "$WHICH_OS_VER" = '12' ]]; then
+  OS_NAME='Monterey'
+  OS_MAJ_VER='12'
+  VOL_SIZE='14g'
+elif [[ "$WHICH_OS_VER" = '13' ]]; then
+  OS_NAME='Ventura'
+  OS_MAJ_VER='13'
+  VOL_SIZE='14g'
+elif [[ "$WHICH_OS_VER" = '14' ]]; then
+  OS_NAME='Sonoma'
+  OS_MAJ_VER='14'
+  VOL_SIZE='15g'
 else
   die "Unsupported OS version: ${WHICH_OS_VER}"
 fi
@@ -130,5 +138,5 @@ wet hdiutil convert "/tmp/${NAME}.dmg" -format UDTO -o "$HOME/Downloads/$NAME"
 wet sudo rm -fv "/tmp/${NAME}.dmg"
 wet mv -v "$HOME/Downloads/${NAME}.cdr" "$ISO_FILE"
 
-say_toc 'ISO creation' "$t0_all"
 info "Created ISO at: ${ISO_FILE}"
+say_toc 'ISO creation' "$t0_all"
