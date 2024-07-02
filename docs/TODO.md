@@ -2,7 +2,7 @@
 
 ## Bugs
 
-Nothing specific at the moment.
+* Qt 6 support is broken
 
 ## Miscellaneous
 
@@ -15,11 +15,9 @@ Nothing specific at the moment.
 * A `clean` action that removes `build/`, handing the "permission denied" errors you get on app bundle with `rm`.
 * Record each build, with package versions, in the octave-app repo or somewhere, as part of release process; tool to support this, including diffing versions between those records.
 * Identify each build or build run with a UUID? Because versions aren't sufficient.
-* Make Qt dependency nonoptional? There's kinda no point in building a non-GUI Octave.app, and it would make the formulae cleaner, esp. in terms of diffs wrt the core formulae. Same with Java.
 
 ## Disk image stuff
 
-* Use APFS instead of HFS+?
 * Read: <http://preserve.mactech.com/articles/mactech/Vol.20/20.01/DistributingYourSoftware/index.html>
 
 ## Refactoring and code style

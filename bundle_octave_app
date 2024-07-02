@@ -49,20 +49,6 @@
 #
 # TODO: "$INSTALL_DIR" is a lousy name for this. Come up with something better.
 
-# TODO: Support for alternate branches of the octave-app tap, so we can build using
-# formulae there as a way of testing them before merging to main.
-# Note: Older versions of this had support for explicit build architectures (using
-# $build_arch), but that disappeared as of 2021. May need to re-add it to support
-# older Macs.
-#
-# TODO: This is breaking again due to netpbm needing svn to download its source code
-# when installing to an alternate prefix.
-#
-# ==> Cloning https://svn.code.sf.net/p/netpbm/code/stable
-# ==> Checking out 4686
-# You must: brew install svn
-# Error: octave-octapp@8.3.0: Failed to download resource "netpbm"
-#
 # TODO: Fix this "python not found" error at the end of the build. Might be as simple as
 # using 'python3' instead, since that exists on macOS 12 and 14.
 #
