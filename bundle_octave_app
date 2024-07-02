@@ -74,9 +74,6 @@
 # Octave versions: ver='8.3.0' ver_string='GNU Octave, version 8.3.0' copy='1993-2023 The Octave Project Developers.'
 # ./bundle_octave_app: line 695: /usr/bin/python: No such file or directory
 #
-# TODO: See if we can isolate the Octave.app Homebrew build logs somehow, and be
-# less destructive here.
-#
 # TODO: version style controls for app name
 #   # valid: 'major', 'minor', 'patch', 'full', or 'none'
 #   appname_ver_style='minor'
@@ -521,13 +518,6 @@ function build_octave_in_staged_app() {
     die "A built app aleady exists unstaged at $INSTALL_BUILT. Needs manual cleanup."
   fi
 
-  # TODO: Replace this with customizing the brew logs location using the HOMEBREW_*
-  # env vars.
-  info "Deleting existing user Homebrew logs..."
-  if ls "${HOME}/Library/Logs/Homebrew" | grep . &>/dev/null; then
-    wet rm -rf "${HOME}/Library/Logs/Homebrew/*"
-  fi
-
   # Fortran: set FC to point to gfortran from the brewed gcc inside the built Octave.app
   export FC="${INSTALL_USR}/bin/gfortran"
   # Scientific libraries may need GCC 6, if using GCC
@@ -596,7 +586,7 @@ function brew_is_installed() {
 
 function setup_brew_env() {
   export HOMEBREW_NO_AUTO_UPDATE=1
-  #TODO: Customize HOMEBREW_LOGS?
+  export HOMEBREW_NO_ENV_HINTS=1
   #TODO: Use HOMEBREW_SVN to support svn downloads without in-octapp svn install?
 }
 
@@ -1212,7 +1202,6 @@ function do_whole_build_process() {
   # updates and upgrades on existing Homebrew install) operations.
   freshen_staged_homebrew
   timeit build_octave_in_staged_app build_octave_in_staged_app
-  capture_build_logs
   timeit capture_built_octave_app capture_built_octave_app
   unstage_app_build
   munge_build
@@ -1347,8 +1336,10 @@ function main () {
   # Code setup
   enable_errexit
 
-  info "Building ${APP_NAME}.app at ${INSTALL_DIR} from brew formula ${OCTAVE_FORMULA}"
+  info "Building ${APP_NAME}.app from brew formula ${OCTAVE_FORMULA} to ${INSTALL_DIR}, build label ${BUILD_LABEL}"
+  export HOMEBREW_LOGS="${BUILD_LOG_DIR}/brew"
   wet mkdir -p "$BUILD_LOG_DIR"
+  wet mkdir -p "$BUILD_LOG_DIR/brew"
 
   # Handle special actions first (each of these should exit when done)
   if [[ -n "$ACTION" ]]; then
@@ -1460,7 +1451,9 @@ EXIT_ON_ERROR=y
 DO_TRACE=n
 BUILD_TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
 BUILD_DIR="./build"
-BUILD_LOG_DIR="${BUILD_DIR}/logs/${BUILD_TIMESTAMP}"
+# An only-locally-meaningful label to distinguish build operations for log location etc.
+BUILD_LABEL="octapp_build_${BUILD_TIMESTAMP}"
+BUILD_LOG_DIR="${BUILD_DIR}/logs/${BUILD_LABEL}"
 DRY_RUN=
 USE_SUDO=y
 
