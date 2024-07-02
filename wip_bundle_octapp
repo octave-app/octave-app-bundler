@@ -1,0 +1,82 @@
+#!/bin/bash
+#
+# wip_bundle_octapp - Build one of our in-progress releases
+#
+#     wip_bundle_octapp <ver> [...args...]
+#
+# <ver> is the version/variant to build, in terms of short names used by this wip script.
+# The beta/update suffix an other things are chosen from this.
+#
+# All other arguments are passed along to bundle_octave_app.
+#
+# Currently supported versions for <ver>:
+#   * 'x' = whatever the current wip default version is
+#   * 9.1
+#   * 9.1-qt5
+#   * 9.2
+#   * 9.2-qt5
+#   * 8.4
+#
+# As of 2024-05-20, I'm targeting Qt 5 for the main 9.1 release, since I'm having problems
+# with Qt 6 and don't know how to fix them.
+#
+# This is a thin wrapper around bundle_octave which just calls it with the options
+# for the build we're currently working on, so you don't have to remember to type
+# them on the command line consistently each time.
+#
+# The "wip" comes first in the name so you don't accidentally mix up this wrapper
+# and the main bundle_octave command in shell tab completion or history searches.
+
+# Configuration
+
+DEFAULT_VER='9.1'
+
+# Boilerplate
+
+set -o errexit
+set -o nounset
+set -o pipefail
+if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
+
+THIS_PROGRAM=$(basename $0)
+function error() { echo >&2 "${THIS_PROGRAM}: ERROR: $*"; }
+function die()   { error "$*"; exit 1; }
+
+# Parse CLI args
+
+if [[ $# == 0 ]]; then
+  # Always require an explicit version argument, even though we have a default, to
+  # avoid having to write arg-parsing code that reproduces the logic of bundle_octave_app.
+  die "Too few arguments. At least argument <ver> is required."
+fi
+VER="$1"
+shift
+
+if [[ $VER == 'x' ]]; then
+  VER="$DEFAULT_VER"
+fi
+
+# As of 2024-06:
+#   * 8.4.0 is out, and I'm working on an update release to shrink the app size.
+#   * Working on 9.1 and 9.2 releases. On 2024-07-01, I just got Qt6 working and fixed (I
+#     think) problems with spurious relocatable bottles. I had been doing Qt5 beta builds
+#     up until then, but just now switched over to using Qt6 for the main betas.
+TAP_9_OH="--tap-branch nine-oh-fixes"
+QT5_VAR="--formula-variant octapp-qt5"
+case "$VER" in
+  9.1)       VER_ARGS="--octave-version 9.1.0 --pre-release beta4 ${TAP_9_OH}" ;;
+  9.1-qt5)   VER_ARGS="--octave-version 9.1.0 ${QT5_VAR} --pre-release qt5pre ${TAP_9_OH}" ;;
+  9.2)       VER_ARGS="--octave-version 9.2.0 --pre-release beta1 ${TAP_9_OH}" ;;
+  9.2-qt5)   VER_ARGS="--octave-version 9.2.0 ${QT5_VAR} --pre-release qt5pre ${TAP_9_OH}" ;;
+  8.4)       VER_ARGS="--octave-version 8.4.0 --pre-release u1-pre1 ${TAP_9_OH}" ;;
+  *)         die "Unrecognized ver: ${VER}" ;;
+esac
+
+# Main script
+
+function doit() {
+  echo >&2 "running: $*"
+  "$@"
+}
+
+time doit ./bundle_octave_app --verbose --debug-verbose $VER_ARGS "$@"

@@ -92,7 +92,7 @@ THIS_DIR=$(oa_realpath $(dirname $0))
 
 function info()  { echo "$*"; }
 function error() { echo >&2 "${THIS_PROGRAM}: ERROR: $*"; }
-function die()   { local msg="$1"; error "$msg"; exit 1; }
+function die()   { error "$*"; exit 1; }
 function verbose() { if [[ $VERBOSE == 'y' ]]; then echo "$*"; fi; }
 function is_dry_run() { if [[ $DRY_RUN == 'y' ]]; then return 0; else return 1; fi; }
 function wet() {
