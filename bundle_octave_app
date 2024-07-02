@@ -460,8 +460,6 @@ function freshen_staged_homebrew() {
     "$brew" tap octave-app/octave-app
   fi
 
-  "$brew" update # get new formulae
-
   # Switch to non-default tap branch if requested
   # Looks like brew update resets the branch for taps, so switch it *after* the
   # brew update
@@ -475,8 +473,6 @@ function freshen_staged_homebrew() {
       git checkout "$OCTAPP_TAP_BRANCH"
     )
   fi
-  "$brew" upgrade # compile new formulae
-  "$brew" cleanup # remove old versions and cached files
 
   # Force conservative architecture builds in brew's ENV
   sed='/usr/bin/sed'
