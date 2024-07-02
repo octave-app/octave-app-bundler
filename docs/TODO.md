@@ -6,6 +6,7 @@
 
 ## Miscellaneous
 
+* Option that will eagerly prompt for all permissions approvals (like Finder prettification and Terminal file access) needed throughout the process.
 * Add timing and metrics (CPU, mem?) output to the build script.
 * Capture the output of `bundle_octave_app` itself to a log file in `build/logs`.
 * Clarify what "staged" and "unstaged" mean for builds.
