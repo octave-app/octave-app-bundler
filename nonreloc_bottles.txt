@@ -1,0 +1,10 @@
+gnu-tar
+graphite2
+hdf5
+libheif
+openblas
+pyqt
+qscintilla2
+qt
+qt@5
+suite-sparse

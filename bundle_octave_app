@@ -214,6 +214,11 @@ function usage() {
       Build the latest Octave development snapshot instead of a released version.
     --tap-branch <branch>
       Use an alternate branch instead of main in the homebrew-octave-app tap.
+    -S, --all-from-source
+      Build all packages from source instead of using (relocatable) bottles. By default,
+      only packages known to have spuriously-relocatable bottles are explicitly built
+      from source. But that "known spurious" list may well be incomplete. This option
+      guarantees that all packages are built from source.
 
   Debugging options:
     -h, -?, --help
@@ -276,6 +281,7 @@ use_gcc = ${USE_GCC}
 use_java = ${DO_JAVA}
 octappbundler_home = ${OCTAPPBUNDLER_HOME}
 build_desktop = ${DO_BUILD_DESKTOP}
+all_from_source = ${BUILD_ALL_FROM_SOURCE}
 
 Values:
 octapp_release = ${OCTAPP_RELEASE}
@@ -486,16 +492,17 @@ function install_special_build_deps() {
   # in a separate Homebrew installation (maybe due to brew's environment isolation), so for
   # now, install it in Octave.app and let it bloat up. If we have to do it this way, then we
   # should maybe add subversion and its exclusive deps to the list of packages to prune later.
+  # TODO: The HOMEBREW_SVN env var looks like a way to do this.
   if brew deps --include-build "$OCTAVE_FORMULA" | grep netpbm | grep -v netpbm-octapp &>/dev/null; then
     info "This build requires subversion bc it uses regular netpbm. Installing subversion..."
     wet "$brew" install subversion
   else
-    info "This build does not require subversion bc no dep on regular netpbm. Not installing subversion."
+    info "This build does not require subversion bc it has no dep on regular netpbm. Not installing subversion."
   fi
 }
 
 function build_octave_in_staged_app() {
-  local build_opts brew_inst_octapp_exit
+  local build_opts nonreloc_deps brew_install_opts brew_inst_exit brew_inst_octapp_exit
 
   info "Building Octave.app..."
   require_staged_app_build
@@ -518,8 +525,9 @@ function build_octave_in_staged_app() {
 
   # Build octave (and its deps)
   build_opts=""
+  brew_install_opts=""
   if [[ "$VERBOSE" == "y" ]]; then
-    build_opts="$build_opts --verbose"
+    brew_install_opts="$brew_install_opts --verbose"
   fi
   if [[ "$DO_BUILD_DEVEL" == "y" ]]; then
     build_opts="$build_opts --HEAD"
@@ -530,8 +538,33 @@ function build_octave_in_staged_app() {
   if [[ "$DO_JAVA" != "y" ]]; then
     build_opts="$build_opts --without-java"
   fi
-  # disable_errexit
-  if wet "$brew" install "$OCTAVE_FORMULA" $build_opts; then
+  # Force building selected dependencies from source
+  if [[ $BUILD_ALL_FROM_SOURCE = 'y' ]]; then
+    info "Forcing build-from-source of all deps, because --all-from-source was specified"
+    local all_deps=$("$brew" deps --include-build "$OCTAVE_FORMULA" | tr '\n' ' ')
+    if ! wet "$brew" install $brew_install_opts --build-from-source $all_deps; then
+      brew_inst_exit=$?
+      die "brew install <all deps> --build-from-source failed: returned failure (exit status ${brew_inst_exit}); aborted."
+    fi
+  else
+    # Force building formulae with non-relocatable bottles, including deps, from source, to
+    # avoid picking up bottles that are marked as relocatable but don't actually work in
+    # alternate locations, like qt 6
+    local dep_temp_file=$(mktemp /tmp/octapp_nr_deps-XXXXXXXXXXXX)
+    "$brew" deps --include-build "$OCTAVE_FORMULA" | sort | uniq > "$dep_temp_file"
+    nonreloc_deps=$(comm -1 -2 "$dep_temp_file" "${THIS_DIR}/nonreloc_bottles.txt" | tr '\n' ' ')
+    rm -rf "$dep_temp_file"
+    if [[ -n "$nonreloc_deps" ]]; then
+      info "Forcing build-from-source of deps with spurious relocatable bottles: ${nonreloc_deps}"
+      if ! wet "$brew" install $brew_install_opts --build-from-source $nonreloc_deps; then
+        brew_inst_exit=$?
+        die "brew install <non-reloc deps for octapp> failed: returned failure (exit status ${brew_inst_exit}); aborted."
+      fi
+    else
+      info "No deps with spurious relocatable bottles to handle"
+    fi
+  fi
+  if wet "$brew" install $brew_install_opts --build-from-source "$OCTAVE_FORMULA" $build_opts; then
     info "brew install <octapp> returned success exit status"
   else
     brew_inst_octapp_exit=$?
@@ -546,7 +579,6 @@ function build_octave_in_staged_app() {
       die "brew install <octapp> returned failure, non-1 exit status ($brew_inst_octapp_exit); aborted."
     fi
   fi
-  # enable_errexit
 
   # HACK: remove large build-time-only dependencies to reduce app size.
   # This is done before moving to -BUILT because brew needs to run from
@@ -1198,7 +1230,7 @@ function do_whole_build_process() {
     timeit create_dmg create_dmg
   fi
   info "Build finished."
-  say_toc "build" "$t0"
+  say_toc "whole_build" "$t0"
 }
 
 function parse_cli_args() {
@@ -1246,6 +1278,8 @@ function parse_cli_args() {
           die "option ${arg} requires an argument"
         fi
         BUILD_STEP="$1"; shift ;;
+      -S | --all-from-source)
+        BUILD_ALL_FROM_SOURCE=y ;;
       --sign)
         DO_SIGN=y ;;
       --sign-identity)
@@ -1344,12 +1378,12 @@ function main () {
         die "Invalid special action: '$ACTION'. Valid actions are: brew"
         ;;
     esac
-    die "Internal error: special action '$ACTION' did not exit the program"
+    die "BUG: special action '$ACTION' did not exit the program"
   fi
 
   # Main build process
   if [[ -z "$BUILD_STEP" ]]; then
-    do_whole_build_process
+    do_whole_build_process 2>&1 | tee "${BUILD_LOG_DIR}/bundle_octapp.log"
   else
     # Run a single step
     info "Running single build step: $BUILD_STEP"
@@ -1357,7 +1391,7 @@ function main () {
       stage)            stage_app_build ;;
       unstage)          unstage_app_build ;;
       freshen-homebrew) freshen_staged_homebrew ;;
-      build)            build_octave_in_staged_app ;;
+      build)            build_octave_in_staged_app 2>&1 | tee "${BUILD_LOG_DIR}/bundle_octapp.log" ;;
       capture)          capture_built_octave_app ;;
       capture-logs)     capture_build_logs ;;
       munge)            munge_build ;;
@@ -1426,6 +1460,7 @@ BREW_REMOTE_BRANCH=
 OCTAPP_TAP_BRANCH=
 DO_BUILD_DMG=y
 USE_GCC=n
+BUILD_ALL_FROM_SOURCE=n
 
 # Controls for how this bundle_octave_app execution runs
 ACTION=
