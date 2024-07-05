@@ -27,7 +27,7 @@ On VMware:
 * Create a new VM using the macOS installer ISO image.
   * Customize the VM's settings during the initial setup.
     * Name it something memorable. I like to have my VM names start with the same letters as the macOS version, so I'll name it e.g. “monty” or something similar for macOS Monterey.
-    * Increase the disk size to 80 GB.
+    * Increase the disk size to 120 GB.
       * Do not make it smaller. You'll run out of space.
       * Do not make it larger. You'll more likely use up more of your host OS's disk space due to data block churn.
     * Increase the CPUs to 4 vCPUs or more, and RAM to 8 GB or more.
