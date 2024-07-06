@@ -222,8 +222,6 @@ function usage() {
       Release variant to put in the release and file names. [$RELEASE_VARIANT]
     -V, --octave-version <version>
       Version of Octave formula to build, affecting formula choice.
-    -J, --no-java
-      Compile without Java support.
     -d, --build-devel
       Build the latest Octave development snapshot instead of a released version.
     --tap-branch <branch>
@@ -289,7 +287,6 @@ octapp_tap_branch = ${OCTAPP_TAP_BRANCH}
 build_devel = ${DO_BUILD_DEVEL}
 build_dmg = ${DO_BUILD_DMG}
 use_gcc = ${USE_GCC}
-use_java = ${DO_JAVA}
 all_from_source = ${BUILD_ALL_FROM_SOURCE}
 
 Values:
@@ -548,9 +545,6 @@ function build_octave_in_staged_app() {
   fi
   if [[ "$DO_BUILD_DEVEL" == "y" ]]; then
     build_opts="$build_opts --HEAD"
-  fi
-  if [[ "$DO_JAVA" != "y" ]]; then
-    build_opts="$build_opts --without-java"
   fi
   # Force building selected dependencies from source
   if [[ $BUILD_ALL_FROM_SOURCE = 'y' ]]; then
@@ -1234,8 +1228,6 @@ function parse_cli_args() {
         USE_GCC=y ;;
       -h | --help| -\?)
         usage; exit 0 ;;
-      -J | --no-java)
-        DO_JAVA=n ;;
       -s | --step)
         parse_cli_opt_needs_arg "$#" "$arg"
         BUILD_STEP="$1"; shift ;;
@@ -1405,7 +1397,6 @@ function init_global_vars() {
   # "u1" updates and the like. The --pre-release and --update-release options (instead of the generic
   # --build-suffix option) will handle this for you.
   DO_BUILD_SUFFIX_IN_APP_NAME=n
-  DO_JAVA=y
   DO_BUILD_DEVEL=n
   DO_SIGN=n
   DO_JUST_SHOW_OPTIONS=n
