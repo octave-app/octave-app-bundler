@@ -26,13 +26,19 @@ function diagnostic_dump(varargin)
 
   timestamp = datestr(now, 'yyyy-mm-dd_HH-MM-SS');
   if (isequal (opts.outfile, "-"))
-    outfile = "<stdout>";
+    outfile = "-";
+    outfile_descr = "<stdout>";
     fid = 1;
   else
     if (! isempty (opts.outfile))
       outfile = opts.outfile;
     else
       outfile = sprintf ("octapp_diag_%s_%s.txt", version, timestamp);
+    endif
+    if (outfile(1) == '/')
+      outfile_descr = outfile;
+    else
+      outfile_descr = sprintf ("%s (under %s)", outfile, pwd);
     endif
     [fid, errmsg] = fopen (outfile, "w");
     if (! fid)
@@ -48,7 +54,7 @@ function diagnostic_dump(varargin)
   endif
   te = toc(t0);
   printf ("Diagnostic dump complete in %0.3f s.\n", te);
-  printf ("Output file: %s\n", outfile);
+  printf ("Output file: %s\n", outfile_descr);
 
   function p (varargin)
     if (nargin < 1); varargin = {""}; endif
@@ -118,19 +124,19 @@ function diagnostic_dump(varargin)
     % System
 
     section ("System")
-    [status, txt] = system ("sw_vers");
-    xcode_version = system_chomp ("xcodebuild -version | head -1 | sed -En 's/Xcode[[:space:]]+([0-9.]+)/\\1/p'");
-    clang_version = system_chomp ("clang --version | head -1");
-    xcode_clt_version = system_chomp ("pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | head -2 | tail -1 | sed 's/.* //'");
-    p ("macOS version (per sw_vers):\n%s", txt);
-    p ("Xcode version: %s", xcode_version)
-    p ("Xcode CLT version: %s", xcode_clt_version)
-    p ("Clang version: %s", clang_version)
+    [status, sw_vers_txt] = system ("sw_vers");
+    xcode_vers = detect_xcode_versions;
+    p ("macOS version (per sw_vers):\n%s", sw_vers_txt);
+    p ("Xcode version: %s", xcode_vers.xcode)
+    p ("Xcode CLT version: %s", xcode_vers.xcode_clt)
+    p ("Clang version: %s", xcode_vers.clang)
 
     % Environment
 
-    % Enumerate expected-safe environment vars, to avoid possibly exposing
-    % confidential user information.
+    % Enumerate expected-safe environment vars, to avoid possibly exposing confidential
+    % user information.
+    % TODO: Get list of all env vars, and display var names for env vars that are set but
+    % not in the expected-safe list.
     section ("Environment");
     p ("Environment:")
     env_vars = {
@@ -402,3 +408,36 @@ endwhile
 
 endfunction
 
+function out = detect_xcode_versions ()
+  % Detect versions of Xcode and related tools.
+  %
+  % This is a whole function because the detection is tricky, including the need to avoid
+  % triggering an installation prompt dialog when you check the version on a machine that
+  % doesn't have Xcode installed yet.
+  %
+  % Returns a struct with fields xcode, xcode_clt, and clang. They will be [] in the case
+  % where those things are not installed.
+
+  out = struct;
+
+  % Check with xcode-select first, because `xcodebuild --version` and `clang --version`
+  % will trigger the installation dialog if you run them on a machine without Xcode CLT
+  % installed.
+  [status, txt] = system ("xcode-select -p");
+  if (status > 0)
+    % Xcode is not installed
+    out.xcode = [];
+    out.clang = [];
+  else
+    out.xcode = system_chomp ("xcodebuild -version | head -1 | sed -En 's/Xcode[[:space:]]+([0-9.]+)/\\1/p'");
+    out.clang = system_chomp ("clang --version | head -1");
+  endif
+  clt_txt = system_chomp ("pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | head -2 | tail -1");
+  if (! isempty (regexp (clt_txt, '^No receipt for ')))
+    out.xcode_clt = [];
+  else
+    out.xcode_clt = regexprep (clt_txt, '.* ', '');
+  endif
+
+  %
+endfunction
