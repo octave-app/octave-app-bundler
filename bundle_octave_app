@@ -791,7 +791,7 @@ EOS
 EOS
   cat <<EOSCRIPT >> "$tmp_script"
   on env_setup_cmd()
-    export_lang() & export_gs_options() & export_gnuplot() & export_fc() & export_path() & export_dyld()
+    export_lang() & export_gs_options() & export_fc() & export_path() & export_dyld()
   end env_setup_cmd
 
   on export_lang()
@@ -801,10 +801,6 @@ EOS
   on export_gs_options()
     return "export GS_OPTIONS=\\"-sICCProfilesDir=${gs_share}/${gs_ver}/iccprofiles/ -sGenericResourceDir=${gs_share}/${gs_ver}/Resource/ -sFontResourceDir=${gs_share}/${gs_ver}/Resource/Font\\";"
   end export_gs_options
-
-  on export_gnuplot()
-    return "export GNUTERM=\\"qt\\"; export PATH=\\"${INSTALL_USR}/opt/gnuplot-octapp/bin:\$PATH\\";"
-  end export_gnuplot
 
   on export_path()
     return "export PATH=\\"${INSTALL_USR}/bin/:\$PATH\\";"
