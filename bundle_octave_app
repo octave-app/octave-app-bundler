@@ -558,7 +558,7 @@ function build_octave_in_staged_app() {
     # Force building formulae with non-relocatable bottles, including deps, from source, to
     # avoid picking up bottles that are marked as relocatable but don't actually work in
     # alternate locations, like qt 6
-    local dep_temp_file=$(mktemp /tmp/octapp_nr_deps-XXXXXXXXXXXX)
+    local dep_temp_file=$(mktemp "${BUILD_DIR}/octapp_nr_deps-XXXXXX")
     "$brew" deps --include-build "$OCTAVE_FORMULA" | sort | uniq > "$dep_temp_file"
     nonreloc_deps=$(comm -1 -2 "$dep_temp_file" "${THIS_DIR}/nonreloc_bottles.txt" | tr '\n' ' ')
     rm -rf "$dep_temp_file"
@@ -784,7 +784,7 @@ EOS
     > "${oct_site}/m/+octapp/ver_pristine.m"
 
   # AppleScript app launcher script
-  local tmp_script=$(mktemp /tmp/octave-XXXX)
+  local tmp_script=$(mktemp "${BUILD_DIR}/octapp-launcher-XXXXXX")
     read -r -d '' program_launch_code <<EOS || true
     set cmd to env_setup_cmd() & run_octave_gui()
     do shell script cmd
@@ -871,15 +871,13 @@ EOS
 EOSCRIPT
 
   osacompile -o "${APP_BUILD}/Contents/Resources/Scripts/main.scpt" "$tmp_script"
-  cp "$tmp_script" build/logs
-  rm "$tmp_script"
 
   # Create a nice iconset (using the icons shipped with Octave)
   # The following might fail for the development version; TODO: conditionalize or trap the error
   local hicolor_dir svg_icon tmp_iconset
   hicolor_dir="${APP_BUILD_USR}/opt/${OCTAVE_FORMULA}/share/icons/hicolor"
   svg_icon="${hicolor_dir}/scalable/apps/octave.svg"
-  tmp_iconset="$(mktemp -d /tmp/iconset-XXXX)/droplet.iconset"
+  tmp_iconset=$(mktemp -d "${BUILD_DIR}/iconset-XXXXXXXX")/droplet.iconset
   mkdir -p "$tmp_iconset"
   cp "${hicolor_dir}/16x16/apps/octave.png" "${tmp_iconset}/icon_16x16.png"
   cp "${hicolor_dir}/32x32/apps/octave.png" "${tmp_iconset}/icon_16x16@2x.png"
@@ -920,7 +918,7 @@ EOSCRIPT
   # This is broken as of macOS 12, and maybe earlier. It fails with a "ModuleNotFoundError: No module named 'Cocoa'" error.
   # Looks like the Cocoa module doesn't exist in the newer Pythons shipped with macOS. It may have been a Python 2 thing;
   # macOS has switched to Python 3 since the last time this worked.
-#   local python_script_tmp=$(mktemp /tmp/octave-XXXX);
+#   local python_script_tmp=$(mktemp "${BUILD_DIR}/octapp-iconsetter-XXXXXX");
 #   cat <<EOSCRIPT > "$python_script_tmp"
 # #!/usr/bin/env python
 # # This is a Python 2.x script, and requires the macOS-specific Cocoa module
@@ -1026,7 +1024,7 @@ function sign_app() {
     if [[ $DRY_RUN = 'y' ]]; then
       info 'dry run: would absolutify symlinks'
     else
-      file_list_file=$(mktemp /tmp/octave-XXXXX)
+      file_list_file=$(mktemp "${BUILD_DIR}/octave-XXXXXXX")
       find "$INSTALL_DIR" -type l | sort > "$file_list_file"
       while read link; do
         link_dir=$(dirname "$link")

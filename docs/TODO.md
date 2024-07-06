@@ -4,13 +4,16 @@
 
 Nothing big, currently!
 
+## Big stuff
+
+* A "tracer-bullet" build-debugging option
+  * That builds a simple HelloWorld app instead of a real Octave, so you can test the packaging tools all the way through without having to do a three-hour real build.
+
 ## Miscellaneous
 
 * Use 2-part "x.y" version label for ".0"-patch releases, for friendliness, and consistency with how most Octave devs and users seem to use it.
 * pkg customization: include the _betaN, _uN, etc. suffixes in the version directory for package installation.
   * Because DLL linkage and file references will have that baked in, plus DLL versions may differ between pre/update releases, so packages with native extensions can't really be shared.
-* A "tracer-bullet" build-debugging option
-  * That builds a simple HelloWorld app instead of a real Octave, so you can test the packaging tools all the way through without having to do a three-hour real build.
 * Option that will eagerly prompt for all permissions approvals (like Finder prettification and Terminal file access) needed throughout the process.
 * Clarify what "staged" and "unstaged" mean for builds.
   * I think we're using them inconsistently and vaguely at this point.
