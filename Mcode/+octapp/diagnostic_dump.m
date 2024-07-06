@@ -75,14 +75,8 @@ function diagnostic_dump(varargin)
     mroot = matlabroot;
     mroot_parts = strsplit (mroot, '/');
     mroot_parts(1) = [];
-    % Wow what a kludge
-    if (isequal (mroot_parts{1}, "Applications"))
-      is_app = true;
-      app_root = fullfile ("/", mroot_parts{1:2});
-    else
-      is_app = false;
-      app_root = [];
-    endif
+    app_root = octapp.internal.app_root;
+    is_app = ! isempty (app_root);
 
     p ("Octave.app diagnostic dump")
     p ("===================================");
@@ -113,7 +107,7 @@ function diagnostic_dump(varargin)
     p
     p ("matlabroot: %s", mroot)
     if (! is_app)
-      p ("App root: <n/a> (does not look like an app under /Applications)")
+      p ("App root: <n/a> (does not look like an app bundle)")
     else
       p ("App root: %s", app_root)
       % Doing a shasum with tar makes it fast enough to be tolerable
