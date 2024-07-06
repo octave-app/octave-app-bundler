@@ -839,7 +839,7 @@ EOS
   end run_octave_test_suite
 
   on run_octave_open(filename)
-    return "cd ~; clear; ${INSTALL_USR}/opt/${OCTAVE_FORMULA}/bin/octave -q --persist --eval \\"edit " & filename & "\\";"
+    return "cd ~; clear; ${INSTALL_USR}/opt/${OCTAVE_FORMULA}/bin/octave -q --persist --eval \\"edit '" & filename & "'\\";"
   end run_octave_open
 
   on path_check()
