@@ -67,10 +67,16 @@ function diagnostic_dump(varargin)
   function do_it ()
     % Locate ourselves
     mroot = matlabroot;
+    mroot_parts = strsplit (mroot, '/');
+    mroot_parts(1) = [];
     % Wow what a kludge
-    % TODO: Detect whether this is actually running under Octave.app, or is e.g. run
-    % from a regular Homebrewed Octave, and report appropriately.
-    app_root = fileparts (fileparts (fileparts (fileparts (fileparts (fileparts (mroot))))));
+    if (isequal (mroot_parts{1}, "Applications"))
+      is_app = true;
+      app_root = fullfile ("/", mroot_parts{1:2});
+    else
+      is_app = false;
+      app_root = [];
+    endif
 
     p ("Octave.app diagnostic dump")
     p ("Created at: %s", datestr(now))
@@ -98,10 +104,14 @@ function diagnostic_dump(varargin)
     p ("Java: %s", java_ver)
     p
     p ("matlabroot: %s", mroot)
-    p ("App root: %s", app_root)
-    % Doing a shasum with tar makes it fast enough to be tolerable
-    [status, txt] = system (sprintf ("cd '%s'; tar c . | shasum -a 256 | cut -d ' ' -f 1", app_root));
-    p ("Octave.app shasum: %s", txt)
+    if (! is_app)
+      p ("App root: <n/a> (does not look like an app under /Applications)")
+    else
+      p ("App root: %s", app_root)
+      % Doing a shasum with tar makes it fast enough to be tolerable
+      [status, txt] = system (sprintf ("cd '%s'; /usr/bin/tar c . | shasum -a 256 | cut -d ' ' -f 1", app_root));
+      p ("Octave.app shasum: %s", txt)
+    end
 
     % System
     section ("System")
