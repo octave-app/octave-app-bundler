@@ -65,6 +65,7 @@ function diagnostic_dump(varargin)
 
   function do_it ()
     % Locate ourselves
+
     mroot = matlabroot;
     mroot_parts = strsplit (mroot, '/');
     mroot_parts(1) = [];
@@ -78,6 +79,7 @@ function diagnostic_dump(varargin)
     endif
 
     p ("Octave.app diagnostic dump")
+    p ("===================================");
     p ("Created at: %s", datestr(now))
     p
 
@@ -88,6 +90,7 @@ function diagnostic_dump(varargin)
     p
 
     % Octave version and state
+
     section ("Octave.app")
     p ("Sanitized ver:")
     sanitized_ver = sanitize_path_strs (evalc ("ver"));
@@ -113,9 +116,16 @@ function diagnostic_dump(varargin)
     end
 
     % System
+
     section ("System")
     [status, txt] = system ("sw_vers");
-    p ("sw_vers:\n%s", txt);
+    xcode_version = system_chomp ("xcodebuild -version | head -1 | sed -En 's/Xcode[[:space:]]+([0-9.]+)/\\1/p'");
+    clang_version = system_chomp ("clang --version | head -1");
+    xcode_clt_version = system_chomp ("pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | head -2 | tail -1 | sed 's/.* //'");
+    p ("macOS version (per sw_vers):\n%s", txt);
+    p ("Xcode version: %s", xcode_version)
+    p ("Xcode CLT version: %s", xcode_clt_version)
+    p ("Clang version: %s", clang_version)
 
     % Environment
 
@@ -178,13 +188,14 @@ function diagnostic_dump(varargin)
       p ("%s: %s", cmds{i}, sanitize_path_strs (chomp (txt)))
     endfor
 
-    % System Homebrew
+    % "System" Homebrew
+
     section ("System Homebrew")
     [status, txt] = system ("which brew");
     if (status == 0)
       brew_cmd = chomp (txt);
     else
-      arch = computer("arch");
+      arch = computer ("arch");
       if strcmp (arch(end-6:end), "-x86_64")
         brew_cmd = "/usr/local/bin/brew";
       else
@@ -201,6 +212,7 @@ function diagnostic_dump(varargin)
     endif
 
     % Compilation stuff
+
     section ("Compilation stuff")
     p ("mkoctfile configuration:")
 
@@ -324,6 +336,12 @@ function str = chomp (str)
   if (str(end) == sprintf ("\n"))
     str(end) = [];
   endif
+endfunction
+
+function [txt, status] = system_chomp (cmd)
+  % Run system and chomp the output, expecting one-line output.
+  [status, txt0] = system (cmd);
+  txt = chomp (txt0);
 endfunction
 
 function out = sanitize_path_strs (in)
