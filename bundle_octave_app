@@ -243,7 +243,7 @@ function usage() {
 EOHELP
 }
 
-function echo_options() {
+function show_options() {
   local hostname oab_git_sha oab_git_status oab_gitstate_extra oab_ver
   local xcode_version xcode_clt_version clang_version_str latex_version_str
   hostname=$(hostname)
@@ -273,7 +273,6 @@ Options:
 formula_variant = ${FORMULA_VARIANT}
 release_variant = ${RELEASE_VARIANT}
 build_suffix = ${BUILD_SUFFIX} (prerelease = ${PRE_RELEASE}, update_release = ${UPDATE_RELEASE})
-octave_formula = ${OCTAVE_FORMULA}
 octave_formula_version = ${OCTAVE_FORMULA_VERSION}
 octapp_tap_branch = ${OCTAPP_TAP_BRANCH}
 build_gui = ${DO_BUILD_GUI}
@@ -281,23 +280,27 @@ build_devel = ${DO_BUILD_DEVEL}
 build_dmg = ${DO_BUILD_DMG}
 use_gcc = ${USE_GCC}
 use_java = ${DO_JAVA}
-octappbundler_home = ${OCTAPPBUNDLER_HOME}
 build_desktop = ${DO_BUILD_DESKTOP}
 all_from_source = ${BUILD_ALL_FROM_SOURCE}
 
 Values:
 octapp_release = ${OCTAPP_RELEASE}
 app_name = ${APP_NAME}
-app_name_with_release = ${APP_NAME_WITH_RELEASE}
-app_build = ${APP_BUILD}
 octave_version = ${OCTAVE_VERSION}
+version_name = ${VERSION_NAME}
 octave_version_label = ${OCTAVE_VERSION_LABEL}
-createdmg_home = ${CREATEDMG_HOME}
-dmg_volume_name = ${DMG_VOLUME_NAME}
-build_dir = ${BUILD_DIR}
-build_log_dir = ${BUILD_LOG_DIR}
+octapp_version_label = ${OCTAPP_VERSION_LABEL}
 dist_archive_name = ${DIST_ARCHIVE_NAME}
 dmg_file = ${DMG_FILE}
+dmg_volume_name = ${DMG_VOLUME_NAME}
+octave_formula = ${OCTAVE_FORMULA}
+
+Paths:
+octappbundler_home = ${OCTAPPBUNDLER_HOME}
+createdmg_home = ${CREATEDMG_HOME}
+build_dir = ${BUILD_DIR}
+build_log_dir = ${BUILD_LOG_DIR}
+app_build = ${APP_BUILD}
 
 EOS
 
@@ -352,30 +355,33 @@ function pick_names_for_things() {
   else
     OCTAVE_FORMULA="${OCTAVE_FORMULA_BASE}@${OCTAVE_FORMULA_VERSION}"
   fi
-  if [[ -z "$OCTAVE_VERSION_LABEL" ]]; then
-    APP_NAME="${app_base_name}"
+  # OCTAPP_VERSION_LABEL is exactly the <ver> in "Octave-<ver>.app" for the app bundle
+  # file name. By comparison, OCTAPP_RELEASE_LABEL *always* includes the build suffix
+  # if there is one, and is used for downloads like the DMG; it's the "container" or
+  # publishing name. A single version can have multiple releases. And a single release
+  # can have multiple builds or artifacts, like the AS an Intel variant build/DMGs.
+  if [[ "$DO_BUILD_SUFFIX_IN_APP_NAME" = y ]]; then
+    if [[ -z "$BUILD_SUFFIX" ]]; then
+      OCTAPP_VERSION_LABEL="${OCTAVE_VERSION_LABEL}"
+    else
+      OCTAPP_VERSION_LABEL="${OCTAVE_VERSION_LABEL}_${BUILD_SUFFIX}"
+    fi
   else
-    APP_NAME="${app_base_name}-${OCTAVE_VERSION_LABEL}"
+    OCTAPP_VERSION_LABEL="${OCTAVE_VERSION_LABEL}"
   fi
-  local dist_arch_extra='' build_extra=''
+  APP_NAME="${app_base_name}-${OCTAPP_VERSION_LABEL}"
+  if [[ -z "$BUILD_SUFFIX" ]]; then
+    OCTAPP_RELEASE="${OCTAVE_VERSION_LABEL}"
+  else
+    OCTAPP_RELEASE="${OCTAVE_VERSION_LABEL}_${BUILD_SUFFIX}"
+  fi
+  local dist_arch_extra=''
   if [[ $MACHINE_ARCH == 'x86_64' ]]; then
     dist_arch_extra="-Intel"
   fi
-  if [[ -z "$BUILD_SUFFIX" ]]; then
-    OCTAPP_RELEASE="${VERSION_NAME}"
-    APP_NAME_WITH_RELEASE="${APP_NAME}"
-    DMG_VOLUME_NAME="${app_base_name} ${OCTAVE_VERSION}"
-    DIST_ARCHIVE_NAME="${APP_NAME}${dist_arch_extra}"
-  else
-    OCTAPP_RELEASE="${VERSION_NAME}_${BUILD_SUFFIX}"
-    APP_NAME_WITH_RELEASE="${APP_NAME}_${BUILD_SUFFIX}"
-    DMG_VOLUME_NAME="${app_base_name} ${OCTAVE_VERSION}_${BUILD_SUFFIX}"
-    DIST_ARCHIVE_NAME="${APP_NAME}_${BUILD_SUFFIX}${dist_arch_extra}"
-    if [[ "$DO_BUILD_SUFFIX_IN_APP_NAME" = y ]]; then
-      APP_NAME="${APP_NAME}_${BUILD_SUFFIX}"
-    fi
-  fi
+  DIST_ARCHIVE_NAME="${app_base_name}-${OCTAPP_RELEASE}${dist_arch_extra}"
   DMG_FILE="${DIST_ARCHIVE_NAME}.dmg"
+  DMG_VOLUME_NAME="${app_base_name} ${OCTAPP_RELEASE}"
 }
 
 # "Staging the app build" means to get the working build in to the final install location
@@ -753,7 +759,7 @@ function munge_build() {
 % installation, and can't be shared between multiple Octave installations on
 % the same machine.)
 default_pkg_prefix = pkg ("prefix");
-octave_app_pkg_prefix = [getenv("HOME") "/Library/Application Support/Octave.app/${VERSION_NAME}/pkg"];
+octave_app_pkg_prefix = [getenv("HOME") "/Library/Application Support/Octave.app/${OCTAPP_VERSION_LABEL}/pkg"];
 % Create the directory ourselves to avoid a warning in the console
 if !isfolder (octave_app_pkg_prefix)
   mkdir (octave_app_pkg_prefix);
@@ -1493,7 +1499,7 @@ else
   SUDO=''
 fi
 
-# dep detection must come before echo_options, which shows its results and thus needs it
+# dep detection must come before show_options, which shows its results and thus needs it
 detect_dependencies
 
 # Vars that do depend on chosen names and/or detected dependencies
@@ -1509,7 +1515,7 @@ APP_BUILD_USR="${APP_BUILD}/Contents/Resources/usr"
 setup_brew_env
 
 if [[ "$VERBOSE" == "y" || "$DO_JUST_SHOW_OPTIONS" == "y" ]]; then
-  echo_options
+  show_options
 fi
 if [[ "$DO_JUST_SHOW_OPTIONS" == "y" ]]; then
   exit 0
