@@ -64,11 +64,12 @@ fi
 TAP_9_OH="--tap-branch nine-oh-fixes"
 QT5_VAR="--formula-variant octapp-qt5"
 case "$VER" in
-  9.1)       VER_ARGS="--octave-version 9.1.0 --pre-release beta4 ${TAP_9_OH}" ;;
+  9.1)       VER_ARGS="--octave-version 9.1.0 --pre-release beta5 ${TAP_9_OH}" ;;
   9.1-qt5)   VER_ARGS="--octave-version 9.1.0 ${QT5_VAR} --pre-release qt5pre ${TAP_9_OH}" ;;
-  9.2)       VER_ARGS="--octave-version 9.2.0 --pre-release beta1 ${TAP_9_OH}" ;;
+  9.2)       VER_ARGS="--octave-version 9.2.0 --pre-release beta2 ${TAP_9_OH}" ;;
   9.2-qt5)   VER_ARGS="--octave-version 9.2.0 ${QT5_VAR} --pre-release qt5pre ${TAP_9_OH}" ;;
-  8.4)       VER_ARGS="--octave-version 8.4.0 --pre-release u1-pre1 ${TAP_9_OH}" ;;
+  8.4p)      VER_ARGS="--octave-version 8.4.0 --pre-release u1-pre1 ${TAP_9_OH}" ;;
+  8.4)       VER_ARGS="--octave-version 8.4.0 --update-release u1 ${TAP_9_OH}" ;;
   *)         die "Unrecognized ver: ${VER}" ;;
 esac
 

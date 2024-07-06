@@ -44,8 +44,11 @@
 # * $APP_NAME -
 # * $OCTAVE_FORMULA_VERSION - The version of the octave brew formula used, which may have
 #     a "_<revision>" suffix.
-# * $OCTAVE_VERSION - The version of Octave, which without any revision suffix like in
-#     the formula version.
+# * $OCTAVE_VERSION - The version of Octave, without any revision suffix (e.g. "_1") like
+#     in the formula version. Uses all 3 "x.y.z" parts.
+# * $OCTAVE_VERSION_LABEL - "Label" form of the Octave version, which uses just "x.y" and
+#     omits the final ".z" patch version for ".0" patch releases. This is the "friendly"
+#     human-presentable version, and is used in the app name and path.
 #
 # TODO: "$INSTALL_DIR" is a lousy name for this. Come up with something better.
 
@@ -234,7 +237,6 @@ function usage() {
       Compute values but do not actually build. (Experimental. May fail in various ways.)
     --show-options
       Just show the effective options and resulting choices and exit.
-
     --debug-no-errexit
       Do not exit on errors. This is a low-level debugging option only for developers.
 
@@ -288,6 +290,8 @@ octapp_release = ${OCTAPP_RELEASE}
 app_name = ${APP_NAME}
 app_name_with_release = ${APP_NAME_WITH_RELEASE}
 app_build = ${APP_BUILD}
+octave_version = ${OCTAVE_VERSION}
+octave_version_label = ${OCTAVE_VERSION_LABEL}
 createdmg_home = ${CREATEDMG_HOME}
 dmg_volume_name = ${DMG_VOLUME_NAME}
 build_dir = ${BUILD_DIR}
@@ -337,20 +341,21 @@ function pick_names_for_things() {
     pick_default_octave_version
   fi
   OCTAVE_VERSION="${OCTAVE_FORMULA_VERSION//_[[:digit:]]/}"
+  OCTAVE_VERSION_LABEL=$(echo "$OCTAVE_VERSION" | sed -e 's/\.0$//')
   if [[ -z "$RELEASE_VARIANT" ]]; then
-    VERSION_NAME="${OCTAVE_VERSION}"
+    VERSION_NAME="${OCTAVE_VERSION_LABEL}"
   else
-    VERSION_NAME="${OCTAVE_VERSION}-${RELEASE_VARIANT}"
+    VERSION_NAME="${OCTAVE_VERSION_LABEL}-${RELEASE_VARIANT}"
   fi
   if [[ -z "$OCTAVE_FORMULA_VERSION" ]]; then
     OCTAVE_FORMULA="${OCTAVE_FORMULA_BASE}"
   else
     OCTAVE_FORMULA="${OCTAVE_FORMULA_BASE}@${OCTAVE_FORMULA_VERSION}"
   fi
-  if [[ -z "$OCTAVE_VERSION" ]]; then
+  if [[ -z "$OCTAVE_VERSION_LABEL" ]]; then
     APP_NAME="${app_base_name}"
   else
-    APP_NAME="${app_base_name}-${OCTAVE_VERSION}"
+    APP_NAME="${app_base_name}-${OCTAVE_VERSION_LABEL}"
   fi
   local dist_arch_extra='' build_extra=''
   if [[ $MACHINE_ARCH == 'x86_64' ]]; then
