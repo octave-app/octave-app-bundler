@@ -1,7 +1,7 @@
 function diagnostic_dump(varargin)
   %DIAGNOSTIC_DUMP Create a diagnostic dump for Octave.app
   %
-  % octapp.diagnostic_dump()
+  % octapp.diagnostic_dump [...options...]
   %
   % Creates a file containing a diagnostic dump about this Octave.app installation
   % and the environment it is running in. This is useful for giving to the Octave.app
@@ -10,15 +10,30 @@ function diagnostic_dump(varargin)
   % The output is a human-readable (well, programmer-readable) file with a bunch of
   % info in it. The file is not machine-readable, and its exact format is not
   % specified and may change over time.
+  %
+  % The arguments to this function are all command-style strings.
+  %
+  % Options:
+  %
+  %   -outfile <file>  - The output file to write to. If not given, a name is chosen
+  %       automatically, in a form like "octapp_diag_<version>_<date>.txt". You can also
+  %       pass "-" for <file> to write to stdout (the console) instead of a file.
+  %
+  %   -stdout  - Display to stdout instead of writing to a file. This is equivalent to
+  %       '-outfile -'.
 
-  % Backdoor options:
-  %   octapp.diagnostic_dump -stdout  - display to stdout instead of a file
+  opts = parse_args(varargin);
 
-  if (ismember ("-stdout", varargin))
+  timestamp = datestr(now, 'yyyy-mm-dd_HH-MM-SS');
+  if (isequal (opts.outfile, "-"))
     outfile = "<stdout>";
     fid = 1;
   else
-    outfile = "octave_app_diagnostic_dump.txt";
+    if (! isempty (opts.outfile))
+      outfile = opts.outfile;
+    else
+      outfile = sprintf ("octapp_diag_%s_%s.txt", version, timestamp);
+    endif
     [fid, errmsg] = fopen (outfile, "w");
     if (! fid)
       error ("Failed opening output file '%s' for writing: %s", outfile, errmsg);
@@ -26,11 +41,15 @@ function diagnostic_dump(varargin)
   endif
 
   printf ("Creating Octave.app diagnostic dump. Please be patient...\n");
+  printf ("Output file: %s\n", outfile);
+  t0 = tic;
   do_it;
   if (fid > 2)
     fclose (fid);
   endif
-  printf ("Diagnostic dump complete. Output file is: %s\n", outfile);
+  te = toc(t0);
+  printf ("Diagnostic dump complete in %0.3f s.\n", te);
+  printf ("Output file: %s\n", outfile);
 
   function p (varargin)
     if (nargin < 1); varargin = {""}; endif
@@ -49,10 +68,12 @@ function diagnostic_dump(varargin)
     % Locate ourselves
     mroot = matlabroot;
     % Wow what a kludge
+    % TODO: Detect whether this is actually running under Octave.app, or is e.g. run
+    % from a regular Homebrewed Octave, and report appropriately.
     app_root = fileparts (fileparts (fileparts (fileparts (fileparts (fileparts (mroot))))));
 
     p ("Octave.app diagnostic dump")
-    p ("Created: %s", datestr(now))
+    p ("Created at: %s", datestr(now))
     p
 
     section ("Notes")
@@ -64,26 +85,27 @@ function diagnostic_dump(varargin)
     % Octave version and state
     section ("Octave.app")
     p ("Sanitized ver:")
-    sanitized_ver = sanitize_path_strs(evalc("ver"));
+    sanitized_ver = sanitize_path_strs (evalc ("ver"));
     p (sanitized_ver)
     p
-    blas_ver = version("-blas");
+    blas_ver = version ("-blas");
     p ("BLAS: %s", blas_ver);
-    lapack_ver = version("-lapack");
+    lapack_ver = version ("-lapack");
     p ("LAPACK: %s", lapack_ver);
-    fftw_ver = version("-fftw");
+    fftw_ver = version ("-fftw");
     p ("FFTW: %s", fftw_ver)
-    java_ver = version("-java");
+    java_ver = version ("-java");
     p ("Java: %s", java_ver)
     p
-    p ("matlabroot: %s", sanitize_path_strs(matlabroot))
+    p ("matlabroot: %s", mroot)
+    p ("App root: %s", app_root)
     % Doing a shasum with tar makes it fast enough to be tolerable
-    [status, txt] = system (sprintf ("cd %s; tar c . | shasum -a 256 | cut -d ' ' -f 1", app_root));
+    [status, txt] = system (sprintf ("cd '%s'; tar c . | shasum -a 256 | cut -d ' ' -f 1", app_root));
     p ("Octave.app shasum: %s", txt)
 
     % System
     section ("System")
-    [status, txt] = system("sw_vers");
+    [status, txt] = system ("sw_vers");
     p ("sw_vers:\n%s", txt);
 
     % Environment
@@ -154,7 +176,7 @@ function diagnostic_dump(varargin)
       brew_cmd = chomp (txt);
     else
       arch = computer("arch");
-      if strcmp(arch(end-6:end), "-x86_64")
+      if strcmp (arch(end-6:end), "-x86_64")
         brew_cmd = "/usr/local/bin/brew";
       else
         brew_cmd = "/opt/homebrew/bin/brew";
@@ -286,3 +308,34 @@ function out = sanitize_path_strs (in)
     error ("%s: invalid input type: %s", "sanitize_path_strs", class (str));
   endif
 endfunction
+
+function opts = parse_args (args)
+
+opts = struct;
+opts.outfile = [];
+mainfunc = "octapp.diagnostic_dump";
+
+function arg_out = get_opt_arg ()
+  if (i >= numel (args))
+    error ('%s: option %s requires an argument', mainfunc, arg)
+  endif
+  arg_out = args{i+1};
+  i = i + 1;
+endfunction
+
+i = 0;
+while i < numel (args)
+  i = i + 1;
+  arg = args{i};
+  switch arg
+    case "-stdout"
+      opts.outfile = "-";
+    case "-outfile"
+      opts.outfile = get_opt_arg;
+    otherwise
+      error ("%s: unrecognized argument: %s", mainfunc, arg)
+  endswitch
+endwhile
+
+endfunction
+
