@@ -57,8 +57,8 @@ function diagnostic_dump(varargin)
 
     section ("Notes")
     p ("Note to maintainers: Paths in this dump have been sanitized. User HOME paths have been")
-    p ("replaced with "~". A "~" might not have been a literal tilde in the original value.")
-    p ("User name has also been sanitized, and replaced with "${USER}".")
+    p ("replaced with ""~"". A ""~"" might not have been a literal tilde in the original value.")
+    p ("User name has also been sanitized, and replaced with ""${USER}"".")
     p
 
     % Octave version and state
@@ -78,7 +78,7 @@ function diagnostic_dump(varargin)
     p
     p ("matlabroot: %s", sanitize_path_strs(matlabroot))
     % Doing a shasum with tar makes it fast enough to be tolerable
-    [status, txt] = system (sprintf ("cd %s; tar c . | shasum -a 256 | cut -d " " -f 1", app_root));
+    [status, txt] = system (sprintf ("cd %s; tar c . | shasum -a 256 | cut -d ' ' -f 1", app_root));
     p ("Octave.app shasum: %s", txt)
 
     % System
