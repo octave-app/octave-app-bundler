@@ -2,19 +2,22 @@
 
 ## Bugs
 
-* Qt 6 support is broken
+Nothing big, currently!
 
 ## Miscellaneous
 
+* Use 2-part "x.y" version label for ".0"-patch releases, for friendliness, and consistency with how most Octave devs and users seem to use it.
+* pkg customization: include the _betaN, _uN, etc. suffixes in the version directory for package installation.
+  * Because DLL linkage and file references will have that baked in, plus DLL versions may differ between pre/update releases, so packages with native extensions can't really be shared.
+* A "tracer-bullet" build-debugging option
+  * That builds a simple HelloWorld app instead of a real Octave, so you can test the packaging tools all the way through without having to do a three-hour real build.
 * Option that will eagerly prompt for all permissions approvals (like Finder prettification and Terminal file access) needed throughout the process.
-* Add timing and metrics (CPU, mem?) output to the build script.
-* Capture the output of `bundle_octave_app` itself to a log file in `build/logs`.
 * Clarify what "staged" and "unstaged" mean for builds.
   * I think we're using them inconsistently and vaguely at this point.
   * Problem: I need to run `octave` from the pre-munged built app to grab version info. Maybe I could push that up to the build step instead of the munge step?
 * Remove the `/usr/bin/` prefix for commands, and just say the user shouldn't shadow them incompatibly? Would make the code more readable IMHO.
-* A `clean` action that removes `build/`, handing the "permission denied" errors you get on app bundle with `rm`.
-* Record each build, with package versions, in the octave-app repo or somewhere, as part of release process; tool to support this, including diffing versions between those records.
+* A `clean` action that removes `build/`, handling the "permission denied" errors you get on app bundle with `rm`.
+* Record each build, with package versions, in the octave-app repo or somewhere, as part of release process; tool to support this, including diffing versions between those records. Include build timings.
 * Identify each build or build run with a UUID? Because versions aren't sufficient.
 
 ## Disk image stuff
@@ -28,7 +31,3 @@
   * Maybe APP_INSTALL, APP_BUILD, and then `_USR` suffixes on them?
 * Use shellcheck on this thing.
 * Replace some globals with function arguments, for their use inside functions at least?
-
-## More-incremental builds
-
-* [in-progress] Leave a pristine copy of the original (pre-munging) `/Applications/Octave` app there at like "Octave-BUILT.app", to be able to reliably pick up the process at the munging stage without repeating the long build, and not tempt the operator to delete the original build when it's time to drop the completed app bundle from the DMG in its final place. Probably do this unconditionally after the build is complete and before it's time to munge, so no manual intervention is needed. In fact, use this instead of the old staged/unstaged thing, which isn't as well-defined as I'd like.
