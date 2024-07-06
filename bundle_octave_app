@@ -222,10 +222,6 @@ function usage() {
       Release variant to put in the release and file names. [$RELEASE_VARIANT]
     -V, --octave-version <version>
       Version of Octave formula to build, affecting formula choice.
-    -c, --cli-only
-      Do not build the GUI.
-    -C, --cli-frontend
-      Use the CLI as the front end, while still building graphics/Qt support.
     -J, --no-java
       Compile without Java support.
     -d, --build-devel
@@ -290,12 +286,10 @@ release_variant = ${RELEASE_VARIANT}
 build_suffix = ${BUILD_SUFFIX} (prerelease = ${PRE_RELEASE}, update_release = ${UPDATE_RELEASE})
 octave_formula_version = ${OCTAVE_FORMULA_VERSION}
 octapp_tap_branch = ${OCTAPP_TAP_BRANCH}
-build_gui = ${DO_BUILD_GUI}
 build_devel = ${DO_BUILD_DEVEL}
 build_dmg = ${DO_BUILD_DMG}
 use_gcc = ${USE_GCC}
 use_java = ${DO_JAVA}
-build_desktop = ${DO_BUILD_DESKTOP}
 all_from_source = ${BUILD_ALL_FROM_SOURCE}
 
 Values:
@@ -555,9 +549,6 @@ function build_octave_in_staged_app() {
   if [[ "$DO_BUILD_DEVEL" == "y" ]]; then
     build_opts="$build_opts --HEAD"
   fi
-  if [[ "$DO_BUILD_GUI" != "y" ]]; then
-    build_opts="$build_opts --without-qt"
-  fi
   if [[ "$DO_JAVA" != "y" ]]; then
     build_opts="$build_opts --without-java"
   fi
@@ -800,20 +791,10 @@ EOS
 
   # AppleScript app launcher script
   local tmp_script=$(mktemp /tmp/octave-XXXX)
-  if [[ "$DO_BUILD_GUI" == "y" ]]; then
     read -r -d '' program_launch_code <<EOS || true
     set cmd to env_setup_cmd() & run_octave_gui()
     do shell script cmd
 EOS
-  else
-    read -r -d '' program_launch_code <<EOS || true
-    set cmd to env_setup_cmd() & run_octave_cli()
-    tell application "Terminal"
-      activate
-      do script cmd
-    end tell
-EOS
-  fi
   cat <<EOSCRIPT >> "$tmp_script"
   on env_setup_cmd()
     export_lang() & export_gs_options() & export_gnuplot() & export_fc() & export_path() & export_dyld()
@@ -878,9 +859,6 @@ EOS
     end if
   end path_check
 
-EOSCRIPT
-  if [[ "$DO_BUILD_DESKTOP" = "y" ]]; then
-    cat <<EOSCRIPT >> "$tmp_script"
   on open argv
     path_check()
     cache_fontconfig()
@@ -901,31 +879,6 @@ EOSCRIPT
   end run
 
 EOSCRIPT
-  else
-    cat <<EOSCRIPT >> "$tmp_script"
-  on open argv
-    path_check()
-    cache_fontconfig()
-    set filename to "\\"" & POSIX path of item 1 of argv & "\\""
-    set cmd to env_setup_cmd() & run_octave_open(filename)
-    tell application "Terminal"
-      activate
-      do script cmd
-    end tell
-  end open
-
-  on run argv
-    path_check()
-    cache_fontconfig()
-    set cmd to env_setup_cmd() & run_octave_cli()
-    tell application "Terminal"
-      activate
-      do script cmd
-    end tell
-  end run
-
-EOSCRIPT
-  fi
 
   osacompile -o "${APP_BUILD}/Contents/Resources/Scripts/main.scpt" "$tmp_script"
   cp "$tmp_script" build/logs
@@ -977,9 +930,8 @@ EOSCRIPT
   # This is broken as of macOS 12, and maybe earlier. It fails with a "ModuleNotFoundError: No module named 'Cocoa'" error.
   # Looks like the Cocoa module doesn't exist in the newer Pythons shipped with macOS. It may have been a Python 2 thing;
   # macOS has switched to Python 3 since the last time this worked.
-#   if [[ "$DO_BUILD_GUI" == "y" ]]; then
-#     local python_script_tmp=$(mktemp /tmp/octave-XXXX);
-#     cat <<EOSCRIPT > "$python_script_tmp"
+#   local python_script_tmp=$(mktemp /tmp/octave-XXXX);
+#   cat <<EOSCRIPT > "$python_script_tmp"
 # #!/usr/bin/env python
 # # This is a Python 2.x script, and requires the macOS-specific Cocoa module
 # import sys
@@ -994,10 +946,9 @@ EOSCRIPT
 #   sys.exit("Unable to set file icons for file " + oct_gui_file + " from icons file " + icons_file)
 #
 # EOSCRIPT
-#     # The glob here should produce exactly one file; it's just done for convenience in building the file path
-#     # TODO: Replace the glob with an exact path.
-#     /usr/bin/python3 "$python_script_tmp" "${APP_BUILD}/Contents/Resources/applet.icns" "${APP_BUILD_USR}/Cellar/${OCTAVE_FORMULA}/*/libexec/octave/*/exec/*/octave-gui"
-#   fi
+#   # The glob here should produce exactly one file; it's just done for convenience in building the file path
+#   # TODO: Replace the glob with an exact path.
+#   /usr/bin/python3 "$python_script_tmp" "${APP_BUILD}/Contents/Resources/applet.icns" "${APP_BUILD_USR}/Cellar/${OCTAVE_FORMULA}/*/libexec/octave/*/exec/*/octave-gui"
 
   # List all included formulae in the VERSIONS file
   local versions_file octave_app_str app_build_brew
@@ -1271,10 +1222,6 @@ function parse_cli_args() {
         FORMULA_VARIANT="$1"; shift ;;
       --release-variant)
         RELEASE_VARIANT="$1"; shift ;;
-      -c | --cli-only)
-        DO_BUILD_GUI=n ;;
-      -C | --cli-frontend)
-        DO_BUILD_DESKTOP=n ;;
       -d | --build-devel)
         DO_BUILD_DEVEL=y ;;
       -f | --octave-formula)
@@ -1458,8 +1405,6 @@ function init_global_vars() {
   # "u1" updates and the like. The --pre-release and --update-release options (instead of the generic
   # --build-suffix option) will handle this for you.
   DO_BUILD_SUFFIX_IN_APP_NAME=n
-  DO_BUILD_GUI=y
-  DO_BUILD_DESKTOP=y
   DO_JAVA=y
   DO_BUILD_DEVEL=n
   DO_SIGN=n
