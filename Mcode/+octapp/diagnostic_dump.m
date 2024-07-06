@@ -41,7 +41,6 @@ function diagnostic_dump(varargin)
   endif
 
   printf ("Creating Octave.app diagnostic dump. Please be patient...\n");
-  printf ("Output file: %s\n", outfile);
   t0 = tic;
   do_it;
   if (fid > 2)
@@ -204,80 +203,116 @@ function diagnostic_dump(varargin)
     % Compilation stuff
     section ("Compilation stuff")
     p ("mkoctfile configuration:")
-    mkoct_vars = {
-      "ALL_CFLAGS"
-      "ALL_CXXFLAGS"
-      "ALL_FFLAGS"
-      "ALL_LDFLAGS"
-      "AR"
-      "BLAS_LIBS"
-      "CC"
-      "CFLAGS"
-      "CPICFLAG"
-      "CPPFLAGS"
-      "CXX"
-      "CXXFLAGS"
-      "CXXPICFLAG"
-      "DEPEND_EXTRA_SED_PATTERN"
-      "DEPEND_FLAGS"
-      "DL_LD"
-      "DL_LDFLAGS"
-      "F77"
-      "F77_INTEGER8_FLAG"
-      "FFLAGS"
-      "FFTW3F_LDFLAGS"
-      "FFTW3F_LIBS"
-      "FFTW3_LDFLAGS"
-      "FFTW3_LIBS"
-      "FFTW_LIBS"
-      "FLIBS"
-      "FPICFLAG"
-      "INCFLAGS"
-      "INCLUDEDIR"
-      "LAPACK_LIBS"
-      "LD_CXX"
-      "LDFLAGS"
-      "LD_STATIC_FLAG"
-      "LFLAGS"
-      "LIBDIR"
-      "LIBOCTAVE"
-      "LIBOCTINTERP"
-      "LIBS"
-      "OCTAVE_HOME"
-      "OCTAVE_LIBS"
-      "OCTAVE_LINK_DEPS"
-      "OCTAVE_LINK_OPTS"
-      "OCTAVE_PREFIX"
-      "OCTINCLUDEDIR"
-      "OCTLIBDIR"
-      "OCT_LINK_DEPS"
-      "OCT_LINK_OPTS"
-      "RANLIB"
-      "RDYNAMIC_FLAG"
-      "READLINE_LIBS"
-      "SED"
-      "SPECIAL_MATH_LIB"
-      "XTRA_CFLAGS"
-      "XTRA_CXXFLAGS"
+
+    mkoct_varsets = {
+      {"Main vars", {
+        "ALL_CFLAGS"
+        "ALL_CXXFLAGS"
+        "ALL_FFLAGS"
+        "ALL_LDFLAGS"
+        "BLAS_LIBS"
+        "CC"
+        "CFLAGS"
+        "CPICFLAG"
+        "CPPFLAGS"
+        "CXX"
+        "CXXFLAGS"
+        "CXXPICFLAG"
+        "DL_LDFLAGS"
+        "F77"
+        "F77_INTEGER8_FLAG"
+        "FFLAGS"
+        "FPICFLAG"
+        "INCFLAGS"
+        "INCLUDEDIR"
+        "LAPACK_LIBS"
+        "LDFLAGS"
+        "LD_STATIC_FLAG"
+        "LIBDIR"
+        "LIBOCTAVE"
+        "LIBOCTINTERP"
+        "OCTAVE_LIBS"
+        "OCTAVE_LINK_DEPS"
+        "OCTAVE_LINK_OPTS"
+        "OCTINCLUDEDIR"
+        "OCTLIBDIR"
+        "OCT_LINK_DEPS"
+        "OCT_LINK_OPTS"
+        "RDYNAMIC_FLAG"
+        "SPECIAL_MATH_LIB"
+        "XTRA_CFLAGS"
+        "XTRA_CXXFLAGS"
+      }},
+
+      {'"Currently unused" vars', {
+        "AR"
+        "DEPEND_EXTRA_SED_PATTERN"
+        "DEPEND_FLAGS"
+        "FFTW3F_LDFLAGS"
+        "FFTW3F_LIBS"
+        "FFTW3_LDFLAGS"
+        "FFTW3_LIBS"
+        "FFTW_LIBS"
+        "FLIBS"
+        "LIBS"
+        "RANLIB"
+        "READLINE_LIBS"
+      }},
+
+      {'"Info-only" vars', {
+        "API_VERSION"
+        "ARCHLIBDIR"
+        "BINDIR"
+        "CANONICAL_HOST_TYPE"
+        "DATADIR"
+        "DATAROOTDIR"
+        "DEFAULT_PAGER"
+        % EXEC_PREFIX is documented, but mkoctfile raises a warning about it being
+        % deprecated, so exclude it to avoid a warning when diag_dump is called.
+        % "EXEC_PREFIX"
+        "EXEEXT"
+        "FCNFILEDIR"
+        "IMAGEDIR"
+        "INFODIR"
+        "INFOFILE"
+        "LIBEXECDIR"
+        "LOCALAPIARCHLIBDIR"
+        "LOCALAPIFCNFILEDIR"
+        "LOCALAPIOCTFILEDIR"
+        "LOCALARCHLIBDIR"
+        "LOCALFCNFILEDIR"
+        "LOCALOCTFILEDIR"
+        "LOCALSTARTUPFILEDIR"
+        "LOCALVERARCHLIBDIR"
+        "LOCALVERFCNFILEDIR"
+        "LOCALVEROCTFILEDIR"
+        "MAN1DIR"
+        "MAN1EXT"
+        "MANDIR"
+        "OCTAVE_EXEC_HOME"
+        "OCTAVE_HOME"
+        "OCTAVE_VERSION"
+        "OCTDATADIR"
+        "OCTDOCDIR"
+        "OCTFILEDIR"
+        "OCTFONTSDIR"
+        "STARTUPFILEDIR"
+      }}
     };
-    for i = 1:numel (mkoct_vars)
-      var = mkoct_vars{i};
-      txt = chomp (mkoctfile ("-p", var));
-       p("%s: %s", var, sanitize_path_strs (txt));
+    for i_set = 1:numel (mkoct_varsets)
+      mkoct_varset = mkoct_varsets{i_set};
+      [varset_label, mkoct_vars] = mkoct_varset{:};
+      p ()
+      p ("===== %s =====", varset_label)
+      for i_var = 1:numel (mkoct_vars)
+        var = mkoct_vars{i_var};
+        txt = chomp (mkoctfile ("-p", var));
+        p("%s: %s", var, sanitize_path_strs (txt));
+      endfor
     endfor
     p
     p ("__octave_config_info__:")
     p (sanitize_path_strs (evalc ("__octave_config_info__")))
-
-    % pkg
-    % Unnecessary since "ver" output includes it
-    % section ("pkg")
-    % p ("pkg list:")
-    % installed = pkg ("list");
-    % for i = 1:numel (installed)
-    %   pk = installed{i};
-    %   p ("%s %s: %s", pk.name, pk.version, pk.dir);
-    % endfor
   endfunction
 
 endfunction

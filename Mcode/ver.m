@@ -70,6 +70,9 @@ function v = ver (package = "")
     # Octave.app customization
     # HACK: We know this lives in share/octave/site/m, so just look up a dir
     my_dir = fileparts (mfilename ("fullpath"));
+    # TODO: Detect this by locating the actual octapp root, instead of relative to this
+    # mfile, so it still works when running a new external version of this ver.m in a
+    # different Octave.app. Break that out to an octapp.app_root() function.
     my_site_dir = fileparts (my_dir);
     octave_app_release_file = fullfile (my_site_dir, "Octave.app-RELEASE.txt");
     octave_app_release = readOctaveAppReleaseFile (octave_app_release_file);
