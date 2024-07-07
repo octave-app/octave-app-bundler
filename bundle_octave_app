@@ -776,10 +776,10 @@ EOS
   # Drop a build version indicator
   echo "$OCTAPP_RELEASE" > "${keg}/share/octave/site/Octave.app-RELEASE.txt"
 
-  # Custom octapp functions
+  # Add our custom octapp functions
   cp -R Mcode/* "${oct_site}/m"
-  mkdir -p "${oct_site}/m/+octapp"
   # Expose the original ver.m, which our Mcode masks, as octapp.ver_pristine
+  mkdir -p "${oct_site}/m/+octapp"
   cat "${oct_mcode}/miscellaneous/ver.m" | sed -e 's/function v = ver /function v = ver_pristine/' \
     > "${oct_site}/m/+octapp/ver_pristine.m"
 
@@ -872,7 +872,7 @@ EOSCRIPT
 
   osacompile -o "${APP_BUILD}/Contents/Resources/Scripts/main.scpt" "$tmp_script"
 
-  # Update entries in the application's plist
+  # Update entries in the app bundle's plist
   local plistbuddy info_plist
   plistbuddy='/usr/libexec/PlistBuddy'
   info_plist="${APP_BUILD}/Contents/Info.plist"
@@ -898,7 +898,7 @@ EOSCRIPT
   # Create a nice iconset (using the icons shipped with Octave)
   # The following might fail for the development version; TODO: conditionalize or trap the error
   local hicolor_dir svg_icon tmp_iconset icons_file
-  icons_file="${APP_BUILD_RSRC}/applet.icns"
+  icons_file="${APP_BUILD}/Contents/Resources/applet.icns"
   hicolor_dir="${APP_BUILD_USR}/opt/${OCTAVE_FORMULA}/share/icons/hicolor"
   svg_icon="${hicolor_dir}/scalable/apps/octave.svg"
   tmp_iconset=$(mktemp -d "${BUILD_DIR}/iconset-XXXXXXXX")/droplet.iconset
@@ -954,17 +954,8 @@ EOSCRIPT
 
   # Remove Homebrew itself
   # (So Octave.app users don't use it and accidentally modify their app installation,
-  # including if they meant to do stuff in their system Homebrew. It's not about saving
-  # space.)
-  rm -rf "${APP_BUILD_USR}/Homebrew" \
-      "${APP_BUILD_USR}/etc/bash_completion.d/brew" \
-      "${APP_BUILD_USR}/share/man/man1/README.md" \
-      "${APP_BUILD_USR}/share/man/man1/brew-cask.1" \
-      "${APP_BUILD_USR}/share/man/man1/brew.1" \
-      "${APP_BUILD_USR}/share/doc/homebrew" \
-      "${APP_BUILD_USR}/share/zsh/site-functions/_brew_cask" \
-      "${APP_BUILD_USR}/share/zsh/site-functions/_brew" \
-      "${APP_BUILD_USR}/bin/brew"
+  # instead of doing stuff in their system Homebrew. It's not about saving space.)
+  remove_homebrew_tools "$APP_BUILD_USR"
 
   # Redirect the app prefix's var/ to system local /var
   # Disabled because it seems to break code signing
@@ -979,8 +970,8 @@ EOSCRIPT
 
   # Lock down files to prevent accidental modification by users
   chmod -R a-w "${APP_BUILD_USR}/Cellar"
-  # But Qt needs to write to the .qhc files and local dirs when running its help
-  # viewer (really, Qt?)
+  # But Qt apparently needs to write to the .qhc files and local dirs when running its
+  # help viewer (really, Qt?)
   # TODO: Limit this to specific dirs we know should be writable
   find "${APP_BUILD_USR}/Cellar/${OCTAVE_FORMULA}" -name '*.qhc' | xargs chmod u+w
   find "${APP_BUILD_USR}/Cellar/${OCTAVE_FORMULA}" -type d | xargs chmod u+w
@@ -989,6 +980,27 @@ EOSCRIPT
   rm -rf "${APP_BUILD}/STAGING"
 
   info "Munging complete. Removed STAGING flag file."
+}
+
+function remove_homebrew_tools() {
+  # Remove Homebrew from a Homebrew installation, leaving packages
+  #
+  # This removes the Homebrew tools so it no longer looks like a Homebrew-managed area,
+  # but leaves all the packages themselves, including Cellar and its kegs. The goal of
+  # this is just to remove `brew` and related tools, so a user doesn't accidentally call
+  # it and modify the app, esp. if they meant to use their system brew instead. E.g. if
+  # you were to shell out to `brew` from an Octave.app session.
+  local usr_dir="$1"
+  rm -rf "${usr_dir}/Homebrew" \
+      "${usr_dir}/etc/bash_completion.d/brew" \
+      "${usr_dir}/share/man/man1/README.md" \
+      "${usr_dir}/share/man/man1/brew-cask.1" \
+      "${usr_dir}/share/man/man1/brew.1" \
+      "${usr_dir}/share/doc/homebrew" \
+      "${usr_dir}/share/zsh/site-functions/_brew_cask" \
+      "${usr_dir}/share/zsh/site-functions/_brew" \
+      "${usr_dir}/share/ish/vendor_completions.d/brew.fish" \
+      "${usr_dir}/bin/brew"
 }
 
 function sign_app() {
