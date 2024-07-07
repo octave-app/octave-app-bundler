@@ -745,7 +745,7 @@ function munge_build() {
     "${APP_BUILD_USR}/etc/fonts/fonts.conf"
 
   # App-specific startup configuration
-  keg="${APP_BUILD_USR}/Cellar/${OCTAVE_FORMULA}/${OCTAVE_VERSION}"
+  keg="${APP_BUILD_USR}/Cellar/${OCTAVE_FORMULA}/${OCTAVE_FORMULA_VERSION}"
   oct_mcode="${keg}/share/octave/${OCTAVE_VERSION}/m"
   oct_site="${keg}/share/octave/site"
   cat >>"${keg}/share/octave/site/m/startup/octaverc" <<EOS
@@ -872,28 +872,7 @@ EOSCRIPT
 
   osacompile -o "${APP_BUILD}/Contents/Resources/Scripts/main.scpt" "$tmp_script"
 
-  # Create a nice iconset (using the icons shipped with Octave)
-  # The following might fail for the development version; TODO: conditionalize or trap the error
-  local hicolor_dir svg_icon tmp_iconset
-  hicolor_dir="${APP_BUILD_USR}/opt/${OCTAVE_FORMULA}/share/icons/hicolor"
-  svg_icon="${hicolor_dir}/scalable/apps/octave.svg"
-  tmp_iconset=$(mktemp -d "${BUILD_DIR}/iconset-XXXXXXXX")/droplet.iconset
-  mkdir -p "$tmp_iconset"
-  cp "${hicolor_dir}/16x16/apps/octave.png" "${tmp_iconset}/icon_16x16.png"
-  cp "${hicolor_dir}/32x32/apps/octave.png" "${tmp_iconset}/icon_16x16@2x.png"
-  cp "${hicolor_dir}/32x32/apps/octave.png" "${tmp_iconset}/icon_32x32.png"
-  cp "${hicolor_dir}/64x64/apps/octave.png" "${tmp_iconset}/icon_32x32@2x.png"
-  cp "${hicolor_dir}/128x128/apps/octave.png" "${tmp_iconset}/icon_128x128.png"
-  cp "${hicolor_dir}/256x256/apps/octave.png" "${tmp_iconset}/icon_128x128@2x.png"
-  cp "${hicolor_dir}/256x256/apps/octave.png" "${tmp_iconset}/icon_256x256.png"
-  cp "${hicolor_dir}/512x512/apps/octave.png" "${tmp_iconset}/icon_256x256@2x.png"
-  cp "${hicolor_dir}/512x512/apps/octave.png" "${tmp_iconset}/icon_512x512.png"
-  if [[ -e "${hicolor_dir}/1024x1024/apps/octave.png" ]]; then
-    cp "${hicolor_dir}/1024x1024/apps/octave.png" "${tmp_iconset}/icon_512x512@2x.png"
-  fi
-  iconutil -c icns -o "${APP_BUILD}/Contents/Resources/applet.icns" "${tmp_iconset}"
-
-  # Create or update entries in the application's plist
+  # Update entries in the application's plist
   local plistbuddy info_plist
   plistbuddy='/usr/libexec/PlistBuddy'
   info_plist="${APP_BUILD}/Contents/Info.plist"
@@ -914,29 +893,42 @@ EOSCRIPT
   plutil -convert xml1 "${APP_BUILD}/Contents/Info.plist"
   chmod a=r "${APP_BUILD}/Contents/Info.plist"
 
-  # Add icon to octave-gui (DISABLED)
-  # This is broken as of macOS 12, and maybe earlier. It fails with a "ModuleNotFoundError: No module named 'Cocoa'" error.
-  # Looks like the Cocoa module doesn't exist in the newer Pythons shipped with macOS. It may have been a Python 2 thing;
-  # macOS has switched to Python 3 since the last time this worked.
-#   local python_script_tmp=$(mktemp "${BUILD_DIR}/octapp-iconsetter-XXXXXX");
-#   cat <<EOSCRIPT > "$python_script_tmp"
-# #!/usr/bin/env python
-# # This is a Python 2.x script, and requires the macOS-specific Cocoa module
-# import sys
-# import Cocoa
-#
-# icons_file = sys.argv[1].decode("utf-8")
-# oct_gui_file = sys.argv[2].decode("utf-8")
-# wksp = Cocoa.NSWorkspace.sharedWorkspace()
-# icons_data = Cocoa.NSImage.alloc().initWithContentsOfFile_(icons_file)
-# ok = wksp.setIcon_forFile_options_(icons_data, oct_gui_file, 0)
-# if not ok:
-#   sys.exit("Unable to set file icons for file " + oct_gui_file + " from icons file " + icons_file)
-#
-# EOSCRIPT
-#   # The glob here should produce exactly one file; it's just done for convenience in building the file path
-#   # TODO: Replace the glob with an exact path.
-#   /usr/bin/python3 "$python_script_tmp" "${APP_BUILD}/Contents/Resources/applet.icns" "${APP_BUILD_USR}/Cellar/${OCTAVE_FORMULA}/*/libexec/octave/*/exec/*/octave-gui"
+  # Add icon to octave-gui (BROKEN)
+
+  # Create a nice iconset (using the icons shipped with Octave)
+  # The following might fail for the development version; TODO: conditionalize or trap the error
+  local hicolor_dir svg_icon tmp_iconset icons_file
+  icons_file="${APP_BUILD_RSRC}/applet.icns"
+  hicolor_dir="${APP_BUILD_USR}/opt/${OCTAVE_FORMULA}/share/icons/hicolor"
+  svg_icon="${hicolor_dir}/scalable/apps/octave.svg"
+  tmp_iconset=$(mktemp -d "${BUILD_DIR}/iconset-XXXXXXXX")/droplet.iconset
+  mkdir -p "$tmp_iconset"
+  cp "${hicolor_dir}/16x16/apps/octave.png" "${tmp_iconset}/icon_16x16.png"
+  cp "${hicolor_dir}/32x32/apps/octave.png" "${tmp_iconset}/icon_16x16@2x.png"
+  cp "${hicolor_dir}/32x32/apps/octave.png" "${tmp_iconset}/icon_32x32.png"
+  cp "${hicolor_dir}/64x64/apps/octave.png" "${tmp_iconset}/icon_32x32@2x.png"
+  cp "${hicolor_dir}/128x128/apps/octave.png" "${tmp_iconset}/icon_128x128.png"
+  cp "${hicolor_dir}/256x256/apps/octave.png" "${tmp_iconset}/icon_128x128@2x.png"
+  cp "${hicolor_dir}/256x256/apps/octave.png" "${tmp_iconset}/icon_256x256.png"
+  cp "${hicolor_dir}/512x512/apps/octave.png" "${tmp_iconset}/icon_256x256@2x.png"
+  cp "${hicolor_dir}/512x512/apps/octave.png" "${tmp_iconset}/icon_512x512.png"
+  if [[ -e "${hicolor_dir}/1024x1024/apps/octave.png" ]]; then
+    cp "${hicolor_dir}/1024x1024/apps/octave.png" "${tmp_iconset}/icon_512x512@2x.png"
+  fi
+  iconutil -c icns -o "${icons_file}" "${tmp_iconset}"
+
+  # Actually setting the icons is disabled because this is broken as of macOS 12, and
+  # maybe earlier. It used an old macOS Python module that's not available on newer OS
+  # versions. Needs to be replaced with a different implementation.
+  #
+  # The gui exe is a separate binary from the main octave command.
+  # The glob here should produce exactly one file; it's just done for convenience in
+  # building the file path.
+  # TODO: Replace the glob with correct name; needs arch and Darwin version.
+  local oct_gui_exe=$(echo "${keg}/libexec/octave/${OCTAVE_VERSION}/exec"/*/octave-gui)
+  info "octave-gui exe: ${oct_gui_exe}"
+  info "Skipping setting icons bc it's broken on newer macOS"
+  # /usr/bin/python "${THIS_DIR}/tools/set_exe_icon_py2.py" "$icons_file" "$oct_gui_exe"
 
   # List all included formulae in the VERSIONS file
   local versions_file octave_app_str app_build_brew
