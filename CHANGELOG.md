@@ -1,14 +1,14 @@
 # octave-app-bundler CHANGELOG
 
-This is the changelog for octave-app-bundler), the tools used to create [Octave.app](https://github.com/octave-app/octave-app).
+This is the changelog for [octave-app-bundler](https://github.com/octave-app/octave-app-bundler), the tools used to create [Octave.app](https://github.com/octave-app/octave-app).
 
 This file has info about the developer-facing changes in `bundle_octapp` and the other build tools used to create Octave.app. It doesn't include info about user-facing changes in Octave.app itself; see the [octave-app repo's](https://github.com/octave-app/octave-app) CHANGELOG.md for that.
 
 This changelog file was added late in the project's history, in 2023, and there are years of project history before that which are not captured here.
 
-## [Unreleased] - in progress
+## [0.2.0] - in progress as of 2023-10 through 2024-07 and later
 
-## [???] - in progress as of 2023-10 through 2024-07 and later
+Started numbering versions here, as part of the Octave.app 8.x and 9.x release process. Reserving "0.1.*" version numbers for retroactively tagging older commits.
 
 ### Changed
 
@@ -30,7 +30,7 @@ This changelog file was added late in the project's history, in 2023, and there 
   - Put octapp metadata under `Contents/Resources/octapp-meta` instead of directly under the app bundle root.
     - (For organization, and in the vain hope that this might fix codesigning.)
   - Capture more brew metadata (config, formula versions) to additional files.
-- Add `octapp_helper`
+- Add `octapp_helper` tool.
 
 ### Internal
 
