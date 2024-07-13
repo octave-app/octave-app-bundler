@@ -80,6 +80,15 @@ For a test box:
 * Nothing else. The point is to test Octave.app on the basic-est macOS install.
   * Unless you want to run the Octave test suite, in which case you need to install the Xcode CLT in order to get `makeinfo`, perl, and maybe other commands that the test suite depends on.
 
+### Using UTM
+
+For UTM, at least on AS, you need an "IPSW" restore file to create a new VM. (I think.)
+
+I download my IPSW files through [this index on mrmacintosh.com](https://mrmacintosh.com/apple-silicon-m1-full-macos-restore-ipsw-firmware-files-database/), which I think has links to the official Apple downloads. (The "applecdn" or whatever domains in the URL look legit.)
+
+* MrMacintosh IPSW download index
+  * <https://mrmacintosh.com/apple-silicon-m1-full-macos-restore-ipsw-firmware-files-database>
+
 ## Historical Build Environments
 
 We have a policy of supporting the last three versions of macOS available at the time of an Octave release, because that's as far back as Homebrew itself supports.
