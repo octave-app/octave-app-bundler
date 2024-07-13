@@ -1,12 +1,14 @@
-# Changelog
+# octave-app-bundler CHANGELOG
 
-All notable new changes to this project will be documented in this file. (Hopefully.)
+This is the changelog for octave-app-bundler), the tools used to create [Octave.app](https://github.com/octave-app/octave-app).
 
-This changelog file was added late in the project's history, in 2023-10, and there are years of project history before that which are not captured here.
+This file has info about the developer-facing changes in `bundle_octapp` and the other build tools used to create Octave.app. It doesn't include info about user-facing changes in Octave.app itself; see the [octave-app repo's](https://github.com/octave-app/octave-app) CHANGELOG.md for that.
+
+This changelog file was added late in the project's history, in 2023, and there are years of project history before that which are not captured here.
 
 ## [Unreleased] - in progress
 
-## [???] - in progress as of 2023-10-25
+## [???] - in progress as of 2023-10 through 2024-07 and later
 
 ### Changed
 
@@ -17,7 +19,6 @@ This changelog file was added late in the project's history, in 2023-10, and the
 - Change app and DMG naming conventions.
   - Include build suffix in app name, by default.
   - Use "_" instead of "-" to separate version and build suffix.
-- Include subversion in Octave.app build, because it is now needed for downloading netpbm.
 - Remove create-dmg Git submodule and reference it as an external program
   - To support GitHub access via SSH, and because I dislike Git submodules.
 - Expose original `ver` as `octapp.ver_pristine`.
@@ -26,8 +27,10 @@ This changelog file was added late in the project's history, in 2023-10, and the
   - Convert to GNU Octave code style.
   - Support alternate default system Homebrew on AS.
 - Rearrange octapp metadata.
-  - Put octapp metadata under `Contents/Resources/octapp-meta` instead of directly under the app bundle root. (For organization, and in hopes that this might fix codesigning.)
+  - Put octapp metadata under `Contents/Resources/octapp-meta` instead of directly under the app bundle root.
+    - (For organization, and in the vain hope that this might fix codesigning.)
   - Capture more brew metadata (config, formula versions) to additional files.
+- Add `octapp_helper`
 
 ### Internal
 
