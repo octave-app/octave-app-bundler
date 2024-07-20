@@ -93,11 +93,13 @@ function oa_realpath() {
 THIS_PROGRAM=$(basename $0)
 THIS_DIR=$(oa_realpath $(dirname $0))
 
-function info()  { echo "$*"; }
-function error() { echo >&2 "${THIS_PROGRAM}: ERROR: $*"; }
-function die()   { error "$*"; exit 1; }
-function verbose() { if [[ $VERBOSE == 'y' ]]; then echo "$*"; fi; }
+function info()    { echo "$*"; }
+function error()   { echo >&2 "${THIS_PROGRAM}: ERROR: $*"; }
+function warning() { echo >&2 "${THIS_PROGRAM}: Warning: $*"; }
+function die()     { error "$*"; exit 1; }
+function verbose() { if is_verbose; then echo "$*"; fi; }
 function is_dry_run() { if [[ $DRY_RUN == 'y' ]]; then return 0; else return 1; fi; }
+function is_verbose() { if [[ $VERBOSE == 'y' ]]; then return 0; else return 1; fi; }
 function wet() {
   if is_dry_run; then
     info "dry run: would run: $*"
@@ -124,6 +126,7 @@ function timeit() {
   "$@"
   say_toc "$label" "$t0"
 }
+function timeit_fcn() { local fcn="$1"; timeit "$fcn" "$@"; }
 
 # Special functions to turn errexit on/off, to support the special no-errexit debugging
 # control.
@@ -145,6 +148,10 @@ function enable_errexit() {
 }
 
 # Octapp-specific functions
+
+function logged() {
+  "$@" 2>&1 | tee -a "$MY_LOG_FILE"
+}
 
 function is_do_sudo() {
   if [[ $USE_SUDO == 'y' ]]; then
