@@ -34,7 +34,10 @@
 #     build and final installation location.
 # * $INSTALL_USR - The Contents/Resources/usr dir under the app at $INSTALL_DIR. This
 #     is where most of the brew-managed packages live.
-# * $APP_BUILD - The copy of the .app under ./build, where we munge it in to its final
+# * $BUILDS_DIR - The parent dir to put build-and-munge data under, typically ./build.
+# * $BUILD_DIR -  The build dir for this particular build run, under $BUILDS_DIR, in a
+#     subdir named after the build label.
+# * $APP_BUILD - The copy of the .app under $BUILD_DIR, where we munge it in to its final
 #     form, and create the distribution DMG from.
 # * $APP_BUILD_USR - The usr dir under the app at $APP_BUILD, analagous to $INSTALL_USR.
 #
@@ -49,6 +52,8 @@
 # * $OCTAVE_VERSION_LABEL - "Label" form of the Octave version, which uses just "x.y" and
 #     omits the final ".z" patch version for ".0" patch releases. This is the "friendly"
 #     human-presentable version, and is used in the app name and path.
+# * $BUILD_LABEL - A unique label for a particular build *run*, not an octapp release, for
+#     internal use.
 #
 # TODO: "$INSTALL_DIR" is a lousy name for this. Come up with something better.
 
@@ -84,7 +89,6 @@ if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
 #
 # This is the best/most suitable solution of all the stuff I found on SO here:
 #   https://stackoverflow.com/questions/3572030/bash-script-absolute-path-with-os-x
-
 function oa_realpath() {
   local file="$1"
   python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$file"
@@ -259,31 +263,38 @@ function usage() {
 EOHELP
 }
 
-function show_options() {
-  local hostname oab_git_sha oab_git_status oab_gitstate_extra oab_ver
+function show_tool_ver_info() {
+  local oab_git_sha oab_git_status oab_gitstate_extra oab_ver
+  local oab_git_info
   local xcode_version xcode_clt_version clang_version_str latex_version_str
-  hostname=$(hostname)
-  oab_git_sha=$(git -C "$OCTAPPBUNDLER_HOME" log --pretty=format:'%h' -n 1)
-  oab_git_status=$(git -C "$OCTAPPBUNDLER_HOME" status --porcelain)
-  if [[ -n "$oab_git_status" ]]; then
-    oab_ver="${oab_git_sha}+"
-    oab_gitstate_extra=' (with local changes)'
-  else
-    oab_ver="${oab_git_sha}"
-    oab_gitstate_extra=''
-  fi
+  oab_git_info=$(read_git_state_info "$OAB_HOME")
   xcode_version=$(xcodebuild -version | sed -En 's/Xcode[[:space:]]+([0-9.]+)/\1/p')
   clang_version_str=$(clang --version | head -1)
   xcode_clt_version=$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | head -2 | tail -1 | sed 's/.* //')
   latex_version_str=$(latex -v | head -1)
+  cat <<EOS
+  octave-app-bundler ${OAB_VERSION} (from git ${oab_git_info})
+  macOS ${MACHINE_MACOS_VER}, arch ${MACHINE_ARCH} (${MACHINE_ARCH_DESCR})
+  Xcode ${xcode_version}, Xcode CLT ${xcode_clt_version}, clang ${clang_version_str}
+  LaTeX: ${latex_version_str}
+EOS
+}
+
+function show_options() {
+  local hostname createdmg_ver_info createdmg_git_info
+  local createdmg_git_extra=''
+  hostname=$(hostname)
+  createdmg_ver_info=$("${CREATEDMG_HOME}/create-dmg" --version)
+  if [[ -d "${CREATEDMG_HOME}/.git" ]]; then
+    createdmg_git_info=$(read_git_state_info "$CREATEDMG_HOME")
+    createdmg_git_extra=" (git ${createdmg_git_info})"
+  fi
 
   cat <<EOS
 
 ${THIS_PROGRAM} run at $(date) on ${hostname}
-  macOS ${MACHINE_MACOS_VER}, arch ${MACHINE_ARCH} (${MACHINE_ARCH_DESCR})
-  Xcode ${xcode_version}, Xcode CLT ${xcode_clt_version}, clang ${clang_version_str}
-  LaTeX: ${latex_version_str}
-  ${THIS_PROGRAM} from git commit ${oab_ver}${oab_gitstate_extra}
+$(show_tool_ver_info)
+  ${createdmg_ver_info}${createdmg_git_extra}
 
 Options:
 formula_variant = ${FORMULA_VARIANT}
@@ -307,9 +318,10 @@ dist_archive_name = ${DIST_ARCHIVE_NAME}
 dmg_file = ${DMG_FILE}
 dmg_volume_name = ${DMG_VOLUME_NAME}
 octave_formula = ${OCTAVE_FORMULA}
+build_label = ${BUILD_LABEL}
 
 Paths:
-octappbundler_home = ${OCTAPPBUNDLER_HOME}
+octave_app_bundler_home = ${OAB_HOME}
 createdmg_home = ${CREATEDMG_HOME}
 build_dir = ${BUILD_DIR}
 build_log_dir = ${BUILD_LOG_DIR}
@@ -382,6 +394,11 @@ function pick_names_for_things() {
   else
     OCTAPP_VERSION_LABEL="${OCTAVE_VERSION_LABEL}"
   fi
+  # An only-locally-meaningful label to distinguish build runs.
+  BUILD_LABEL="build_${OCTAPP_VERSION_LABEL}_${BUILD_TIMESTAMP}_${HOST_SHORT}"
+  BUILD_DIR="${BUILDS_DIR}/${BUILD_LABEL}"
+  BUILD_LOG_DIR="${BUILD_DIR}/logs"
+  BUILD_WORK_DIR="${BUILD_DIR}/work"
   APP_NAME="${app_base_name}-${OCTAPP_VERSION_LABEL}"
   if [[ -z "$BUILD_SUFFIX" ]]; then
     OCTAPP_RELEASE="${OCTAVE_VERSION_LABEL}"
@@ -395,6 +412,20 @@ function pick_names_for_things() {
   DIST_ARCHIVE_NAME="${app_base_name}-${OCTAPP_RELEASE}${dist_arch_extra}"
   DMG_FILE="${DIST_ARCHIVE_NAME}.dmg"
   DMG_VOLUME_NAME="${app_base_name} ${OCTAPP_RELEASE}"
+}
+
+function pick_paths_for_things() {
+  # Path vars that do depend on chosen names and/or detected dependencies
+  INSTALL_DIR="/Applications/${APP_NAME}.app"
+  INSTALL_BUILT="/Applications/${APP_NAME}-BUILT.app"
+  INSTALL_DIR_UNSTAGED="${INSTALL_DIR}-UNSTAGED"
+  INSTALL_USR="${INSTALL_DIR}/Contents/Resources/usr"
+  INSTALL_OCTAPP_META="${INSTALL_DIR}/Contents/Resources/octapp-meta"
+  INSTALL_OCTAPP_VERS_INFO_FILE="${INSTALL_OCTAPP_META}/build-versions.txt"
+  INSTALL_BUILT_USR="${INSTALL_BUILT}/Contents/Resources/usr"
+  brew="${INSTALL_USR}/bin/brew"
+  APP_BUILD="${BUILD_DIR}/${APP_NAME}.app"
+  APP_BUILD_USR="${APP_BUILD}/Contents/Resources/usr"
 }
 
 # "Staging the app build" means to get the working build in to the final install location
@@ -450,10 +481,33 @@ function require_built_app() {
   fi
 }
 
-function freshen_staged_homebrew() {
-  local install_type sed
+function read_git_head_commit() {
+  local repo_path="$1" commit_sha
+  commit_sha=$(git -C "$repo_path" rev-parse --short HEAD)
+  echo "$commit_sha"
+}
 
-  info "Freshening Homebrew in the staged build..."
+function read_git_state_info() {
+  # Get a human-readable summary of a git repo's state
+  local repo_dir="$1"
+  local commit_sha git_status git_branch info
+  commit_sha=$(git -C "$repo_dir" rev-parse --short HEAD)
+  git_status=$(git -C "$repo_dir" status --porcelain)
+  git_branch=$(git -C "$repo_dir" branch --show-current)
+  info="commit ${commit_sha}"
+  if [[ -n "$git_status" ]]; then
+    info="${info}+"
+  fi
+  if [[ "$git_branch" != 'main' ]]; then
+    info="${info}, branch ${git_branch}"
+  fi
+  echo "$info"
+}
+
+function setup_staged_homebrew() {
+  local install_type
+
+  info "Setting up Homebrew in the staged build..."
   require_staged_app_build
   # Check if we need to do a full install or update existing install
   if [[ -e "${INSTALL_USR}/bin/brew" ]]; then
@@ -485,24 +539,78 @@ function freshen_staged_homebrew() {
   fi
 
   # Switch to non-default tap branch if requested
-  # Looks like brew update resets the branch for taps, so switch it *after* the
-  # brew update
-  if [[ -n "$OCTAPP_TAP_BRANCH" ]]; then
-    (
+  # TODO: support new AS dir layout?
+  local octapp_tap_dir="${INSTALL_USR}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
+  local octapp_tap_ver octapp_tap_commit octapp_tap_commit_msg
+  (
+    cd "${octapp_tap_dir}"
+    info "Working on octapp tap at: $(pwd)"
+    if [[ -n "$OCTAPP_TAP_BRANCH" ]]; then
       info "Checking out octave-app tap branch ${OCTAPP_TAP_BRANCH}"
-      # TODO: support new AS dir layout?
-      cd "${INSTALL_USR}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
-      git fetch --all
-      info "Checking out octapp tap branch in pwd: $(pwd)"
-      git checkout "$OCTAPP_TAP_BRANCH"
-    )
-  fi
+      git fetch
+      git switch "$OCTAPP_TAP_BRANCH"
+    fi
+  )
+  octapp_tap_ver=$(read_octapp_tool_version "$octapp_tap_dir" "octave-app tap")
+  octapp_tap_commit=$(git -C "$octapp_tap_dir" rev-parse --short HEAD)
+  octapp_tap_commit_msg=$(git -C "$octapp_tap_dir" log -1)
+  info "octave-app tap: version: ${octapp_tap_ver} commit: ${octapp_tap_commit}"
+
+  # Get the current commit for the core Homebrew tap.
+  # HACK: Can't just read it from disk, because brew no longer uses a local clone. So
+  # clone it ourselves, and assume we get the same version.
+  local tempdir core_tap_clone core_tap_commit core_tap_commit_msg
+  tempdir=$(mktemp -d -t oab_brew_core-XXXXXXX)
+  core_tap_clone="${tempdir}/homebrew-core"
+  git clone --depth 12 "https://github.com/Homebrew/homebrew-core" "$core_tap_clone"
+  core_tap_commit=$(read_git_head_commit "$core_tap_clone")
+  core_tap_commit_msg=$(git -C "$core_tap_clone" log -1)
+  rm -rf "$tempdir"
+
+  mkdir -p "${INSTALL_OCTAPP_META}"
+  cat >>"${INSTALL_OCTAPP_META}/tap-info.txt" <<EOS
+Homebrew:
+  $("$brew" --version)
+
+homebrew-octave-app tap:
+  version: ${octapp_tap_ver}
+  commit:  ${octapp_tap_commit}
+  commit msg:
+${octapp_tap_commit_msg}
+
+homebrew-core tap:
+  commit:  ${core_tap_commit}
+  commit msg:
+${core_tap_commit_msg}
+
+EOS
 
   # Force conservative architecture builds in brew's ENV
-  # TODO: Can this be replaced with an env var or similar?
-  sed='/usr/bin/sed'
-  "$sed" -E -i '' "s/ARGV.build_bottle./true/g" "${INSTALL_USR}/Homebrew/Library/Homebrew/extend/ENV/super.rb"
-  "$sed" -E -i '' "s/ARGV.build_bottle./true/g" "${INSTALL_USR}/Homebrew/Library/Homebrew/extend/ENV/std.rb"
+  # TODO: Can this be replaced with an env var or the like?
+  local app_brew_lib_dir="${INSTALL_USR}/Homebrew/Library/Homebrew"
+  sed -E -i '' "s/ARGV.build_bottle./true/g" \
+      "${app_brew_lib_dir}/extend/ENV/super.rb" \
+      "${app_brew_lib_dir}/extend/ENV/std.rb"
+}
+
+function read_octapp_tool_version() {
+  # Read version from an octapp tool's repo's meta file.
+  # Works on both octapp-bundler and our Homebrew taps, or anything else that has a
+  # "version" field in its meta.json.
+  local tool_dir="$1" tool_label="${2:-octapp tool}"
+  local tool_meta_file="${tool_dir}/meta.json"
+  if [[ ! -f "$tool_meta_file" ]]; then
+    warning "No ${tool_label} meta file found; cannot detect version. Expected at: ${tool_meta_file}"
+    echo "???"
+    return
+  fi
+  local tool_ver=$(cat "$tool_meta_file" | sed -E -n -e 's/[[:space:]]*"version"[[:space:]]*:[[:space:]]*"(.*)"\s*$/\1/p')
+  if [[ -z "$tool_ver" ]]; then
+    warning "Failed parsing ${tool_label} version from meta.json file. File: ${tool_meta_file}"
+    echo "???"
+    return
+  fi
+  echo "$tool_ver"
 }
 
 function install_special_build_deps() {
@@ -565,15 +673,14 @@ function build_octave_in_staged_app() {
     # Force building formulae with non-relocatable bottles, including deps, from source, to
     # avoid picking up bottles that are marked as relocatable but don't actually work in
     # alternate locations, like qt 6
-    local dep_temp_file=$(mktemp "${BUILD_DIR}/octapp_nr_deps-XXXXXX")
+    local dep_temp_file="${BUILD_WORK_DIR}/octapp_nonreloc_deps.txt"
     "$brew" deps --include-build "$OCTAVE_FORMULA" | sort | uniq > "$dep_temp_file"
     nonreloc_deps=$(comm -1 -2 "$dep_temp_file" "${THIS_DIR}/nonreloc_bottles.txt" | tr '\n' ' ')
-    rm -rf "$dep_temp_file"
     if [[ -n "$nonreloc_deps" ]]; then
       info "Forcing build-from-source of deps with spurious relocatable bottles: ${nonreloc_deps}"
       if ! wet "$brew" install $brew_install_opts --build-from-source $nonreloc_deps; then
         brew_inst_exit=$?
-        die "brew install <non-reloc deps for octapp> failed: returned failure (exit status ${brew_inst_exit}); aborted."
+        info "brew install <non-reloc deps for octapp> returned failure (exit status ${brew_inst_exit}). But brew just does that sometimes. Ignoring."
       fi
     else
       info "No deps with spurious relocatable bottles to handle"
@@ -647,26 +754,38 @@ function unstage_app_build() {
   info "Unstaged app build to ${INSTALL_BUILT}"
 }
 
-# Capture build logs from unstaged app, user Homebrew logs
 function capture_build_logs() {
-  # Capture the logs
+  # Capture build logs from unstaged app and other places.
   # This is run after capturing the build to the unstaged location
+  # This no longer needs to capture the user Homebrew logs, because we now redirect brew
+  # to log directly to our build dir instead of the default user logs dir.
   local brew_logs_dir octave_test_log
   info "Capturing build logs..."
   wet mkdir -p "$BUILD_LOG_DIR"
-  brew_logs_dir="${HOME}/Library/Logs/Homebrew"
-  if [[ -d "$brew_logs_dir" ]]; then
-    wet cp -pR "$brew_logs_dir" "${BUILD_LOG_DIR}/Homebrew"
-  fi
   octave_test_log="${INSTALL_BUILT}/opt/${OCTAVE_FORMULA}/make-check.log"
   if [[ -e "$octave_test_log" ]]; then
+    info "Captured make-check.log from octave build"
     wet cp "$octave_test_log" "$BUILD_LOG_DIR"
+  else
+    info "No make-check.log file found in octave build"
   fi
   info "Captured build logs to ${BUILD_LOG_DIR}"
 }
 
-# Capture the whole built app from INSTALL_DIR to ./build
-function capture_built_octave_app() {
+function capture_homebrew_logs() {
+  # Capture the user Homebrew logs.
+  # This is not needed in our current setup that does log redirection, but keeping the
+  # code around for reference for a bit.
+  local target_dir="$1"
+  local brew_logs_dir="${HOME}/Library/Logs/Homebrew"
+  if [[ -d "$brew_logs_dir" ]]; then
+    wet cp -pR "$brew_logs_dir" "$target_dir"
+  fi
+}
+
+function record_build_versions_and_meta() {
+  # Record metadata about tool and package versions to files in the build.
+
   # Capture the version info from built binaries to a simple file for use later
   # Get versions dynamically from the built program. Stash them in a file inside
   # the app build. That modifies the app build, and is the only modification we do
@@ -677,20 +796,25 @@ function capture_built_octave_app() {
   # Keep this in sync with the corresponding code below!
   # Just on a hunch that dirs right under the app bundle root interfere with codesigning,
   # moved this under Contents/Resources as of 8.4.0.
-  octapp_meta_dir="${INSTALL_DIR}/Contents/Resources/octapp-meta"
-  octapp_ver_file="${octapp_meta_dir}/octapp-ver-info.sh"
+  octapp_meta_dir="${INSTALL_OCTAPP_META}"
+  octapp_ver_sh_file="${octapp_meta_dir}/octapp-ver-info.sh"
   formulae_vers_file="${octapp_meta_dir}/octapp-formulae-vers.txt"
   octave="${INSTALL_USR}/opt/${OCTAVE_FORMULA}/bin/octave"
   # x.y.z semver-ish version string
-  oct_ver_string=$("$octave" --version | /usr/bin/sed -n 1p)
-  oct_ver=$(echo "$oct_ver_string" | /usr/bin/grep -o '\d\..*$' )
-  oct_copyright=$("$octave" --version | /usr/bin/sed -n 2p | /usr/bin/cut -c 15- )
+  oct_ver_string=$("$octave" --version | sed -n 1p)
+  oct_ver=$(echo "$oct_ver_string" | grep -o '\d\..*$' )
+  oct_copyright=$("$octave" --version | sed -n 2p | cut -c 15- )
   gs_ver=$("${INSTALL_USR}/bin/gs" --version)
   gs_opt=$("$brew" --prefix "ghostscript")
   gs_share="${gs_opt}/share/ghostscript"
 
   mkdir -p "$octapp_meta_dir"
-  cat >"$octapp_ver_file" <<EOS
+  "$brew" config --verbose > "${octapp_meta_dir}/brew-config.txt"
+  "$brew" info --installed --json > "${octapp_meta_dir}/brew-info-installed.json"
+  "$brew" list --full-name > "${octapp_meta_dir}/brew-list-fullname.txt"
+  "$brew" list --versions > "${octapp_meta_dir}/brew-list-versions.txt"
+  "$brew" octave-app-list-formulae > "$formulae_vers_file"
+  cat >"$octapp_ver_sh_file" <<EOS
 oct_ver='$oct_ver'
 oct_ver_string='$oct_ver_string'
 oct_copyright='$oct_copyright'
@@ -698,19 +822,23 @@ gs_ver='$gs_ver'
 gs_opt='$gs_opt'
 gs_share='$gs_share'
 EOS
-  "$brew" octave-app-list-formulae > "$formulae_vers_file"
-  "$brew" list --full-name > "${octapp_meta_dir}/brew-list-fullname.txt"
-  "$brew" list --versions > "${octapp_meta_dir}/brew-list-versions.txt"
-  "$brew" config > "${octapp_meta_dir}/brew-config.json"
-  "$brew" info --installed --json > "${octapp_meta_dir}/brew-info-installed.json"
   info "Saved version info under ${octapp_meta_dir}"
+
+  # Tool versions
+  cat >"${octapp_meta_dir}/tool-versions.txt" <<EOS
+octave-app-bundler tools and environment:
+$(show_tool_ver_info)
+
+
+EOS
+  cat "${octapp_meta_dir}/tap-info.txt" >> "${octapp_meta_dir}/tool-versions.txt"
 }
 
 function munge_build() {
   local octave oct_ver oct_ver_string oct_copyright
   local octapp_ver_file formulae_vers_file octapp_meta_dir
   local gs_ver gs_opt gs_share
-  local keg vers_code oct_mcode oct_site
+  local oct_keg vers_code oct_mcode oct_site
 
   info "Munging build..."
   if [[ $DRY_RUN = 'y' ]]; then
@@ -718,7 +846,6 @@ function munge_build() {
     return
   fi
   require_built_app
-  mkdir -p build/logs
 
   # Make a local copy of the app for munging, clobbering any existing copy
   if [[ -e "$APP_BUILD" ]]; then
@@ -731,20 +858,24 @@ function munge_build() {
   cp -pR "$INSTALL_BUILT" "$APP_BUILD"
 
   # Get ver info from our custom data file
-  # Keep this in sync with the corresponding code above!
-  octapp_meta_dir="${APP_BUILD}/Contents/Resources/octapp-meta"
+  # Keep this in sync with the corresponding code in the build step!
   octapp_usr="${APP_BUILD}/Contents/Resources/usr"
+  octapp_meta_dir="${APP_BUILD}/Contents/Resources/octapp-meta"
   octapp_ver_file="${octapp_meta_dir}/octapp-ver-info.sh"
   formulae_vers_file="${octapp_meta_dir}/octapp-formulae-vers.txt"
   vers_code=$(cat "${octapp_ver_file}")
   eval "$vers_code"
   info "Octave versions: ver='${oct_ver}' ver_string='${oct_ver_string}' copyright='${oct_copyright}'"
 
-  # Munge it
+  # Extract a copy of metadata go logs for our records
+  cp -pR "$octapp_meta_dir" "${BUILD_LOG_DIR}"
+
+  # Munge the app
   info "Munging app in ${APP_BUILD}..."
 
   # Add a bare "octave" link in the main bin, so when the octapp "env" is loaded,
   # an unqualified "octave" command runs that.
+  # TODO: Move this to the build step?
   ( cd "${octapp_usr}/bin"; ln -s "$OCTAVE_FORMULA" octave )
 
   # Have app use its internal font cache instead of global one
@@ -752,10 +883,10 @@ function munge_build() {
     "${APP_BUILD_USR}/etc/fonts/fonts.conf"
 
   # App-specific startup configuration
-  keg="${APP_BUILD_USR}/Cellar/${OCTAVE_FORMULA}/${OCTAVE_FORMULA_VERSION}"
-  oct_mcode="${keg}/share/octave/${OCTAVE_VERSION}/m"
-  oct_site="${keg}/share/octave/site"
-  cat >>"${keg}/share/octave/site/m/startup/octaverc" <<EOS
+  oct_keg="${APP_BUILD_USR}/Cellar/${OCTAVE_FORMULA}/${OCTAVE_FORMULA_VERSION}"
+  oct_mcode="${oct_keg}/share/octave/${OCTAVE_VERSION}/m"
+  oct_site="${oct_keg}/share/octave/site"
+  cat >>"${oct_site}/m/startup/octaverc" <<EOS
 
 % Octave.app special configuration
 
@@ -781,22 +912,22 @@ clear default_pkg_prefix octave_app_pkg_prefix
 EOS
 
   # Drop a build version indicator
-  echo "$OCTAPP_RELEASE" > "${keg}/share/octave/site/Octave.app-RELEASE.txt"
+  echo "$OCTAPP_RELEASE" > "${oct_site}/Octave.app-RELEASE.txt"
 
   # Add our custom octapp functions
   cp -R Mcode/* "${oct_site}/m"
   # Expose the original ver.m, which our Mcode masks, as octapp.ver_pristine
   mkdir -p "${oct_site}/m/+octapp"
-  cat "${oct_mcode}/miscellaneous/ver.m" | sed -e 's/function v = ver /function v = ver_pristine/' \
+  cat "${oct_mcode}/miscellaneous/ver.m" | sed -e 's/function v = ver /function v = ver_pristine /' \
     > "${oct_site}/m/+octapp/ver_pristine.m"
 
   # AppleScript app launcher script
-  local tmp_script=$(mktemp "${BUILD_DIR}/octapp-launcher-XXXXXX")
-    read -r -d '' program_launch_code <<EOS || true
+  local launch_script_tmp="${BUILD_WORK_DIR}/octapp-launcher.applescript"
+  read -r -d '' program_launch_code <<EOS || true
     set cmd to env_setup_cmd() & run_octave_gui()
     do shell script cmd
 EOS
-  cat <<EOSCRIPT >> "$tmp_script"
+  cat <<EOSCRIPT >> "$launch_script_tmp"
   on env_setup_cmd()
     export_lang() & export_gs_options() & export_fc() & export_path() & export_dyld()
   end env_setup_cmd
@@ -877,7 +1008,7 @@ EOS
 
 EOSCRIPT
 
-  osacompile -o "${APP_BUILD}/Contents/Resources/Scripts/main.scpt" "$tmp_script"
+  osacompile -o "${APP_BUILD}/Contents/Resources/Scripts/main.scpt" "$launch_script_tmp"
 
   # Update entries in the app bundle's plist
   local plistbuddy info_plist
@@ -908,7 +1039,7 @@ EOSCRIPT
   icons_file="${APP_BUILD}/Contents/Resources/applet.icns"
   hicolor_dir="${APP_BUILD_USR}/opt/${OCTAVE_FORMULA}/share/icons/hicolor"
   svg_icon="${hicolor_dir}/scalable/apps/octave.svg"
-  tmp_iconset=$(mktemp -d "${BUILD_DIR}/iconset-XXXXXXXX")/droplet.iconset
+  tmp_iconset="${BUILD_WORK_DIR}/droplet.iconset"
   mkdir -p "$tmp_iconset"
   cp "${hicolor_dir}/16x16/apps/octave.png" "${tmp_iconset}/icon_16x16.png"
   cp "${hicolor_dir}/32x32/apps/octave.png" "${tmp_iconset}/icon_16x16@2x.png"
@@ -1035,7 +1166,7 @@ function sign_app() {
     if [[ $DRY_RUN = 'y' ]]; then
       info 'dry run: would absolutify symlinks'
     else
-      file_list_file=$(mktemp "${BUILD_DIR}/octave-XXXXXXX")
+      file_list_file="${BUILD_WORK_DIR}/octapp-file-list.txt"
       find "$INSTALL_DIR" -type l | sort > "$file_list_file"
       while read link; do
         link_dir=$(dirname "$link")
@@ -1047,7 +1178,6 @@ function sign_app() {
           ln -s "$real_target" "$link"
         )
       done <${file_list_file}
-      rm "$file_list_file"
     fi
   fi
   # Do the actual signing
@@ -1089,22 +1219,24 @@ function require_app_build() {
 function create_dmg() {
   # Create a nice DMG disc image with create-dmg
   info "Creating DMG..."
-  local octapp_tap_dir
+  local octapp_tap_dir dmg_path
   local install_instr_file='READ ME! - Important Installation Instructions.txt'
 
   require_app_build
   mkdir -p "$BUILD_DIR"
 
   # Delete any existing DMG
-  if [[ -f "${BUILD_DIR}/${DMG_FILE}" ]]; then
-    info "Deleting existing dist DMG at ${BUILD_DIR}/${DMG_FILE}"
-    wet rm -rf "${BUILD_DIR}/${DMG_FILE}"
+  dmg_path="${BUILD_DIR}/${DMG_FILE}"
+  if [[ -f "$dmg_path" ]]; then
+    info "Deleting existing dist DMG at ${dmg_path}"
+    wet rm -rf "${dmg_path}"
   fi
-  info "Creating dist DMG at ${BUILD_DIR}/${DMG_FILE}"
+  info "Creating dist DMG at ${dmg_path}"
 
   # Detect tap location, which varies between Intel and AS
   if [[ $MACHINE_ARCH == 'arm64' ]]; then
-    # TODO: Fix this path?
+    # For now, this is the same as Intel, bc we install it to a custom location, using
+    # the old Intel path location.
     octapp_tap_dir="${INSTALL_BUILT_USR}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
   else
     octapp_tap_dir="${INSTALL_BUILT_USR}/Homebrew/Library/Taps/octave-app/homebrew-octave-app"
@@ -1113,8 +1245,7 @@ function create_dmg() {
   # Munge the installation instructions file, to get build-specific names right
   cat "assets/${install_instr_file}.in" \
     | sed -e "s/@@DIST_ARCHIVE_NAME@@/${DIST_ARCHIVE_NAME}/g" \
-    > "${BUILD_DIR}"/"${install_instr_file}"
-
+    > "${BUILD_WORK_DIR}"/"${install_instr_file}"
 
   # Create the installer DMG. This may issue warnings if run headless. However, the DMG
   # will still be created, only some beautification cannot be applied.
@@ -1139,18 +1270,18 @@ function create_dmg() {
       --hide-extension "${APP_NAME}.app" \
       --app-drop-link 415 180 \
       --eula "${octapp_tap_dir}/assets/COPYING/COPYING.rtf" \
-      --add-file "${install_instr_file}" "${BUILD_DIR}/${install_instr_file}" 270 350 \
+      --add-file "${install_instr_file}" "${BUILD_WORK_DIR}/${install_instr_file}" 270 350 \
       --add-file COPYING "${app_build_octapp_keg}/COPYING" 126 300 \
       --add-file VERSIONS "${APP_BUILD}/Contents/Resources/VERSIONS" 415 300 \
       --disk-image-size 7500 \
-      --background "${OCTAPPBUNDLER_HOME}/assets/background.tiff" \
-      "${BUILD_DIR}/${DMG_FILE}" \
+      --background "${OAB_HOME}/assets/background.tiff" \
+      "$dmg_path" \
       "$APP_BUILD"
   if is_do_sudo; then
-    sudo chown "$USER" "${BUILD_DIR}/${DMG_FILE}"
+    sudo chown "$USER" "$dmg_path"
   fi
 
-  info "DMG ready at: ${BUILD_DIR}/${DMG_FILE}"
+  info "DMG ready at: ${dmg_path}"
 }
 
 function test_app() {
@@ -1181,25 +1312,18 @@ function do_debug_parse () {
 function do_whole_build_process() {
   local t0
   t0=$(tic)
+  show_options
   stage_app_build
-  # Used to do freshen_staged_homebrew automatically here, but I turned that off because
-  # I want stability between repeated incremental builds on an existing staged app. Now,
-  # if you want to freshen it, manually invoke the freshen_staged_homebrew step.
-  # Actually, oops, need to still do this for now: freshen_staged_homebrew() doesn't just
-  # update an existing Homebrew install; it's the thing that creates the new Homebrew
-  # install in the first place.
-  # TODO: Split this out to separate "ensure" (create if not exist) and "update/freshen" (do
-  # updates and upgrades on existing Homebrew install) operations.
-  freshen_staged_homebrew
-  timeit build_octave_in_staged_app build_octave_in_staged_app
-  timeit capture_built_octave_app capture_built_octave_app
+  setup_staged_homebrew
+  timeit_fcn build_octave_in_staged_app
+  record_build_versions_and_meta
   unstage_app_build
-  munge_build
+  timeit_fcn munge_build
   if [[ "$DO_SIGN" == "y" ]]; then
-    sign_app
+    timeit_fcn sign_app
   fi
   if [[ "$DO_BUILD_DMG" == "y" ]]; then
-    timeit create_dmg create_dmg
+    timeit_fcn create_dmg
   fi
   info "Build finished."
   say_toc "whole_build" "$t0"
@@ -1312,13 +1436,24 @@ function parse_cli_opt_needs_arg() {
 function main () {
   local exit_status
 
+  # Pick up commands from the octapp build. This is (I think) just a hack to pick up
+  # Subversion's svn command, so this tool can be run on computers without a system-wide
+  # Homebrew or MacPorts installation to supply svn.
+  # TODO: Maybe drop this and add a dependency on a system svn? It'll pick up a bunch
+  # of other commands too, which isn't good for repeatability. Or maybe it's because
+  # the brew installs may need commands from the Homebrew installation? In which case we
+  # need to keep this. Either way, document it.
+  PATH="${INSTALL_USR}/bin/:$PATH"
+
+  # TODO: This early exit needs to go away once dry-run support in the various steps
+  # is working.
+  if is_dry_run; then
+    info ''; info "DRY RUN: Not actually doing anything."; info ''
+    exit 0
+  fi
+
   # Code setup
   enable_errexit
-
-  info "Building ${APP_NAME}.app from brew formula ${OCTAVE_FORMULA} to ${INSTALL_DIR}, build label ${BUILD_LABEL}"
-  export HOMEBREW_LOGS="${BUILD_LOG_DIR}/brew"
-  wet mkdir -p "$BUILD_LOG_DIR"
-  wet mkdir -p "$BUILD_LOG_DIR/brew"
 
   # Handle special actions first (each of these should exit when done)
   if [[ -n "$ACTION" ]]; then
@@ -1341,22 +1476,35 @@ function main () {
   fi
 
   # Main build process
+
+  # Create build log dirs up front so we can redirect this whole script's output into it
+  wet mkdir -p "$BUILD_WORK_DIR"
+  wet mkdir -p "$BUILD_LOG_DIR"
+  MY_LOG_FILE="${BUILD_LOG_DIR}/bundle_octapp.log"
+  local build_brew_log_dir="${BUILD_LOG_DIR}/brew"
+  export HOMEBREW_LOGS="$build_brew_log_dir"
+  wet mkdir -p "$build_brew_log_dir"
+
+  logged info "Building ${APP_NAME}.app from brew formula ${OCTAVE_FORMULA} to ${INSTALL_DIR}, build label ${BUILD_LABEL}"
   if [[ -z "$BUILD_STEP" ]]; then
-    do_whole_build_process 2>&1 | tee "${BUILD_LOG_DIR}/bundle_octapp.log"
+    logged do_whole_build_process
   else
     # Run a single step
-    info "Running single build step: $BUILD_STEP"
+    logged info "Running single build step: $BUILD_STEP"
+    if is_verbose; then
+      logged show_options
+    fi
+
     case "$BUILD_STEP" in
       stage)            stage_app_build ;;
       unstage)          unstage_app_build ;;
       freshen-homebrew) freshen_staged_homebrew ;;
-      build)            build_octave_in_staged_app 2>&1 | tee "${BUILD_LOG_DIR}/bundle_octapp.log" ;;
-      capture)          capture_built_octave_app ;;
+      build)            logged build_octave_in_staged_app ;;
       capture-logs)     capture_build_logs ;;
-      munge)            munge_build ;;
-      sign)             sign_app ;;
-      createdmg)        create_dmg ;;
-      test)             test_app ;;
+      munge)            logged munge_build ;;
+      sign)             logged sign_app ;;
+      createdmg)        logged create_dmg ;;
+      test)             logged test_app ;;
       # Undocumented debugging "steps"
       debug-parse)      do_debug_parse ;;
       *)
@@ -1374,6 +1522,7 @@ function init_global_vars() {
   #
   # These may be used in only one place, so they could be locals inside functions, but I like to have the definitions
   # of these things all grouped together
+  HOST_SHORT=$(hostname | sed -e 's/[.].*//')
   MACHINE_ARCH=$(uname -m)
   if [[ $MACHINE_ARCH = 'x86_64' ]]; then
     MACHINE_ARCH_DESCR='Intel'
@@ -1425,14 +1574,12 @@ function init_global_vars() {
   EXIT_ON_ERROR=y
   DO_TRACE=n
   BUILD_TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
-  BUILD_DIR="./build"
-  # An only-locally-meaningful label to distinguish build operations for log location etc.
-  BUILD_LABEL="octapp_build_${BUILD_TIMESTAMP}"
-  BUILD_LOG_DIR="${BUILD_DIR}/logs/${BUILD_LABEL}"
+  BUILDS_DIR="./build"
   DRY_RUN=
   USE_SUDO=y
 
-  OCTAPPBUNDLER_HOME=$(dirname $0)
+  OAB_HOME=$(dirname $0)
+  OAB_VERSION=$(read_octapp_tool_version "$THIS_DIR" "octave-app-bundler")
   MACHINE_MACOS_VER=$(sw_vers -productVersion)
   MACHINE_MACOS_VER_MAJMIN=$(sw_vers -productVersion | sed -E 's/^(\w+\.\w+).*/\1/')
 }
@@ -1453,41 +1600,12 @@ fi
 
 # Dep detection must come before show_options, which shows its results and thus needs it
 detect_tool_dependencies
-
-# Vars that do depend on chosen names and/or detected dependencies
-INSTALL_DIR="/Applications/${APP_NAME}.app"
-INSTALL_BUILT="/Applications/${APP_NAME}-BUILT.app"
-INSTALL_DIR_UNSTAGED="${INSTALL_DIR}-UNSTAGED"
-INSTALL_USR="${INSTALL_DIR}/Contents/Resources/usr"
-INSTALL_BUILT_USR="${INSTALL_BUILT}/Contents/Resources/usr"
-brew="${INSTALL_USR}/bin/brew"
-APP_BUILD="${BUILD_DIR}/${APP_NAME}.app"
-APP_BUILD_USR="${APP_BUILD}/Contents/Resources/usr"
-
+pick_paths_for_things
 setup_brew_env
 
-if [[ "$VERBOSE" == "y" || "$DO_JUST_SHOW_OPTIONS" == "y" ]]; then
-  show_options
-fi
+# Special early exit for --show-options
 if [[ "$DO_JUST_SHOW_OPTIONS" == "y" ]]; then
-  exit 0
-fi
-
-# Pick up commands from octapp build. This is (I think) just a hack to pick up
-# Subversion's svn command, so this tool can be run on computers without a system-wide
-# Homebrew or MacPorts installation to supply svn.
-# TODO: Maybe drop this and add a dependency on a system svn? It'll pick up a bunch
-# of other commands too, which isn't good for repeatability. Or maybe it's because
-# the brew installs may need commands from the Homebrew installation? In which case we
-# need to keep this. Either way, document it.
-PATH="${INSTALL_USR}/bin/:$PATH"
-
-# TODO: This early exit needs to go away once dry-run support in the various steps
-# is working.
-if is_dry_run; then
-  info
-  info "DRY RUN: Not actually doing anything."
-  info
+  show_options
   exit 0
 fi
 
