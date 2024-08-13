@@ -59,15 +59,14 @@ fi
 # As of 2024-06:
 #   * 8.4.0 is out, and I'm working on an update release to shrink the app size.
 #   * Working on 9.1 and 9.2 releases. Doing RCs as of 2024-07-20
-TAP_9_OH_ARGS="--tap-branch nine-oh-fixes"
 QT5_VAR_ARGS="--formula-variant octapp-qt5"
 case "$VER" in
-  9.1)       VER_ARGS="--octave-version 9.1.0 ${TAP_9_OH_ARGS}" ;;
-  9.1-qt5)   VER_ARGS="--octave-version 9.1.0 ${QT5_VAR_ARGS} --pre-release qt5pre ${TAP_9_OH_ARGS}" ;;
-  9.2)       VER_ARGS="--octave-version 9.2.0 ${TAP_9_OH_ARGS}" ;;
-  9.2-qt5)   VER_ARGS="--octave-version 9.2.0 ${QT5_VAR_ARGS} --pre-release qt5pre ${TAP_9_OH_ARGS}" ;;
-  8.4p)      VER_ARGS="--octave-version 8.4.0 --pre-release u1-pre1 ${TAP_9_OH_ARGS}" ;;
-  8.4)       VER_ARGS="--octave-version 8.4.0 --update-release u1 ${TAP_9_OH_ARGS}" ;;
+  9.1)       VER_ARGS="--octave-version 9.1.0 " ;;
+  9.1-qt5)   VER_ARGS="--octave-version 9.1.0 ${QT5_VAR_ARGS} --pre-release qt5pre" ;;
+  9.2)       VER_ARGS="--octave-version 9.2.0" ;;
+  9.2-qt5)   VER_ARGS="--octave-version 9.2.0 ${QT5_VAR_ARGS} --pre-release qt5pre" ;;
+  8.4p)      VER_ARGS="--octave-version 8.4.0 --pre-release u1-pre1" ;;
+  8.4)       VER_ARGS="--octave-version 8.4.0 --update-release u1" ;;
   *)         die "Unrecognized ver argument: ${VER}. The ver arg must come first, and is required. Use 'x' to do the default ver." ;;
 esac
 
