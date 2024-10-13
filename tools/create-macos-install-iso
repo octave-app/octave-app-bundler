@@ -32,20 +32,23 @@
 # TODO: Detect exact version of the installer (like 12.7.5) and include it in the ISO file name.
 # TODO: Is the created CD architecture-specific? If so, add an "Intel" suffix.
 
+# Boilerplate and utility functions
+
 set -o errexit
 set -o nounset
 set -o pipefail
 if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
 
-# Utility functions
-
 THIS_PROGRAM=$(basename $0)
 THIS_DIR=$(realpath $(dirname $0))
 
+VERBOSE=n
+DRY_RUN=n
+
 function info()  { echo >&2 "$*"; }
 function error() { echo >&2 "${THIS_PROGRAM}: ERROR: $*"; }
-function die()   { local msg="$1"; error "$msg"; exit 1; }
-function verbose() { if [[ $VERBOSE == 'y' ]]; then echo >&2 "$*"; fi; }
+function die()   { error "$*"; exit 1; }
+function verbose() { if [[ $VERBOSE == 'y' ]]; then info "$*"; fi; }
 function is_dry_run() { if [[ $DRY_RUN == 'y' ]]; then return 0; else return 1; fi; }
 function wet() {
   if is_dry_run; then
@@ -76,8 +79,6 @@ function timeit() {
 
 # Major version, like '12' (Monterey), '13' (Ventura), 14, etc.
 WHICH_OS_VER='12'
-VERBOSE=n
-DRY_RUN=
 
 function parse_cli_args() {
   local arg

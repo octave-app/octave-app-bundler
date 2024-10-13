@@ -1,0 +1,267 @@
+#!/usr/bin/env bash
+
+# repeat-brew-build - Build a formula many times, to repro intermittent failures
+#
+# Repeatedly does a build, using `brew reinstall`, so you can reproduce build failures
+# that only happen intermittently. Like the 2024 Octave parallel build failures, which
+# happen for me maybe 10% of the time I do a build.
+#
+# See: https://github.com/octave-app/octave-app/issues/295
+#
+# TERMINOLOGY
+# -----------
+#
+# A "run" is one run of this program. A "build" is one execution of `brew install` or the
+# like to build the program in question. One run does many builds.
+#
+# NOTES
+# -----
+#
+# The --reinstall option may be pointless, because `brew reinstall`` does an uninstall
+# first and then builds and installs the new package (I think), so if the reinstall fails,
+# the existing install is still lost. When I added the --reinstall option, I had thought
+# that it did the build first, and only did the "remove old and put new in place" if the
+# build succeeded.
+
+
+# ===== Configuration =====
+
+FORMULA='octave-devel'
+VAR_ROOT="${HOME}/repeat-brew-build"
+N_BUILDS=10
+DO_HEAD=n
+DO_REINSTALL=n
+
+
+# ===== Boilerplate and utility functions =====
+
+set -o errexit
+set -o nounset
+set -o pipefail
+if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
+
+THIS_PROGRAM=$(basename $0)
+THIS_DIR=$(realpath $(dirname $0))
+
+VERBOSE=n
+DRY_RUN=n
+
+function info()  { _emit "$*"; }
+function error() { _emit "ERROR: $*"; }
+function die()   { error "$*"; exit 1; }
+function verbose() { if [[ $VERBOSE == 'y' ]]; then info "$*"; fi; }
+function _emit() { echo >&2 "$(now_log): ${THIS_PROGRAM}: $*"; }
+# function now_log() { date +'%H:%M:%S' | tr -d '\n'; }
+# macOS date only has seconds precision
+function now_log() {
+  python3 -c 'import datetime; t = datetime.datetime.now(); print(t.strftime("%H:%M:%S.%f")[:-3])'
+}
+function is_dry_run() { if [[ $DRY_RUN == 'y' ]]; then return 0; else return 1; fi; }
+function is_wet_run() { if [[ $DRY_RUN == 'y' ]]; then return 1; else return 0; fi; }
+function wet() {
+  if is_dry_run; then
+    verbose "dry run: would run: $*"
+    return 0
+  else
+    verbose "running: $*"
+    "$@"
+    return $?
+  fi
+}
+function tic() { date +%s; }
+function toc() { local t0="$1" t1; t1=$(tic); echo $((t1 - t0)); }
+function s2mmss() { printf "%02d:%02d" "$(($1/60))" "$(($1%60))"; }
+function say_toc() {
+  local label="$1" t0="$2"
+  te=$(toc "$t0")
+  info $(printf "Elapsed time: %s: %s" "$label" $(s2mmss "$te"))
+}
+function timeit() {
+  local label="${1:-action}"; shift
+  t0=$(tic)
+  "$@"
+  say_toc "$label" "$t0"
+}
+
+
+# ===== Script-specific code =====
+
+RUN_TIME=''
+RUN_LABEL=''
+RUN_DIR=''
+COMMENT=''
+
+function brew_is_installed() {
+  local formula="$1"
+  brew ls | grep -x "$formula" &> /dev/null
+}
+
+function show_host_config_info() {
+  echo "Host: $(hostname)"
+  echo "Time: $(date)"
+  _show_host_config_info_section 'HOMEBREW environment variables'
+  env | grep HOMEBREW || true
+  _show_host_config_info_section 'brew config'
+  brew config
+  _show_host_config_info_section 'Mem info from top'
+  top -l 1 -s 0 | grep PhysMem
+  _show_host_config_info_section 'Mem info from vm_stat'
+  # vm_stat
+  # Munging script from:
+  #   https://apple.stackexchange.com/questions/4286/is-there-a-mac-os-x-terminal-version-of-the-free-command-in-linux-systems
+  vm_stat | perl -ne '/page size of (\d+)/ and $size=$1; /Pages\s+([^:]+)[^\d]+(\d+)/ and printf("%-16s % 16.0f MB\n", "$1:", $2 * $size / (1024 * 1024));'
+  _show_host_config_info_section 'Mem info from memory_pressure'
+  memory_pressure
+  _show_host_config_info_section 'Page size (from pagesize)'
+  pagesize
+  _show_host_config_info_section 'Host info from hostinfo'
+  hostinfo
+}
+
+function _show_host_config_info_section() {
+  local section="$1"
+  echo ''
+  echo "===== ${section} ====="
+  echo ''
+}
+
+function parse_cli_args() {
+  local arg
+
+  REMAINDER_ARGS=()
+  while [[ $# -ge 1 ]]; do
+    arg="$1"; shift
+    case "$arg" in
+      -f | --formula)
+        FORMULA="$1"; shift ;;
+      --head | --HEAD)
+        DO_HEAD=y ;;
+      -n | --n-builds)
+        N_BUILDS="$1"; shift ;;
+      -r | --reinstall)
+        DO_REINSTALL=y ;;
+      -c | --comment)
+        # A brief comment to go in the label
+        COMMENT="$1"; shift ;;
+      -v | --verbose)
+        VERBOSE=y ;;
+      -Y | --dry-run)
+        DRY_RUN=y ;;
+      *)
+        die "invalid option: ${arg}. See ${THIS_PROGRAM} --help for help." ;;
+    esac
+  done
+}
+
+function is_reinstall() {
+  if [[ "$DO_REINSTALL" == 'y' ]]; then return 0; else return 1; fi
+}
+
+function do_builds() {
+  local i n_failed exit prep_log_file prep_inst_log_file
+  local -a cmd brew_inst_args
+
+  # Octapp convention: "-devel" name convention means a --HEAD formula
+  brew_inst_args=()
+  if echo "$FORMULA" | grep -- '-devel' &> /dev/null; then
+    DO_HEAD=y
+  fi
+  if [[ "$DO_HEAD" = y ]]; then
+    # reinstall doesn't take --HEAD; have to just assume the original install was --HEAD
+    if ! is_reinstall; then
+      brew_inst_args+=('--HEAD')
+    fi
+  fi
+
+  # Announce
+  info "Run started. Building ${FORMULA} ${N_BUILDS} times."
+  info "Run output dir: ${RUN_DIR}"
+  if is_reinstall; then
+    cmd=(brew reinstall --build-from-source "${brew_inst_args[@]}" "$FORMULA")
+  else
+    cmd=(brew install --build-from-source "${brew_inst_args[@]}" "$FORMULA")
+  fi
+  info "Build command: ${cmd[@]}"
+
+  # One-time prep
+  # Install only deps, not main formula, so that frequently-failing builds
+  # don't bork the prep part.
+  prep_log_file="${RUN_DIR}/prep.log"
+  prep_inst_log_file="${RUN_DIR}/prep-install.log"
+  info "Doing prep, installing dependencies"
+  if is_wet_run; then
+    brew install --only-dependencies "${brew_inst_args[@]}" "$FORMULA" 2>&1 | tee "$prep_log_file"
+  fi
+  if is_reinstall; then
+    if ! brew_is_installed "$FORMULA"; then
+      if is_wet_run; then
+        brew install "${brew_inst_args[@]}" "$FORMULA" 2>&1 | tee "$prep_inst_log_file"
+      else
+        info "dry run: would do initial brew install of ${FORMULA}"
+      fi
+    fi
+  fi
+
+  local build_label build_dir build_dir_fail
+  local brew_rm_log_file brew_rm_log_file brew_inst_log_file
+  local host_info_file
+
+  n_failed=0
+  for i in $(seq 1 "$N_BUILDS"); do
+    info "Running build ${i}/${N_BUILDS}"
+    build_label=$(printf '%s - %02d' "${RUN_LABEL}" "${i}")
+    build_dir="${RUN_DIR}/builds/${build_label}"
+    build_dir_fail="${build_dir} - FAILED"
+    host_info_file="${build_dir}/host-info.txt"
+    brew_rm_log_file="${build_dir}/brew-rm.log"
+    brew_inst_log_file="${build_dir}/brew-install.log"
+    wet mkdir -p "$build_dir"
+    wet mkdir -p "${build_dir}/Homebrew"
+    export HOMEBREW_LOGS="${build_dir}/Homebrew"
+    if is_wet_run; then
+      show_host_config_info > "$host_info_file"
+      if brew_is_installed "$FORMULA"; then
+        brew rm "$FORMULA" &> "$brew_rm_log_file"
+      fi
+      if "${cmd[@]}" &> "$brew_inst_log_file"; then
+        info "Build ok"
+      else
+        exit="$?"
+        info "Build FAILED, exit status = ${exit}"
+        n_failed=$(( n_failed + 1 ))
+        mv "${build_dir}" "${build_dir_fail} "
+      fi
+    else
+      info "dry run: skipped build, dir would be: ${build_dir}"
+    fi
+  done
+
+  info "Builds done. ${n_failed} of ${N_BUILDS} builds failed."
+}
+
+function main() {
+  local run_log_file run_notes_file run_hostinfo_file
+
+  RUN_TIME=$(date +%m-%d_%H-%M-%S)
+  RUN_LABEL="${FORMULA} - ${RUN_TIME}"
+  if [[ -n "$COMMENT" ]]; then
+    RUN_LABEL="${RUN_LABEL} - ${COMMENT}"
+  fi
+  RUN_DIR="${VAR_ROOT}/runs/${RUN_LABEL}"
+  run_log_file="${RUN_DIR}/repeat-brew-build.log"
+  run_notes_file="${RUN_DIR}/notes.txt"
+  run_hostinfo_file="${RUN_DIR}/host-info.txt"
+
+  if is_wet_run; then
+    mkdir -p "$RUN_DIR"
+    echo "Notes - ${RUN_LABEL}" > "$run_notes_file"
+    echo "==================================" >> "$run_notes_file"
+    show_host_config_info > "$run_hostinfo_file"
+    do_builds 2>&1 | tee "$run_log_file"
+  else
+    do_builds 2>&1
+  fi
+}
+
+parse_cli_args "$@"
+main
