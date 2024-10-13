@@ -13,6 +13,15 @@
 #
 # A "run" is one run of this program. A "build" is one execution of `brew install` or the
 # like to build the program in question. One run does many builds.
+#
+# NOTES
+# -----
+#
+# The --reinstall option may be pointless, because `brew reinstall`` does an uninstall
+# first and then builds and installs the new package (I think), so if the reinstall fails,
+# the existing install is still lost. When I added the --reinstall option, I had thought
+# that it did the build first, and only did the "remove old and put new in place" if the
+# build succeeded.
 
 
 # ===== Configuration =====
@@ -21,6 +30,7 @@ FORMULA='octave-devel'
 VAR_ROOT="${HOME}/repeat-brew-build"
 N_BUILDS=10
 DO_HEAD=n
+DO_REINSTALL=n
 
 
 # ===== Boilerplate and utility functions =====
@@ -128,6 +138,8 @@ function parse_cli_args() {
         DO_HEAD=y ;;
       -n | --n-builds)
         N_BUILDS="$1"; shift ;;
+      -r | --reinstall)
+        DO_REINSTALL=y ;;
       -c | --comment)
         # A brief comment to go in the label
         COMMENT="$1"; shift ;;
@@ -141,8 +153,12 @@ function parse_cli_args() {
   done
 }
 
+function is_reinstall() {
+  if [[ "$DO_REINSTALL" == 'y' ]]; then return 0; else return 1; fi
+}
+
 function do_builds() {
-  local i n_failed exit prep_log_file
+  local i n_failed exit prep_log_file prep_inst_log_file
   local -a cmd brew_inst_args
 
   # Octapp convention: "-devel" name convention means a --HEAD formula
@@ -151,22 +167,39 @@ function do_builds() {
     DO_HEAD=y
   fi
   if [[ "$DO_HEAD" = y ]]; then
-    brew_inst_args+=('--HEAD')
+    # reinstall doesn't take --HEAD; have to just assume the original install was --HEAD
+    if ! is_reinstall; then
+      brew_inst_args+=('--HEAD')
+    fi
   fi
 
   # Announce
   info "Run started. Building ${FORMULA} ${N_BUILDS} times."
   info "Run output dir: ${RUN_DIR}"
-  cmd=(brew install --build-from-source "${brew_inst_args[@]}" "$FORMULA")
+  if is_reinstall; then
+    cmd=(brew reinstall --build-from-source "${brew_inst_args[@]}" "$FORMULA")
+  else
+    cmd=(brew install --build-from-source "${brew_inst_args[@]}" "$FORMULA")
+  fi
   info "Build command: ${cmd[@]}"
 
   # One-time prep
   # Install only deps, not main formula, so that frequently-failing builds
   # don't bork the prep part.
   prep_log_file="${RUN_DIR}/prep.log"
+  prep_inst_log_file="${RUN_DIR}/prep-install.log"
   info "Doing prep, installing dependencies"
   if is_wet_run; then
     brew install --only-dependencies "${brew_inst_args[@]}" "$FORMULA" 2>&1 | tee "$prep_log_file"
+  fi
+  if is_reinstall; then
+    if ! brew_is_installed "$FORMULA"; then
+      if is_wet_run; then
+        brew install "${brew_inst_args[@]}" "$FORMULA" 2>&1 | tee "$prep_inst_log_file"
+      else
+        info "dry run: would do initial brew install of ${FORMULA}"
+      fi
+    fi
   fi
 
   local build_label build_dir build_dir_fail
@@ -207,7 +240,7 @@ function do_builds() {
 }
 
 function main() {
-  local run_log_file run_notes_file
+  local run_log_file run_notes_file run_hostinfo_file
 
   RUN_TIME=$(date +%m-%d_%H-%M-%S)
   RUN_LABEL="${FORMULA} - ${RUN_TIME}"
@@ -217,11 +250,13 @@ function main() {
   RUN_DIR="${VAR_ROOT}/runs/${RUN_LABEL}"
   run_log_file="${RUN_DIR}/repeat-brew-build.log"
   run_notes_file="${RUN_DIR}/notes.txt"
+  run_hostinfo_file="${RUN_DIR}/host-info.txt"
 
   if is_wet_run; then
     mkdir -p "$RUN_DIR"
     echo "Notes - ${RUN_LABEL}" > "$run_notes_file"
     echo "==================================" >> "$run_notes_file"
+    show_host_config_info > "$run_hostinfo_file"
     do_builds 2>&1 | tee "$run_log_file"
   else
     do_builds 2>&1
