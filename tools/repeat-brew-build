@@ -79,6 +79,7 @@ function timeit() {
 RUN_TIME=''
 RUN_LABEL=''
 RUN_DIR=''
+COMMENT=''
 
 function brew_is_installed() {
   local formula="$1"
@@ -88,6 +89,8 @@ function brew_is_installed() {
 function show_host_config_info() {
   echo "Host: $(hostname)"
   echo "Time: $(date)"
+  _show_host_config_info_section 'HOMEBREW environment variables'
+  env | grep HOMEBREW || true
   _show_host_config_info_section 'brew config'
   brew config
   _show_host_config_info_section 'Mem info from top'
@@ -125,6 +128,9 @@ function parse_cli_args() {
         DO_HEAD=y ;;
       -n | --n-builds)
         N_BUILDS="$1"; shift ;;
+      -c | --comment)
+        # A brief comment to go in the label
+        COMMENT="$1"; shift ;;
       -v | --verbose)
         VERBOSE=y ;;
       -Y | --dry-run)
@@ -203,8 +209,11 @@ function do_builds() {
 function main() {
   local run_log_file run_notes_file
 
-  RUN_TIME=$(date +%Y-%m-%d_%H-%M-%S)
+  RUN_TIME=$(date +%m-%d_%H-%M-%S)
   RUN_LABEL="${FORMULA} - ${RUN_TIME}"
+  if [[ -n "$COMMENT" ]]; then
+    RUN_LABEL="${RUN_LABEL} - ${COMMENT}"
+  fi
   RUN_DIR="${VAR_ROOT}/runs/${RUN_LABEL}"
   run_log_file="${RUN_DIR}/repeat-brew-build.log"
   run_notes_file="${RUN_DIR}/notes.txt"
