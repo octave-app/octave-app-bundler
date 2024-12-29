@@ -171,9 +171,6 @@ function detect_tool_dependencies() {
   # the app build, and because some are needed before the app is built at all.
   #
   # Sets: CREATEDMG_HOME
-  if ! which gsed >/dev/null; then
-    die "Could not find gsed. ${THIS_PROGRAM} requires gsed, not just regular macOS (BSD) sed."
-  fi
   if ! which python3 >/dev/null; then
     die "Could not find python3. ${THIS_PROGRAM} requires Python 3.x, and the command must be 'python3' and not plain 'python'."
   fi
