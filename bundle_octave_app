@@ -21,7 +21,7 @@
 # Environment variables:
 #
 # OCTAPP_CREATEDMG_HOME - Path to the create-dmg repo or installation, if it's not
-#   at the default ~/repos/create-dmg location.
+#   at the default ~/repos/octave-repos/create-dmg location.
 # TRACE – Set this to 1 to enable low-level debug tracing of the code in this script.
 
 # Code notes:
@@ -177,7 +177,7 @@ function detect_tool_dependencies() {
   if [[ -n "${OCTAPP_CREATEDMG_HOME:-}" ]]; then
     CREATEDMG_HOME="$OCTAPP_CREATEDMG_HOME"
   else
-    CREATEDMG_HOME="$HOME/repos/create-dmg"
+    CREATEDMG_HOME="$HOME/repos/octave-repos/create-dmg"
   fi
   if [[ ! -f "${CREATEDMG_HOME}/create-dmg" ]]; then
     die "No create-dmg found at ${CREATEDMG_HOME}.
