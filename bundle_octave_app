@@ -1065,6 +1065,15 @@ EOSCRIPT
   info "Skipping setting icons bc it's broken on newer macOS"
   # /usr/bin/python "${THIS_DIR}/tools/set_exe_icon_py2.py" "$icons_file" "$oct_gui_exe"
 
+  # Fix up texinfo so it uses an unversioned perl, and thus can run on multiple versions
+  # of macOS. (It bakes in the perl version to its shebangs.)
+  # Be conservative and enumerate files instead of doing *, to avoid accidentally
+  # hitting binaries if one of them starts baking in the perl path.
+  # Not makeinfo; that is a symlink to texi2any.
+  perl -pi -e 's|/usr/bin/perl5[.][345]\d|/usr/bin/perl|g' \
+      "${APP_BUILD_USR}/opt/texinfo/bin"/{texi2any,pod2texi}
+
+
   # List all included formulae in the VERSIONS file
   local versions_file octave_app_str app_build_brew
   versions_file="${APP_BUILD}/Contents/Resources/VERSIONS"

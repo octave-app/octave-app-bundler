@@ -1,0 +1,22 @@
+#!/bin/bash
+#
+# Munge texinfo so it uses an unversioned perl, and thus can run on multiple versions of
+# macOS.
+#
+# Synopsis:
+#
+#   munge_texinfo_for_perl <app_path>
+
+APP_PATH="$1"
+
+if [[ -z "$APP_PATH" ]]; then
+  echo >&2 "Argument <app_path> is required"
+  exit 1
+fi
+
+# cd "${APP_PATH}/Contents/Resources/usr/opt/texinfo/bin"
+# Be conservative and enumerate files instead of doing *, to avoid accidentally
+# hitting binaries if one of them starts baking in the perl path.
+# Not makeinfo; that is a symlink to texi2any
+echo perl -pi -e 's|/usr/bin/perl5[.][345]\d|/usr/bin/perl|g' \
+    "${APP_PATH}/Contents/Resources/usr/opt/texinfo/bin"/{texi2any,pod2texi}
