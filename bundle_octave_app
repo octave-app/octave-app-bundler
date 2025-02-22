@@ -2,9 +2,20 @@
 
 # bundle_octave_app - Create an Octave.app app bundle
 #
-# Warning: This program will delete all your existing Homebrew build logs from
-# ~/Library/Logs/Homebrew. This is so it can differentiate logs for the formulae
-# built for Octave.app from those for any main system-level Homebrew installation.
+# SYNOPSIS
+#
+#   bundle_octave_app [-s | --step <step>]
+#     [-f | --octave-formula <formula>] [-V | --octave-version <ver>] [-a | --variant <variant>]
+#     [--formula-variant <variant>] [--release-variant <variant>]
+#     [-u | --build-suffix <suffix>]
+#     [--sign [--sign-identity <identity>]]
+#     [-v | --verbose] [-x | --trace]
+#     [-Y | --dry-run]
+#     [...options...]
+#
+#   bundle_octave_app [-v] [-x] brew [...brew args...]
+#
+# DESCRIPTION
 #
 # This script uses sudo when creating the disk image (DMG), and you will need to
 # enter your password interactively at that point.
@@ -97,11 +108,12 @@ function oa_realpath() {
 THIS_PROGRAM=$(basename $0)
 THIS_DIR=$(oa_realpath $(dirname $0))
 
-function info()    { echo "$*"; }
-function error()   { echo >&2 "${THIS_PROGRAM}: ERROR: $*"; }
-function warning() { echo >&2 "${THIS_PROGRAM}: Warning: $*"; }
+function info()    { emit "$*"; }
+function error()   { emit "ERROR: $*"; }
+function warning() { emit "WARNING: $*"; }
 function die()     { error "$*"; exit 1; }
-function verbose() { if is_verbose; then echo "$*"; fi; }
+function verbose() { if is_verbose; then emit "$*"; fi; }
+function emit()    { echo >&2 "${THIS_PROGRAM}: $*"; }
 function is_dry_run() { if [[ $DRY_RUN == 'y' ]]; then return 0; else return 1; fi; }
 function is_verbose() { if [[ $VERBOSE == 'y' ]]; then return 0; else return 1; fi; }
 function wet() {
@@ -111,6 +123,12 @@ function wet() {
     verbose "running: $*"
     "$@"
     return $?
+  fi
+}
+function yo()      {
+  info "running: $*"
+  if ! "$@"; then
+    die "command failed: $* (exit status = $?)"
   fi
 }
 function tic()     { date +%s; }
@@ -805,12 +823,15 @@ function record_build_versions_and_meta() {
   gs_opt=$("$brew" --prefix "ghostscript")
   gs_share="${gs_opt}/share/ghostscript"
 
+  info "Recording versions in meta dir ${octapp_meta_dir}"
   mkdir -p "$octapp_meta_dir"
   "$brew" config --verbose > "${octapp_meta_dir}/brew-config.txt"
   "$brew" info --installed --json > "${octapp_meta_dir}/brew-info-installed.json"
   "$brew" list --full-name > "${octapp_meta_dir}/brew-list-fullname.txt"
   "$brew" list --versions > "${octapp_meta_dir}/brew-list-versions.txt"
+  info "formulae_vers_file = ${formulae_vers_file}"
   "$brew" octave-app-list-formulae > "$formulae_vers_file"
+  info "ran \$brew octave-app-list-formulae"
   cat >"$octapp_ver_sh_file" <<EOS
 oct_ver='$oct_ver'
 oct_ver_string='$oct_ver_string'
@@ -1506,6 +1527,7 @@ function main () {
       unstage)          unstage_app_build ;;
       freshen-homebrew) freshen_staged_homebrew ;;
       build)            logged build_octave_in_staged_app ;;
+      record-versions)  record_build_versions_and_meta ;;
       capture-logs)     capture_build_logs ;;
       munge)            logged munge_build ;;
       sign)             logged sign_app ;;

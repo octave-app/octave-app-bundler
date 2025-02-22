@@ -67,7 +67,7 @@ case "$VER" in
   9.3)       VER_ARGS="--octave-version 9.3.0 --tap-branch nine-three" ;;
   8.4p)      VER_ARGS="--octave-version 8.4.0 --pre-release u1-pre1" ;;
   8.4)       VER_ARGS="--octave-version 8.4.0 --update-release u1" ;;
-  *)         die "Unrecognized ver argument: ${VER}. The ver arg must come first, and is required. Use 'x' to do the default ver." ;;
+  *)         die "Unrecognized ver argument: ${VER}. The <ver> arg must come first, and is required. Use 'x' to do the default ver." ;;
 esac
 
 # Main script
