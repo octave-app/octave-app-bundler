@@ -732,6 +732,10 @@ function build_octave_in_staged_app() {
 
   info "Doing brew cleanup after successful app build"
   wet "$brew" cleanup
+
+  # Create or restore a Caskroom dir, bc if it's missing, then `brew list --versions`
+  # will error out with a "no such dir" error.
+  mkdir -p "${INSTALL_USR}/Caskroom"
 }
 
 function brew_is_installed() {
@@ -829,9 +833,7 @@ function record_build_versions_and_meta() {
   "$brew" info --installed --json > "${octapp_meta_dir}/brew-info-installed.json"
   "$brew" list --full-name > "${octapp_meta_dir}/brew-list-fullname.txt"
   "$brew" list --versions > "${octapp_meta_dir}/brew-list-versions.txt"
-  info "formulae_vers_file = ${formulae_vers_file}"
   "$brew" octave-app-list-formulae > "$formulae_vers_file"
-  info "ran \$brew octave-app-list-formulae"
   cat >"$octapp_ver_sh_file" <<EOS
 oct_ver='$oct_ver'
 oct_ver_string='$oct_ver_string'
@@ -1536,7 +1538,7 @@ function main () {
       # Undocumented debugging "steps"
       debug-parse)      do_debug_parse ;;
       *)
-        die "Invalid build step: ${BUILD_STEP}. Valid steps are: stage unstage freshen-homebrew build munge sign dmg test"
+        die "Invalid build step: ${BUILD_STEP}. Valid steps are: stage unstage freshen-homebrew build record-versions capture-logs munge sign createdmg test"
         ;;
     esac
   fi
